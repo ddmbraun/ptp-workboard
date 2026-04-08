@@ -299,6 +299,7 @@ input,select,textarea{font-family:inherit;}
     <button class="file-btn" onclick="openExistingFile()">&#128194; Öffnen</button>
     <button class="file-btn" onclick="createNewFile()">&#43; Neue Datei</button>
     <button class="file-btn" onclick="exportFallback()">&#8595; Download</button>
+    <button class="file-btn" onclick="importAuftrag()" title="README.txt importieren">&#128229; Auftrag importieren</button>
   </div>
 </div>
 
@@ -771,6 +772,79 @@ function fallbackImport(){
     r.onload=ev=>{try{loadFromObject(JSON.parse(ev.target.result));render();}catch(err){alert('Fehler: '+err.message);}};
     r.readAsText(f);
   };inp.click();
+}
+
+// ── AUFTRAG IMPORT (README.txt) ──
+function importAuftrag(){
+  const inp=document.createElement('input');inp.type='file';inp.accept='.txt';
+  inp.onchange=e=>{
+    const f=e.target.files[0];if(!f)return;
+    const r=new FileReader();
+    r.onload=ev=>{
+      try{parseAndCreateTask(ev.target.result);}
+      catch(err){alert('Fehler beim Importieren: '+err.message);}
+    };
+    r.readAsText(f,'utf-8');
+  };inp.click();
+}
+
+function parseReadmeTxt(txt){
+  const get=key=>{const m=txt.match(new RegExp(key+':\\s*(.+)'));return m?m[1].trim():'';};
+  const schaden=(txt.match(/SCHADENSBESCHREIBUNG[^\n]*\n[=\-]+\n+([\s\S]*?)$/))?.[1]?.trim()||'';
+  return{
+    kostenstelle:get('Auftrag_Kostenstelle'),
+    strasse:get('Objekt_Strasse'),
+    hausverwaltung:get('Objekt_Hausverwaltung'),
+    eigName:get('Eigentuemer_Name'),
+    eigTel:get('Eigentuemer_Telefon'),
+    eigEmail:get('Eigentuemer_Email'),
+    mieterName:get('Mieter_Name'),
+    mieterTel:get('Mieter_Telefon'),
+    mieterEmail:get('Mieter_Email'),
+    schaden:schaden==='(Hier Schadensbeschreibung eintragen)'?'':schaden
+  };
+}
+
+function parseAndCreateTask(txt){
+  const d=parseReadmeTxt(txt);
+
+  // Spalte "Eingang" ganz links einfügen falls nicht vorhanden
+  if(!statuses.includes('Eingang')) statuses.unshift('Eingang');
+
+  // Titel: Kostenstelle | Straße | Mieter
+  const offen='(noch offen)';
+  const titleParts=[d.kostenstelle,d.strasse,d.mieterName].filter(x=>x&&x!==offen);
+  const title=titleParts.join(' | ')||'Neuer Auftrag';
+
+  // Tags: Hausverwaltung
+  const tags=[];
+  if(d.hausverwaltung&&d.hausverwaltung!==offen) tags.push(d.hausverwaltung.replace(/\.$/,''));
+
+  // Links: Telefon + E-Mail anklickbar
+  const links=[];
+  const cleanTel=t=>t.replace(/[^\d+]/g,'');
+  const isValid=v=>v&&v!==offen&&v!=='Keine Email.'&&v!=='';
+  if(isValid(d.eigTel))  links.push({label:'📞 Eigentümer: '+d.eigName.replace(/\.$/,''), url:'tel:'+cleanTel(d.eigTel)});
+  if(isValid(d.eigEmail)) links.push({label:'✉️ Eigentümer: '+d.eigName.replace(/\.$/,''), url:'mailto:'+d.eigEmail});
+  if(isValid(d.mieterTel)) links.push({label:'📞 Mieter: '+d.mieterName.replace(/\.$/,''), url:'tel:'+cleanTel(d.mieterTel)});
+  if(isValid(d.mieterEmail)) links.push({label:'✉️ Mieter: '+d.mieterName.replace(/\.$/,''), url:'mailto:'+d.mieterEmail});
+
+  // Board sicherstellen
+  if(!boards[currentBoard]){
+    const k=Object.keys(boards);
+    if(k.length) currentBoard=k[0];
+    else{boards['Aufträge']=[];currentBoard='Aufträge';}
+  }
+
+  const task={
+    id:generateId(), title, desc:d.schaden, owner:'Braun',
+    due:'', status:'Eingang', ampel:'orange',
+    tags, source:'', links, attachments:[], timeEntries:[]
+  };
+
+  boards[currentBoard].push(task);
+  render(); autoSave();
+  alert('✅ Auftrag importiert:\n'+title);
 }
 
 // ── SEED DATA ──
