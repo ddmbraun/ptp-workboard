@@ -1041,12 +1041,16 @@ function onDrop(e){
 function renderLinksList(){
   const el=document.getElementById('linksList');
   if(!taskLinks.length){el.innerHTML=`<div class="no-items-hint">Noch keine Links — oben hinzufügen</div>`;return;}
-  el.innerHTML=taskLinks.map((l,i)=>`
-    <div class="link-row">
-      <input type="text" value="${esc(l.label)}" placeholder="Bezeichnung" oninput="taskLinks[${i}].label=this.value">
+  el.innerHTML=taskLinks.map((l,i)=>{
+    const isTel=l.url.startsWith('tel:');
+    const isMailto=l.url.startsWith('mailto:');
+    const isClickable=isTel||isMailto;
+    return`<div class="link-row">
+      ${isClickable?`<a href="${esc(l.url)}" style="flex:1;color:var(--accent2);text-decoration:none;padding:5px;border-radius:4px;cursor:pointer;word-break:break-all;" title="${esc(l.url)}">${esc(l.label)}</a>`:`<input type="text" value="${esc(l.label)}" placeholder="Bezeichnung" style="flex:1" oninput="taskLinks[${i}].label=this.value">`}
       <input type="url" class="url-input" value="${esc(l.url)}" placeholder="https://…" oninput="taskLinks[${i}].url=this.value">
       <button class="link-remove-btn" onclick="removeLink(${i})">✕</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 function addLinkRow(){taskLinks.push({label:'',url:''});renderLinksList();}
 function removeLink(i){taskLinks.splice(i,1);renderLinksList();}
