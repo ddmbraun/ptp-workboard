@@ -283,6 +283,7 @@ input,select,textarea{font-family:inherit;}
     <span class="search-hint">/</span>
   </div>
   <div class="topbar-right">
+    <button class="topbar-btn btn-secondary" onclick="importAuftrag()" title="README.txt importieren">&#128229; Auftrag</button>
     <button class="topbar-btn btn-primary" onclick="openNewTaskModal()">+ Neuer Task</button>
   </div>
 </div>
@@ -299,7 +300,6 @@ input,select,textarea{font-family:inherit;}
     <button class="file-btn" onclick="openExistingFile()">&#128194; Öffnen</button>
     <button class="file-btn" onclick="createNewFile()">&#43; Neue Datei</button>
     <button class="file-btn" onclick="exportFallback()">&#8595; Download</button>
-    <button class="file-btn" onclick="importAuftrag()" title="README.txt importieren">&#128229; Auftrag importieren</button>
   </div>
 </div>
 
@@ -789,8 +789,10 @@ function importAuftrag(){
 }
 
 function parseReadmeTxt(txt){
-  const get=key=>{const m=txt.match(new RegExp(key+':\\s*(.+)'));return m?m[1].trim():'';};
-  const schaden=(txt.match(/SCHADENSBESCHREIBUNG[^\n]*\n[=\-]+\n+([\s\S]*?)$/))?.[1]?.trim()||'';
+  const t=txt.replace(/\r\n/g,'\n').replace(/\r/g,'\n'); // Windows-Zeilenenden normalisieren
+  const get=key=>{const m=t.match(new RegExp(key+':\\s*(.+)'));return m?m[1].trim():'';};
+  const schadenMatch=t.match(/SCHADENSBESCHREIBUNG[^\n]*\n[=]+\n+([\s\S]*?)$/);
+  const schaden=schadenMatch?schadenMatch[1].trim():'';
   return{
     kostenstelle:get('Auftrag_Kostenstelle'),
     strasse:get('Objekt_Strasse'),
