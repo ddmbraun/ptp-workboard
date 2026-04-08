@@ -128,7 +128,7 @@ input,select,textarea{font-family:inherit;}
 .modal-field label{display:block;font-size:12px;color:var(--text2);margin-bottom:4px;font-weight:500;}
 .modal-field input,.modal-field select,.modal-field textarea{width:100%;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;outline:none;}
 .modal-field input:focus,.modal-field select:focus,.modal-field textarea:focus{border-color:var(--accent);}
-.modal-field textarea{resize:vertical;min-height:60px;}
+.modal-field textarea{resize:none;min-height:60px;overflow-y:hidden;transition:height .15s;}
 .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
 .modal-actions button{padding:8px 18px;border-radius:6px;font-size:13px;font-weight:500;}
 .btn-danger{background:var(--red);color:#fff;}
@@ -369,7 +369,7 @@ input,select,textarea{font-family:inherit;}
     <h2 id="modalTitle">Neuer Task</h2>
     <input type="hidden" id="taskId">
     <div class="modal-field"><label>Titel *</label><input type="text" id="taskTitleInput" placeholder="Task-Titel eingeben…"></div>
-    <div class="modal-field"><label>Beschreibung</label><textarea id="taskDescInput" placeholder="Beschreibung…"></textarea></div>
+    <div class="modal-field"><label>Beschreibung</label><textarea id="taskDescInput" placeholder="Beschreibung…" oninput="autoResizeTextarea(this)" onfocus="autoResizeTextarea(this)"></textarea></div>
     <div style="display:flex;gap:12px;">
       <div class="modal-field" style="flex:1"><label>Owner</label><input type="text" id="taskOwnerInput" placeholder="Name"></div>
       <div class="modal-field" style="flex:1"><label>Due Date</label><input type="date" id="taskDueInput"></div>
@@ -500,6 +500,7 @@ function colColor(i){return COL_COLORS[i%COL_COLORS.length];}
 function generateId(){return 't_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);}
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
 function formatBytes(b){if(b<1024)return b+'B';if(b<1048576)return (b/1024).toFixed(1)+'KB';return (b/1048576).toFixed(1)+'MB';}
+function autoResizeTextarea(el){el.style.height='auto';el.style.height=Math.max(60,el.scrollHeight)+'px';}
 
 // ── GOOGLE DRIVE INTEGRATION ──
 const GDRIVE_CLIENT_ID = '56419258975-2ri3eujer9p6saph1mesa5hihlcae1pl.apps.googleusercontent.com';
@@ -1214,7 +1215,7 @@ dz.addEventListener('drop',e=>{
 });
 
 // ── TASK MODAL ──
-function openModal(){document.getElementById('taskModal').classList.add('open');}
+function openModal(){document.getElementById('taskModal').classList.add('open');setTimeout(()=>autoResizeTextarea(document.getElementById('taskDescInput')),50);}
 function closeModal(){document.getElementById('taskModal').classList.remove('open');}
 
 function openNewTaskModal(){
