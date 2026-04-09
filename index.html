@@ -378,6 +378,10 @@ input,select,textarea{font-family:inherit;}
       <div class="modal-field" style="flex:1"><label>Adresse</label><input type="text" id="taskAddressInput" placeholder="z.B. Hauptstr. 62, 40210 Düsseldorf"></div>
       <button class="topbar-btn btn-primary" onclick="openGoogleMaps()" style="padding:8px 14px;font-size:12px;white-space:nowrap;">🗺 Maps</button>
     </div>
+    <div style="display:flex;gap:12px;align-items:flex-end;">
+      <div class="modal-field" style="flex:1"><label>NAS-Ordner</label><input type="text" id="taskNasPathInput" placeholder="z.B. \\nas-ddbraun\Kunden\..."></div>
+      <button class="topbar-btn btn-primary" onclick="openNasFolder()" style="padding:8px 14px;font-size:12px;white-space:nowrap;">📁 Ordner öffnen</button>
+    </div>
     <div style="display:flex;gap:12px;">
       <div class="modal-field" style="flex:1"><label>Status</label><select id="taskStatusInput"></select></div>
       <div class="modal-field" style="flex:1"><label>Ampel</label>
@@ -1262,6 +1266,7 @@ function openEditTaskModal(id){
   document.getElementById('taskOwnerInput').value=task.owner;
   document.getElementById('taskDueInput').value=task.due||'';
   document.getElementById('taskAddressInput').value=task.address||'';
+  document.getElementById('taskNasPathInput').value=task.nasPath||'';
   document.getElementById('taskStatusInput').value=task.status;
   document.getElementById('taskAmpelInput').value=task.ampel;
   document.getElementById('taskTagsInput').value=(task.tags||[]).join(', ');
@@ -1284,6 +1289,7 @@ function saveTask(){
     owner:document.getElementById('taskOwnerInput').value.trim(),
     due:document.getElementById('taskDueInput').value,
     address:document.getElementById('taskAddressInput').value.trim(),
+    nasPath:document.getElementById('taskNasPathInput').value.trim(),
     status:document.getElementById('taskStatusInput').value,
     ampel:document.getElementById('taskAmpelInput').value,
     tags:document.getElementById('taskTagsInput').value.split(',').map(s=>s.trim()).filter(Boolean),
@@ -1401,7 +1407,7 @@ function closeQuickAdd(){document.getElementById('quickAddBar').classList.remove
 document.getElementById('quickAddInput').addEventListener('keydown',function(e){
   if(e.key==='Enter'){
     const t=this.value.trim();
-    if(t){boards[currentBoard].push({id:generateId(),title:t,desc:'',owner:'',due:'',status:statuses[0]||'',ampel:'grün',tags:[],source:'',links:[],attachments:[],timeEntries:[]});render();autoSave();}
+    if(t){boards[currentBoard].push({id:generateId(),title:t,desc:'',owner:'',due:'',address:'',nasPath:'',status:statuses[0]||'',ampel:'grün',tags:[],source:'',links:[],attachments:[],timeEntries:[]});render();autoSave();}
     closeQuickAdd();
   }
   if(e.key==='Escape')closeQuickAdd();
@@ -1430,6 +1436,14 @@ document.addEventListener('keydown',function(e){
   if(e.key==='/'){e.preventDefault();document.getElementById('searchInput').focus();}
 });
 document.addEventListener('click',function(e){if(!e.target.closest('.filter-wrapper'))closeAllDropdowns();});
+
+// ── NAS FOLDER OPENER ──
+function openNasFolder(){
+  const path=document.getElementById('taskNasPathInput').value.trim();
+  if(!path){alert('Bitte NAS-Pfad eingeben (z.B. \\\\nas-ddbraun\\Kunden\\...)');return;}
+  const encodedPath=encodeURIComponent(path);
+  window.location.href=`openfolder://${encodedPath}`;
+}
 
 // ── INIT ──
 boards={};render();
