@@ -372,7 +372,11 @@ input,select,textarea{font-family:inherit;}
     <div class="modal-field"><label>Beschreibung</label><textarea id="taskDescInput" placeholder="Beschreibung…" oninput="autoResizeTextarea(this)" onfocus="autoResizeTextarea(this)"></textarea></div>
     <div style="display:flex;gap:12px;">
       <div class="modal-field" style="flex:1"><label>Owner</label><input type="text" id="taskOwnerInput" placeholder="Name"></div>
-      <div class="modal-field" style="flex:1"><label>Due Date</label><input type="date" id="taskDueInput"></div>
+      <div class="modal-field" style="flex:1"><label>Fällig am</label><input type="date" id="taskDueInput"></div>
+    </div>
+    <div style="display:flex;gap:12px;align-items:flex-end;">
+      <div class="modal-field" style="flex:1"><label>Adresse</label><input type="text" id="taskAddressInput" placeholder="z.B. Hauptstr. 62, 40210 Düsseldorf"></div>
+      <button class="topbar-btn btn-primary" onclick="openGoogleMaps()" style="padding:8px 14px;font-size:12px;white-space:nowrap;">🗺 Maps</button>
     </div>
     <div style="display:flex;gap:12px;">
       <div class="modal-field" style="flex:1"><label>Status</label><select id="taskStatusInput"></select></div>
@@ -841,7 +845,7 @@ function parseAndCreateTask(txt){
 
   const task={
     id:generateId(), title, desc:d.schaden, owner:'Braun',
-    due:'', status:'Eingang', ampel:'orange',
+    due:'', address:d.strasse, status:'Eingang', ampel:'orange',
     tags, source:'', links, attachments:[], timeEntries:[]
   };
 
@@ -954,30 +958,30 @@ function renderList(){
 
 function renderTable(){
   const tasks=getTasks();
+  // Telefonnummern aus Links extrahieren
+  const getTelFromLinks=(links,type)=>{
+    const link=(links||[]).find(l=>l.url.startsWith('tel:')&&l.label.includes(type));
+    return link?link.url.replace('tel:',''):'';
+  };
   let html=`<div class="table-view"><table><thead><tr>
     <th onclick="toggleListSort('title')">Titel</th><th onclick="toggleListSort('status')">Status</th>
-    <th onclick="toggleListSort('owner')">Owner</th><th onclick="toggleListSort('due')">Due Date</th>
-    <th>Ampel</th><th>Tags</th><th>Links/Anhänge</th>
+    <th>Tel. Mieter</th><th>Tel. Eigentümer</th><th>Tags</th>
   </tr></thead><tbody>`;
   const sorted=tasks.slice().sort((a,b)=>{
     const f=listSortField;
-    if(f==='due'){const da=a.due||'9999',db=b.due||'9999';return(da<db?-1:da>db?1:0)*listSortDir;}
-    if(f==='owner')return a.owner.localeCompare(b.owner)*listSortDir;
     if(f==='status')return(statuses.indexOf(a.status)-statuses.indexOf(b.status))*listSortDir;
     if(f==='title')return a.title.localeCompare(b.title)*listSortDir;
     return 0;
   });
   for(const t of sorted){
-    const overdue=isOverdue(t.due);
-    const lc=(t.links||[]).length,ac=(t.attachments||[]).length;
+    const telMieter=getTelFromLinks(t.links,'Mieter');
+    const telEigent=getTelFromLinks(t.links,'Eigentümer');
     html+=`<tr onclick="openEditTaskModal('${t.id}')">
       <td>${esc(t.title)}</td>
       <td><span class="list-item-status">${esc(t.status)}</span></td>
-      <td>${esc(t.owner)}</td>
-      <td class="${overdue?'overdue':''}">${formatDate(t.due)}</td>
-      <td><span class="ampel ampel-${t.ampel==='grün'?'green':t.ampel==='orange'?'orange':'red'}"></span></td>
+      <td style="font-size:11px;">${telMieter?`<a href="tel:${telMieter}" style="color:var(--accent2);text-decoration:none;">${telMieter}</a>`:'-'}</td>
+      <td style="font-size:11px;">${telEigent?`<a href="tel:${telEigent}" style="color:var(--accent2);text-decoration:none;">${telEigent}</a>`:'-'}</td>
       <td>${(t.tags||[]).map(tg=>`<span class="task-tag">${esc(tg)}</span>`).join(' ')}</td>
-      <td style="font-size:11px;color:var(--text2)">${lc?`🔗${lc} `:''}${ac?`📎${ac}`:''}</td>
     </tr>`;
   }
   html+='</tbody></table></div>';
@@ -1221,6 +1225,12 @@ dz.addEventListener('drop',e=>{
 // ── TASK MODAL ──
 function openModal(){document.getElementById('taskModal').classList.add('open');setTimeout(()=>autoResizeTextarea(document.getElementById('taskDescInput')),50);}
 function closeModal(){document.getElementById('taskModal').classList.remove('open');}
+function openGoogleMaps(){
+  const addr=document.getElementById('taskAddressInput').value.trim();
+  if(!addr){alert('Bitte zuerst eine Adresse eingeben.');return;}
+  const mapsUrl='https://maps.google.com/?q='+encodeURIComponent(addr);
+  window.open(mapsUrl,'_blank');
+}
 
 function openNewTaskModal(){
   document.getElementById('modalTitle').textContent='Neuer Task';
@@ -1229,6 +1239,7 @@ function openNewTaskModal(){
   document.getElementById('taskDescInput').value='';
   document.getElementById('taskOwnerInput').value='';
   document.getElementById('taskDueInput').value='';
+  document.getElementById('taskAddressInput').value='';
   document.getElementById('taskStatusInput').value=statuses[0]||'';
   document.getElementById('taskAmpelInput').value='grün';
   document.getElementById('taskTagsInput').value='';
@@ -1250,6 +1261,7 @@ function openEditTaskModal(id){
   document.getElementById('taskDescInput').value=task.desc||'';
   document.getElementById('taskOwnerInput').value=task.owner;
   document.getElementById('taskDueInput').value=task.due||'';
+  document.getElementById('taskAddressInput').value=task.address||'';
   document.getElementById('taskStatusInput').value=task.status;
   document.getElementById('taskAmpelInput').value=task.ampel;
   document.getElementById('taskTagsInput').value=(task.tags||[]).join(', ');
@@ -1271,6 +1283,7 @@ function saveTask(){
     desc:document.getElementById('taskDescInput').value.trim(),
     owner:document.getElementById('taskOwnerInput').value.trim(),
     due:document.getElementById('taskDueInput').value,
+    address:document.getElementById('taskAddressInput').value.trim(),
     status:document.getElementById('taskStatusInput').value,
     ampel:document.getElementById('taskAmpelInput').value,
     tags:document.getElementById('taskTagsInput').value.split(',').map(s=>s.trim()).filter(Boolean),
