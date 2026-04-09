@@ -380,7 +380,7 @@ input,select,textarea{font-family:inherit;}
     </div>
     <div style="display:flex;gap:12px;align-items:flex-end;">
       <div class="modal-field" style="flex:1"><label>NAS-Ordner</label><input type="text" id="taskNasPathInput" placeholder="z.B. \\nas-ddbraun\Kunden\..."></div>
-      <button class="topbar-btn btn-primary" onclick="openNasFolder()" style="padding:8px 14px;font-size:12px;white-space:nowrap;">📁 Ordner öffnen</button>
+      <button class="topbar-btn btn-primary" onclick="copyNasPath()" style="padding:8px 14px;font-size:12px;white-space:nowrap;">📋 Pfad kopieren</button>
     </div>
     <div style="display:flex;gap:12px;">
       <div class="modal-field" style="flex:1"><label>Status</label><select id="taskStatusInput"></select></div>
@@ -1438,11 +1438,14 @@ document.addEventListener('keydown',function(e){
 document.addEventListener('click',function(e){if(!e.target.closest('.filter-wrapper'))closeAllDropdowns();});
 
 // ── NAS FOLDER OPENER ──
-function openNasFolder(){
+function copyNasPath(){
   const path=document.getElementById('taskNasPathInput').value.trim();
-  if(!path){alert('Bitte NAS-Pfad eingeben (z.B. \\\\nas-ddbraun\\Kunden\\...)');return;}
-  const encodedPath=encodeURIComponent(path);
-  window.location.href=`openfolder://${encodedPath}`;
+  if(!path){alert('Bitte NAS-Pfad eingeben!');return;}
+  navigator.clipboard.writeText(path).then(()=>{
+    alert('✅ Pfad kopiert!\n\n' + path + '\n\nÖffne den Explorer (Win+E) und drücke Strg+V zum Einfügen!');
+  }).catch(err=>{
+    alert('Fehler beim Kopieren: ' + err);
+  });
 }
 
 // ── INIT ──
