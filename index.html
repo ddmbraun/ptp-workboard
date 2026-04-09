@@ -122,7 +122,7 @@ input,select,textarea{font-family:inherit;}
 /* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;}
 .modal-overlay.open{opacity:1;pointer-events:all;}
-.modal{background:var(--bg2);border-radius:12px;padding:24px;width:540px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px var(--shadow);}
+.modal{background:var(--bg2);border-radius:12px;padding:24px;width:540px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px var(--shadow);transform:scale(var(--modal-scale, 1));transform-origin:top center;transition:transform .2s ease;}
 .modal h2{font-size:18px;margin-bottom:16px;}
 .modal-field{margin-bottom:12px;}
 .modal-field label{display:block;font-size:12px;color:var(--text2);margin-bottom:4px;font-weight:500;}
@@ -1272,8 +1272,10 @@ function openEditTaskModal(id){
   document.getElementById('taskAmpelInput').value=task.ampel;
   document.getElementById('taskTagsInput').value=(task.tags||[]).join(', ');
   document.getElementById('taskSourceInput').value=task.source||'';
-  document.getElementById('taskSizeInput').value=task.size||100;
-  document.getElementById('taskSizeLabel').textContent=(task.size||100)+'%';
+  document.getElementById('taskSizeInput').value=100;
+  document.getElementById('taskSizeLabel').textContent='100%';
+  const modalEl=document.querySelector('.modal');
+  if(modalEl)modalEl.style.setProperty('--modal-scale', 1);
   document.getElementById('deleteTaskBtn').style.display='';
   taskLinks=JSON.parse(JSON.stringify(task.links||[]));
   taskAttachments=JSON.parse(JSON.stringify(task.attachments||[]));
@@ -1281,16 +1283,14 @@ function openEditTaskModal(id){
   openModal();
 }
 
-// Update task size display while slider moves
+// Update modal size while slider moves
 document.addEventListener('input', function(e){
   if(e.target.id==='taskSizeInput'){
     const size=e.target.value;
+    const scale=size/100;
     document.getElementById('taskSizeLabel').textContent=size+'%';
-    const taskId=document.getElementById('taskId').value;
-    if(taskId){
-      const cardEl=document.querySelector(`[data-task-id="${taskId}"]`);
-      if(cardEl)cardEl.style.setProperty('--card-size', size);
-    }
+    const modalEl=document.querySelector('.modal');
+    if(modalEl)modalEl.style.setProperty('--modal-scale', scale);
   }
 });
 
@@ -1310,7 +1310,6 @@ function saveTask(){
     ampel:document.getElementById('taskAmpelInput').value,
     tags:document.getElementById('taskTagsInput').value.split(',').map(s=>s.trim()).filter(Boolean),
     source:document.getElementById('taskSourceInput').value.trim(),
-    size:parseInt(document.getElementById('taskSizeInput').value)||100,
     links:taskLinks.filter(l=>l.url.trim()),
     attachments:taskAttachments,
     timeEntries:existingTask?.timeEntries||[]
