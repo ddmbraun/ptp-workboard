@@ -128,7 +128,9 @@ input,select,textarea{font-family:inherit;}
 .modal-field label{display:block;font-size:calc(11px * var(--modal-font-scale, 1));color:var(--text2);margin-bottom:calc(3px * var(--modal-font-scale, 1));font-weight:500;}
 .modal-field input,.modal-field select,.modal-field textarea{width:100%;padding:calc(6px * var(--modal-font-scale, 1)) calc(8px * var(--modal-font-scale, 1));border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:calc(12px * var(--modal-font-scale, 1));outline:none;}
 .modal-field input:focus,.modal-field select:focus,.modal-field textarea:focus{border-color:var(--accent);}
-.modal-field textarea{resize:none;min-height:calc(50px * var(--modal-font-scale, 1));overflow-y:hidden;transition:height .15s;}
+.modal-field textarea{resize:none;min-height:calc(95px * var(--modal-font-scale, 1));max-height:calc(95px * var(--modal-font-scale, 1));overflow-y:auto;transition:max-height .2s;cursor:text;}
+.modal-field textarea.desc-expanded{max-height:calc(400px * var(--modal-font-scale, 1));}
+.desc-hint{font-size:calc(10px * var(--modal-font-scale, 1));color:var(--text2);margin-top:2px;font-style:italic;}
 .modal-actions{display:flex;gap:calc(6px * var(--modal-font-scale, 1));justify-content:flex-end;margin-top:calc(12px * var(--modal-font-scale, 1));}
 .modal-actions button{padding:calc(6px * var(--modal-font-scale, 1)) calc(14px * var(--modal-font-scale, 1));border-radius:6px;font-size:calc(12px * var(--modal-font-scale, 1));font-weight:500;}
 .btn-danger{background:var(--red);color:#fff;}
@@ -162,6 +164,25 @@ input,select,textarea{font-family:inherit;}
 .attach-remove:hover{color:var(--red);}
 .attach-drop-zone{border:1.5px dashed var(--border);border-radius:6px;padding:calc(10px * var(--modal-font-scale, 1));text-align:center;font-size:calc(11px * var(--modal-font-scale, 1));color:var(--text2);cursor:pointer;transition:all .15s;}
 .attach-drop-zone:hover,.attach-drop-zone.dragover{border-color:var(--accent);background:rgba(108,99,255,0.06);color:var(--text);}
+
+/* CHECKLISTE */
+.checklist-container{display:none;}
+.checklist-container.open{display:block;}
+.checklist-header{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:4px 0;}
+.checklist-header:hover .modal-section-title{color:var(--text);}
+.checklist-toggle{font-size:calc(11px * var(--modal-font-scale,1));color:var(--text2);transition:transform .2s;}
+.checklist-toggle.open{transform:rotate(90deg);}
+.checklist-item{display:flex;align-items:center;gap:8px;padding:calc(4px * var(--modal-font-scale,1)) 0;border-bottom:1px solid var(--bg3);}
+.checklist-item input[type=checkbox]{width:calc(14px * var(--modal-font-scale,1));height:calc(14px * var(--modal-font-scale,1));cursor:pointer;accent-color:var(--accent);flex-shrink:0;}
+.checklist-item-text{flex:1;font-size:calc(12px * var(--modal-font-scale,1));color:var(--text);background:none;border:none;outline:none;padding:2px 4px;border-radius:4px;}
+.checklist-item-text:focus{background:var(--bg3);}
+.checklist-item-text.done{text-decoration:line-through;color:var(--text2);}
+.checklist-item-del{width:calc(20px * var(--modal-font-scale,1));height:calc(20px * var(--modal-font-scale,1));background:transparent;color:var(--text2);border:none;font-size:calc(12px * var(--modal-font-scale,1));cursor:pointer;border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.checklist-item-del:hover{color:var(--red);}
+.checklist-add-row{display:flex;align-items:center;gap:6px;margin-top:6px;}
+.checklist-add-input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:calc(5px * var(--modal-font-scale,1)) calc(8px * var(--modal-font-scale,1));font-size:calc(12px * var(--modal-font-scale,1));outline:none;}
+.checklist-add-input:focus{border-color:var(--accent);}
+.checklist-progress{font-size:calc(11px * var(--modal-font-scale,1));color:var(--accent2);font-weight:600;}
 
 /* TIMER */
 .timer-display{font-size:34px;font-weight:700;color:var(--accent2);font-variant-numeric:tabular-nums;letter-spacing:3px;text-align:center;padding:10px 0 8px;font-family:'Courier New',monospace;}
@@ -369,7 +390,7 @@ input,select,textarea{font-family:inherit;}
     <h2 id="modalTitle">Neuer Task</h2>
     <input type="hidden" id="taskId">
     <div class="modal-field"><label>Titel *</label><input type="text" id="taskTitleInput" placeholder="Task-Titel eingeben…"></div>
-    <div class="modal-field"><label>Beschreibung</label><textarea id="taskDescInput" placeholder="Beschreibung…" oninput="autoResizeTextarea(this)" onfocus="autoResizeTextarea(this)"></textarea></div>
+    <div class="modal-field"><label>Beschreibung <span class="desc-hint">(Doppelklick zum Aufklappen)</span></label><textarea id="taskDescInput" placeholder="Beschreibung…" ondblclick="toggleDescExpand(this)"></textarea></div>
     <div style="display:flex;gap:12px;">
       <div class="modal-field" style="flex:1"><label>Owner</label><input type="text" id="taskOwnerInput" placeholder="Name"></div>
       <div class="modal-field" style="flex:1"><label>Fällig am</label><input type="date" id="taskDueInput"></div>
@@ -382,10 +403,19 @@ input,select,textarea{font-family:inherit;}
       <div class="modal-field" style="flex:1"><label>NAS-Ordner</label><input type="text" id="taskNasPathInput" placeholder="z.B. \\nas-ddbraun\Kunden\..."></div>
       <button class="topbar-btn btn-primary" onclick="copyNasPath()" style="padding:8px 14px;font-size:12px;white-space:nowrap;">📋 Pfad kopieren</button>
     </div>
-    <div style="display:flex;gap:12px;">
-      <div class="modal-field" style="flex:1"><label>Status</label><select id="taskStatusInput"></select></div>
-      <div class="modal-field" style="flex:1"><label>Ampel</label>
-        <select id="taskAmpelInput"><option value="grün">🟢 Grün</option><option value="orange">🟠 Orange</option><option value="rot">🔴 Rot</option></select>
+    <div class="modal-field"><label>Status</label><select id="taskStatusInput"></select></div>
+    <!-- CHECKLISTE -->
+    <div class="modal-section">
+      <div class="checklist-header" onclick="toggleChecklistSection()">
+        <span class="modal-section-title">☑ CHECKLISTE <span class="checklist-progress" id="checklistProgress"></span></span>
+        <span class="checklist-toggle" id="checklistToggleIcon">▶</span>
+      </div>
+      <div class="checklist-container" id="checklistContainer">
+        <div id="checklistItems"></div>
+        <div class="checklist-add-row">
+          <input type="text" class="checklist-add-input" id="checklistNewInput" placeholder="+ Eintrag hinzufügen…" onkeydown="checklistAddOnEnter(event)">
+          <button class="modal-section-add" onclick="addChecklistItem()">+ Hinzufügen</button>
+        </div>
       </div>
     </div>
     <div style="display:flex;gap:12px;">
@@ -898,11 +928,14 @@ function taskCardHTML(task){
   const overdue=isOverdue(task.due);
   const hasLinks=(task.links||[]).length>0;
   const hasAttach=(task.attachments||[]).length>0;
-  return`<div class="task-card" draggable="true" data-id="${task.id}" data-task-id="${task.id}" style="--card-size:${task.size||100}"
+  const cl=task.checklist||[];
+  const clDone=cl.filter(i=>i.done).length;
+  const clTotal=cl.length;
+  return`<div class="task-card" draggable="true" data-id="${task.id}"
     ondragstart="onDragStart(event)" ondragend="onDragEnd(event)" onclick="openEditTaskModal('${task.id}')">
     <div class="task-card-title">${esc(task.title)}</div>
     <div class="task-card-meta">
-      <span class="ampel ampel-${task.ampel==='grün'?'green':task.ampel==='orange'?'orange':'red'}"></span>
+      ${clTotal>0?`<span class="task-icon-badge" title="Checkliste">☑ ${clDone}/${clTotal}</span>`:''}
       <span class="task-card-owner">${esc(task.owner)}</span>
       ${task.due?`<span class="task-card-due ${overdue?'overdue':''}">${formatDate(task.due)}</span>`:''}
       ${(task.tags||[]).map(t=>`<span class="task-tag">${esc(t)}</span>`).join('')}
@@ -949,8 +982,9 @@ function renderList(){
   for(const t of tasks){
     const overdue=isOverdue(t.due);
     const badges=[(t.links||[]).length>0?`🔗${(t.links||[]).length}`:'',(t.attachments||[]).length>0?`📎${(t.attachments||[]).length}`:''].filter(Boolean).join(' ');
+    const cl2=t.checklist||[];const cl2d=cl2.filter(i=>i.done).length;
     html+=`<div class="list-item" onclick="openEditTaskModal('${t.id}')">
-      <span class="ampel ampel-${t.ampel==='grün'?'green':t.ampel==='orange'?'orange':'red'}"></span>
+      ${cl2.length>0?`<span style="font-size:10px;color:var(--accent2)">☑${cl2d}/${cl2.length}</span>`:''}
       <span class="list-item-title">${esc(t.title)}${badges?` <span style="font-size:10px;color:var(--text2)">${badges}</span>`:''}</span>
       <span class="list-item-owner">${esc(t.owner)}</span>
       <span class="list-item-due ${overdue?'overdue':''}">${formatDate(t.due)}</span>
@@ -1242,16 +1276,16 @@ function openNewTaskModal(){
   document.getElementById('taskId').value='';
   document.getElementById('taskTitleInput').value='';
   document.getElementById('taskDescInput').value='';
+  document.getElementById('taskDescInput').classList.remove('desc-expanded');
   document.getElementById('taskOwnerInput').value='';
   document.getElementById('taskDueInput').value='';
   document.getElementById('taskAddressInput').value='';
   document.getElementById('taskStatusInput').value=statuses[0]||'';
-  document.getElementById('taskAmpelInput').value='grün';
   document.getElementById('taskTagsInput').value='';
   document.getElementById('taskSourceInput').value='';
   document.getElementById('deleteTaskBtn').style.display='none';
-  taskLinks=[];taskAttachments=[];
-  renderLinksList();renderAttachList();
+  taskLinks=[];taskAttachments=[];taskChecklist=[];
+  renderLinksList();renderAttachList();renderChecklist();
   renderTimerSection();
   openModal();
   setTimeout(()=>document.getElementById('taskTitleInput').focus(),100);
@@ -1269,9 +1303,9 @@ function openEditTaskModal(id){
   document.getElementById('taskAddressInput').value=task.address||'';
   document.getElementById('taskNasPathInput').value=task.nasPath||'';
   document.getElementById('taskStatusInput').value=task.status;
-  document.getElementById('taskAmpelInput').value=task.ampel;
   document.getElementById('taskTagsInput').value=(task.tags||[]).join(', ');
   document.getElementById('taskSourceInput').value=task.source||'';
+  document.getElementById('taskDescInput').classList.remove('desc-expanded');
   const savedSize=localStorage.getItem('modalFontSize')||100;
   document.getElementById('taskSizeInput').value=savedSize;
   document.getElementById('taskSizeLabel').textContent=savedSize+'%';
@@ -1280,7 +1314,8 @@ function openEditTaskModal(id){
   document.getElementById('deleteTaskBtn').style.display='';
   taskLinks=JSON.parse(JSON.stringify(task.links||[]));
   taskAttachments=JSON.parse(JSON.stringify(task.attachments||[]));
-  renderLinksList();renderAttachList();renderTimerSection();
+  taskChecklist=JSON.parse(JSON.stringify(task.checklist||[]));
+  renderLinksList();renderAttachList();renderChecklist();renderTimerSection();
   openModal();
 }
 
@@ -1309,9 +1344,9 @@ function saveTask(){
     address:document.getElementById('taskAddressInput').value.trim(),
     nasPath:document.getElementById('taskNasPathInput').value.trim(),
     status:document.getElementById('taskStatusInput').value,
-    ampel:document.getElementById('taskAmpelInput').value,
     tags:document.getElementById('taskTagsInput').value.split(',').map(s=>s.trim()).filter(Boolean),
     source:document.getElementById('taskSourceInput').value.trim(),
+    checklist:taskChecklist,
     links:taskLinks.filter(l=>l.url.trim()),
     attachments:taskAttachments,
     timeEntries:existingTask?.timeEntries||[]
@@ -1456,6 +1491,56 @@ document.addEventListener('keydown',function(e){
 document.addEventListener('click',function(e){if(!e.target.closest('.filter-wrapper'))closeAllDropdowns();});
 
 // ── NAS FOLDER OPENER ──
+// ── BESCHREIBUNG EXPAND ──
+function toggleDescExpand(el){
+  el.classList.toggle('desc-expanded');
+}
+
+// ── CHECKLISTE ──
+let taskChecklist=[];
+
+function toggleChecklistSection(){
+  const container=document.getElementById('checklistContainer');
+  const icon=document.getElementById('checklistToggleIcon');
+  container.classList.toggle('open');
+  icon.classList.toggle('open');
+  icon.textContent=container.classList.contains('open')?'▼':'▶';
+}
+
+function renderChecklist(){
+  const done=taskChecklist.filter(i=>i.done).length;
+  const total=taskChecklist.length;
+  document.getElementById('checklistProgress').textContent=total>0?`${done}/${total}`:'';
+  document.getElementById('checklistItems').innerHTML=taskChecklist.map((item,idx)=>`
+    <div class="checklist-item">
+      <input type="checkbox" ${item.done?'checked':''} onchange="toggleChecklistDone(${idx})">
+      <input type="text" class="checklist-item-text ${item.done?'done':''}" value="${esc(item.text)}" oninput="taskChecklist[${idx}].text=this.value" placeholder="Eintrag…">
+      <button class="checklist-item-del" onclick="removeChecklistItem(${idx})">✕</button>
+    </div>`).join('');
+}
+
+function addChecklistItem(){
+  const input=document.getElementById('checklistNewInput');
+  const text=input.value.trim();
+  if(!text)return;
+  taskChecklist.push({id:generateId(),text,done:false});
+  input.value='';
+  renderChecklist();
+  input.focus();
+}
+
+function checklistAddOnEnter(e){if(e.key==='Enter'){e.preventDefault();addChecklistItem();}}
+
+function toggleChecklistDone(idx){
+  taskChecklist[idx].done=!taskChecklist[idx].done;
+  renderChecklist();
+}
+
+function removeChecklistItem(idx){
+  taskChecklist.splice(idx,1);
+  renderChecklist();
+}
+
 function copyNasPath(){
   const path=document.getElementById('taskNasPathInput').value.trim();
   if(!path){alert('Bitte NAS-Pfad eingeben!');return;}
