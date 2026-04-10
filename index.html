@@ -154,9 +154,11 @@ input,select,textarea{font-family:inherit;}
 .no-items-hint{font-size:calc(11px * var(--modal-font-scale, 1));color:var(--text2);text-align:center;padding:calc(6px * var(--modal-font-scale, 1));font-style:italic;}
 
 /* TERMINE */
-.termin-item{display:flex;align-items:center;gap:8px;padding:calc(5px * var(--modal-font-scale,1)) calc(6px * var(--modal-font-scale,1));margin-bottom:calc(4px * var(--modal-font-scale,1));background:var(--bg3);border-radius:6px;}
-.termin-date{font-size:calc(11px * var(--modal-font-scale,1));font-weight:600;color:var(--accent2);white-space:nowrap;min-width:calc(80px * var(--modal-font-scale,1));}
-.termin-text{flex:1;font-size:calc(12px * var(--modal-font-scale,1));color:var(--text);}
+.termin-item{display:flex;align-items:center;gap:calc(6px * var(--modal-font-scale,1));padding:calc(6px * var(--modal-font-scale,1));margin-bottom:calc(4px * var(--modal-font-scale,1));background:var(--bg3);border-radius:6px;flex-wrap:wrap;}
+.termin-date{font-size:calc(10px * var(--modal-font-scale,1));font-weight:600;color:var(--accent2);white-space:nowrap;}
+.termin-time{font-size:calc(10px * var(--modal-font-scale,1));color:var(--text2);white-space:nowrap;font-family:'Courier New',monospace;}
+.termin-duration{font-size:calc(10px * var(--modal-font-scale,1));color:var(--accent);font-weight:600;background:var(--bg4);padding:calc(2px * var(--modal-font-scale,1)) calc(4px * var(--modal-font-scale,1));border-radius:3px;white-space:nowrap;}
+.termin-text{flex:1;font-size:calc(11px * var(--modal-font-scale,1));color:var(--text);min-width:100px;}
 .termin-del{width:calc(20px * var(--modal-font-scale,1));height:calc(20px * var(--modal-font-scale,1));background:transparent;color:var(--text2);border:none;font-size:calc(12px * var(--modal-font-scale,1));cursor:pointer;border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
 .termin-del:hover{color:var(--red);}
 
@@ -481,10 +483,15 @@ input,select,textarea{font-family:inherit;}
       </div>
       <div class="checklist-container" id="termineContainer">
         <div id="termineItems"></div>
-        <div class="checklist-add-row">
-          <input type="date" class="checklist-add-input" id="termineNewDate" style="flex:0.5;">
-          <input type="text" class="checklist-add-input" id="termineNewText" placeholder="Beschreibung des Termins…" onkeydown="termineAddOnEnter(event)">
-          <button class="modal-section-add" onclick="addTermin()">+ Hinzufügen</button>
+        <div style="background:var(--bg3);border-radius:6px;padding:8px;margin-bottom:8px;font-size:11px;color:var(--accent2);font-weight:600;">
+          Gesamtdauer: <span id="termineTotalDuration">0h 0min</span>
+        </div>
+        <div class="checklist-add-row" style="flex-wrap:wrap;gap:6px;">
+          <input type="date" class="checklist-add-input" id="termineNewDate" style="flex:0.4;">
+          <input type="time" class="checklist-add-input" id="termineNewTimeFrom" placeholder="von" style="flex:0.3;">
+          <input type="time" class="checklist-add-input" id="termineNewTimeTo" placeholder="bis" style="flex:0.3;">
+          <input type="text" class="checklist-add-input" id="termineNewText" placeholder="Beschreibung…" style="flex:1;" onkeydown="termineAddOnEnter(event)">
+          <button class="modal-section-add" onclick="addTermin()">+</button>
         </div>
       </div>
     </div>
@@ -1566,23 +1573,52 @@ function toggleTermineSection(){
   icon.textContent=container.classList.contains('open')?'▼':'▶';
 }
 
+function calcTerminDuration(timeFrom,timeTo){
+  if(!timeFrom||!timeTo)return 0;
+  const[hf,mf]=timeFrom.split(':').map(Number);
+  const[ht,mt]=timeTo.split(':').map(Number);
+  const minFrom=hf*60+mf;
+  const minTo=ht*60+mt;
+  return Math.max(0,minTo-minFrom);
+}
+
+function formatDurationShort(minutes){
+  if(minutes<=0)return'0min';
+  const h=Math.floor(minutes/60);
+  const m=minutes%60;
+  if(h===0)return`${m}min`;
+  return m===0?`${h}h`:`${h}h ${m}min`;
+}
+
 function renderTermine(){
   const total=taskTermine.length;
+  let totalMinutes=0;
   document.getElementById('termineProgress').textContent=total>0?`${total} Termin${total===1?'':'e'}`:'';
-  document.getElementById('termineItems').innerHTML=taskTermine.map((item,idx)=>`
+  document.getElementById('termineItems').innerHTML=taskTermine.map((item,idx)=>{
+    const duration=calcTerminDuration(item.timeFrom,item.timeTo);
+    totalMinutes+=duration;
+    const durationText=formatDurationShort(duration);
+    return`
     <div class="termin-item">
       <span class="termin-date">📅 ${formatDate(item.date)}</span>
+      ${item.timeFrom?`<span class="termin-time">⏰ ${item.timeFrom}${item.timeTo?'-'+item.timeTo:''}</span>`:''}
+      ${duration>0?`<span class="termin-duration">${durationText}</span>`:''}
       <span class="termin-text">${esc(item.text)}</span>
       <button class="termin-del" onclick="removeTermin(${idx})">✕</button>
-    </div>`).join('');
+    </div>`}).join('');
+  document.getElementById('termineTotalDuration').textContent=formatDurationShort(totalMinutes);
 }
 
 function addTermin(){
   const date=document.getElementById('termineNewDate').value;
+  const timeFrom=document.getElementById('termineNewTimeFrom').value;
+  const timeTo=document.getElementById('termineNewTimeTo').value;
   const text=document.getElementById('termineNewText').value.trim();
-  if(!date&&!text)return;
-  taskTermine.push({date:date||'',text:text||'(Kein Titel)'});
+  if(!date&&!timeFrom&&!timeTo&&!text)return;
+  taskTermine.push({date:date||'',timeFrom:timeFrom||'',timeTo:timeTo||'',text:text||'(Kein Titel)'});
   document.getElementById('termineNewDate').value='';
+  document.getElementById('termineNewTimeFrom').value='';
+  document.getElementById('termineNewTimeTo').value='';
   document.getElementById('termineNewText').value='';
   renderTermine();
 }
