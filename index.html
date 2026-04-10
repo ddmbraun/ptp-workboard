@@ -440,24 +440,30 @@ input,select,textarea{font-family:inherit;}
 
     <!-- LINKS -->
     <div class="modal-section">
-      <div class="modal-section-header">
-        <span class="modal-section-title">🔗 Links</span>
-        <button class="modal-section-add" onclick="addLinkRow()">+ Link hinzufügen</button>
+      <div class="checklist-header" onclick="toggleLinksSection()">
+        <span class="modal-section-title">🔗 LINKS <span class="checklist-progress" id="linksProgress"></span></span>
+        <span class="checklist-toggle" id="linksToggleIcon">▶</span>
       </div>
-      <div id="linksList"></div>
+      <div class="checklist-container" id="linksContainer">
+        <div id="linksList"></div>
+        <button class="modal-section-add" onclick="addLinkRow()" style="width:100%;margin-top:6px;">+ Link hinzufügen</button>
+      </div>
     </div>
 
     <!-- ATTACHMENTS -->
     <div class="modal-section">
-      <div class="modal-section-header">
-        <span class="modal-section-title">📎 Dateianhänge</span>
-        <button class="modal-section-add" onclick="triggerFileInput()">+ Datei anhängen</button>
+      <div class="checklist-header" onclick="toggleAttachSection()">
+        <span class="modal-section-title">📎 DATEIANHÄNGE <span class="checklist-progress" id="attachProgress"></span></span>
+        <span class="checklist-toggle" id="attachToggleIcon">▶</span>
       </div>
-      <div id="attachList"></div>
-      <div class="attach-drop-zone" id="dropZone" onclick="triggerFileInput()">
-        Datei hier hineinziehen oder klicken zum Auswählen
+      <div class="checklist-container" id="attachContainer">
+        <div id="attachList"></div>
+        <div class="attach-drop-zone" id="dropZone" onclick="triggerFileInput()">
+          Datei hier hineinziehen oder klicken zum Auswählen
+        </div>
+        <button class="modal-section-add" onclick="triggerFileInput()" style="width:100%;margin-top:6px;">+ Datei anhängen</button>
+        <input type="file" id="fileAttachInput" style="display:none" multiple onchange="handleFileAttach(event)">
       </div>
-      <input type="file" id="fileAttachInput" style="display:none" multiple onchange="handleFileAttach(event)">
     </div>
 
     <!-- TIME TRACKING -->
@@ -1131,6 +1137,7 @@ function onDrop(e){
 // ── LINKS ──
 function renderLinksList(){
   const el=document.getElementById('linksList');
+  document.getElementById('linksProgress').textContent=taskLinks.length>0?`${taskLinks.length}`:'';
   if(!taskLinks.length){el.innerHTML=`<div class="no-items-hint">Noch keine Links — oben hinzufügen</div>`;return;}
   el.innerHTML=taskLinks.map((l,i)=>{
     const isTel=l.url.startsWith('tel:');
@@ -1164,6 +1171,7 @@ function handleFileAttach(e){
 }
 function renderAttachList(){
   const el=document.getElementById('attachList');
+  document.getElementById('attachProgress').textContent=taskAttachments.length>0?`${taskAttachments.length}`:'';
   if(!taskAttachments.length){el.innerHTML='';return;}
   el.innerHTML=taskAttachments.map((a,i)=>{
     const isImg=a.type&&a.type.startsWith('image/');
@@ -1559,6 +1567,20 @@ function toggleChecklistSection(){
 function toggleTimerSection(){
   const container=document.getElementById('timerContainer');
   const icon=document.getElementById('timerToggleIcon');
+  container.classList.toggle('open');
+  icon.textContent=container.classList.contains('open')?'▼':'▶';
+}
+
+function toggleLinksSection(){
+  const container=document.getElementById('linksContainer');
+  const icon=document.getElementById('linksToggleIcon');
+  container.classList.toggle('open');
+  icon.textContent=container.classList.contains('open')?'▼':'▶';
+}
+
+function toggleAttachSection(){
+  const container=document.getElementById('attachContainer');
+  const icon=document.getElementById('attachToggleIcon');
   container.classList.toggle('open');
   icon.textContent=container.classList.contains('open')?'▼':'▶';
 }
