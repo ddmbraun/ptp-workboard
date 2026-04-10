@@ -147,10 +147,22 @@ input,select,textarea{font-family:inherit;}
 .link-row{display:flex;align-items:center;gap:calc(4px * var(--modal-font-scale, 1));margin-bottom:calc(4px * var(--modal-font-scale, 1));background:var(--bg3);border-radius:6px;padding:calc(4px * var(--modal-font-scale, 1)) calc(6px * var(--modal-font-scale, 1));}
 .link-row input{flex:1;background:var(--bg4);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:calc(3px * var(--modal-font-scale, 1)) calc(6px * var(--modal-font-scale, 1));font-size:calc(11px * var(--modal-font-scale, 1));outline:none;}
 .link-row input:focus{border-color:var(--accent);}
-.link-row input.url-input{flex:2;}
+.link-row input.url-input{flex:2;font-family:'Courier New',monospace;letter-spacing:0.3px;}
+.link-row a{font-family:'Courier New',monospace;font-size:calc(12px * var(--modal-font-scale,1));letter-spacing:0.3px;}
 .link-remove-btn{width:calc(20px * var(--modal-font-scale, 1));height:calc(20px * var(--modal-font-scale, 1));border-radius:4px;background:transparent;color:var(--text2);font-size:calc(12px * var(--modal-font-scale, 1));display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .link-remove-btn:hover{color:var(--red);}
 .no-items-hint{font-size:calc(11px * var(--modal-font-scale, 1));color:var(--text2);text-align:center;padding:calc(6px * var(--modal-font-scale, 1));font-style:italic;}
+
+/* TERMINE */
+.termin-item{display:flex;align-items:center;gap:8px;padding:calc(5px * var(--modal-font-scale,1)) calc(6px * var(--modal-font-scale,1));margin-bottom:calc(4px * var(--modal-font-scale,1));background:var(--bg3);border-radius:6px;}
+.termin-date{font-size:calc(11px * var(--modal-font-scale,1));font-weight:600;color:var(--accent2);white-space:nowrap;min-width:calc(80px * var(--modal-font-scale,1));}
+.termin-text{flex:1;font-size:calc(12px * var(--modal-font-scale,1));color:var(--text);}
+.termin-del{width:calc(20px * var(--modal-font-scale,1));height:calc(20px * var(--modal-font-scale,1));background:transparent;color:var(--text2);border:none;font-size:calc(12px * var(--modal-font-scale,1));cursor:pointer;border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.termin-del:hover{color:var(--red);}
+
+/* RAHMENFELDER */
+.modal-section{border:1px solid var(--border);border-radius:8px;padding:calc(8px * var(--modal-font-scale,1)) calc(10px * var(--modal-font-scale,1));margin-top:calc(8px * var(--modal-font-scale,1));}
+.modal-section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:0;}
 
 /* ATTACHMENTS */
 .attach-row{display:flex;align-items:center;gap:calc(6px * var(--modal-font-scale, 1));margin-bottom:calc(4px * var(--modal-font-scale, 1));background:var(--bg3);border-radius:6px;padding:calc(4px * var(--modal-font-scale, 1)) calc(8px * var(--modal-font-scale, 1));}
@@ -342,12 +354,12 @@ input,select,textarea{font-family:inherit;}
         <div class="filter-dropdown" id="filterOwnerDropdown"></div>
       </div>
       <div class="filter-wrapper">
-        <button class="filter-btn" id="filterAmpelBtn" onclick="toggleFilter('ampel')">Ampel ▾</button>
-        <div class="filter-dropdown" id="filterAmpelDropdown"></div>
-      </div>
-      <div class="filter-wrapper">
         <button class="filter-btn" id="filterTagBtn" onclick="toggleFilter('tag')">Tag ▾</button>
         <div class="filter-dropdown" id="filterTagDropdown"></div>
+      </div>
+      <div class="filter-wrapper">
+        <button class="filter-btn" id="filterDueBtn" onclick="toggleFilter('due')">Fälligkeit ▾</button>
+        <div class="filter-dropdown" id="filterDueDropdown"></div>
       </div>
       <button class="filter-btn" id="clearFiltersBtn" onclick="clearFilters()" style="display:none">✕ Zurücksetzen</button>
     </div>
@@ -422,7 +434,7 @@ input,select,textarea{font-family:inherit;}
       <div class="modal-field" style="flex:1"><label>Tags (Komma-getrennt)</label><input type="text" id="taskTagsInput" placeholder="z.B. Report, Budget"></div>
       <div class="modal-field" style="flex:1"><label>Quelle</label><input type="text" id="taskSourceInput" placeholder="z.B. E-Mail, Meeting"></div>
     </div>
-    <div class="modal-field"><label>Kartengröße</label><div style="display:flex;align-items:center;gap:12px;"><input type="range" id="taskSizeInput" min="80" max="150" value="100" style="flex:1;cursor:pointer;"><span id="taskSizeLabel" style="min-width:40px;text-align:center;font-weight:600;color:var(--accent);">100%</span></div></div>
+    <div class="modal-field"><label>Kartengröße</label><div style="display:flex;align-items:center;gap:12px;"><input type="range" id="taskSizeInput" min="65" max="150" value="100" style="flex:1;cursor:pointer;"><span id="taskSizeLabel" style="min-width:40px;text-align:center;font-weight:600;color:var(--accent);">100%</span></div></div>
 
     <!-- LINKS -->
     <div class="modal-section">
@@ -448,12 +460,33 @@ input,select,textarea{font-family:inherit;}
 
     <!-- TIME TRACKING -->
     <div class="modal-section">
-      <div class="modal-section-header">
-        <span class="modal-section-title">⏱ Zeiterfassung</span>
+      <div class="checklist-header" onclick="toggleTimerSection()">
+        <span class="modal-section-title">⏱ ZEITERFASSUNG <span class="checklist-progress" id="timerProgress"></span></span>
+        <span class="checklist-toggle" id="timerToggleIcon">▶</span>
       </div>
-      <div id="timerDisplay" class="timer-display">00:00:00</div>
-      <button id="timerBtn" class="timer-start-btn" onclick="toggleTimer()">▶ Aufzeichnung starten</button>
-      <div class="timer-entries" id="timerEntries"></div>
+      <div class="checklist-container" id="timerContainer">
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px;">
+          <div id="timerDisplay" class="timer-display" style="font-size:calc(22px * var(--modal-font-scale,1));padding:4px 0;flex:1;">00:00:00</div>
+          <button id="timerBtn" class="timer-start-btn" style="flex:1;" onclick="toggleTimer()">▶ Aufzeichnung starten</button>
+        </div>
+        <div class="timer-entries" id="timerEntries"></div>
+      </div>
+    </div>
+
+    <!-- AUßERHAUS-TERMINE -->
+    <div class="modal-section">
+      <div class="checklist-header" onclick="toggleTermineSection()">
+        <span class="modal-section-title">📅 AUSSERHAUS-TERMINE <span class="checklist-progress" id="termineProgress"></span></span>
+        <span class="checklist-toggle" id="termineToggleIcon">▶</span>
+      </div>
+      <div class="checklist-container" id="termineContainer">
+        <div id="termineItems"></div>
+        <div class="checklist-add-row">
+          <input type="date" class="checklist-add-input" id="termineNewDate" style="flex:0.5;">
+          <input type="text" class="checklist-add-input" id="termineNewText" placeholder="Beschreibung des Termins…" onkeydown="termineAddOnEnter(event)">
+          <button class="modal-section-add" onclick="addTermin()">+ Hinzufügen</button>
+        </div>
+      </div>
     </div>
 
     <div class="modal-actions">
@@ -518,7 +551,7 @@ let boards = {};
 let statuses = ['Backlog','Diese Woche','Heute','Waiting','Done'];
 let currentBoard = '';
 let currentView = 'kanban';
-let filters = {owner:null,ampel:null,tag:null};
+let filters = {owner:null,tag:null,due:null};
 let searchQuery = '';
 let listSortField = 'due', listSortDir = 1;
 let draggedTaskId = null;
@@ -917,8 +950,15 @@ function getTasks(){
   let t=boards[currentBoard]||[];
   if(searchQuery){const q=searchQuery.toLowerCase();t=t.filter(x=>x.title.toLowerCase().includes(q)||(x.desc||'').toLowerCase().includes(q)||x.owner.toLowerCase().includes(q)||(x.tags||[]).some(tg=>tg.toLowerCase().includes(q)));}
   if(filters.owner)t=t.filter(x=>x.owner===filters.owner);
-  if(filters.ampel)t=t.filter(x=>x.ampel===filters.ampel);
   if(filters.tag)t=t.filter(x=>(x.tags||[]).includes(filters.tag));
+  if(filters.due){
+    const today=new Date().toISOString().split('T')[0];
+    const weekEnd=new Date(Date.now()+7*86400000).toISOString().split('T')[0];
+    if(filters.due==='today')t=t.filter(x=>x.due===today);
+    else if(filters.due==='week')t=t.filter(x=>x.due&&x.due>=today&&x.due<=weekEnd);
+    else if(filters.due==='overdue')t=t.filter(x=>x.due&&x.due<today);
+    else if(filters.due==='nodue')t=t.filter(x=>!x.due);
+  }
   return t;
 }
 function isOverdue(due){return due&&new Date(due)<new Date(new Date().toISOString().split('T')[0]);}
@@ -1054,18 +1094,19 @@ function getAllOwners(){return[...new Set(Object.values(boards).flat().map(t=>t.
 function getAllTags(){return[...new Set(Object.values(boards).flat().flatMap(t=>t.tags||[]))].sort();}
 function updateFilterDropdowns(){
   document.getElementById('filterOwnerDropdown').innerHTML=getAllOwners().map(o=>`<div class="filter-dropdown-item ${filters.owner===o?'selected':''}" onclick="setFilter('owner','${esc(o)}')">${esc(o)}</div>`).join('');
-  document.getElementById('filterAmpelDropdown').innerHTML=['grün','orange','rot'].map(a=>`<div class="filter-dropdown-item ${filters.ampel===a?'selected':''}" onclick="setFilter('ampel','${esc(a)}')">${a==='grün'?'🟢 Grün':a==='orange'?'🟠 Orange':'🔴 Rot'}</div>`).join('');
   document.getElementById('filterTagDropdown').innerHTML=getAllTags().map(t=>`<div class="filter-dropdown-item ${filters.tag===t?'selected':''}" onclick="setFilter('tag','${esc(t)}')">${esc(t)}</div>`).join('');
-  const has=filters.owner||filters.ampel||filters.tag;
+  const dueOpts=[{val:'today',label:'📅 Heute'},{val:'week',label:'📅 Diese Woche'},{val:'overdue',label:'⚠️ Überfällig'},{val:'nodue',label:'— Kein Datum'}];
+  document.getElementById('filterDueDropdown').innerHTML=dueOpts.map(d=>`<div class="filter-dropdown-item ${filters.due===d.val?'selected':''}" onclick="setFilter('due','${d.val}')">${d.label}</div>`).join('');
+  const has=filters.owner||filters.tag||filters.due;
   document.getElementById('clearFiltersBtn').style.display=has?'':'none';
   document.getElementById('filterOwnerBtn').classList.toggle('active',!!filters.owner);
-  document.getElementById('filterAmpelBtn').classList.toggle('active',!!filters.ampel);
   document.getElementById('filterTagBtn').classList.toggle('active',!!filters.tag);
+  document.getElementById('filterDueBtn').classList.toggle('active',!!filters.due);
 }
 function toggleFilter(type){const dd=document.getElementById(`filter${type.charAt(0).toUpperCase()+type.slice(1)}Dropdown`);const was=dd.classList.contains('open');closeAllDropdowns();if(!was)dd.classList.add('open');}
 function closeAllDropdowns(){document.querySelectorAll('.filter-dropdown').forEach(d=>d.classList.remove('open'));}
 function setFilter(type,value){filters[type]=filters[type]===value?null:value;closeAllDropdowns();render();}
-function clearFilters(){filters={owner:null,ampel:null,tag:null};render();}
+function clearFilters(){filters={owner:null,tag:null,due:null};render();}
 document.getElementById('searchInput').addEventListener('input',function(){searchQuery=this.value;render();});
 
 // ── DRAG & DROP ──
@@ -1284,8 +1325,8 @@ function openNewTaskModal(){
   document.getElementById('taskTagsInput').value='';
   document.getElementById('taskSourceInput').value='';
   document.getElementById('deleteTaskBtn').style.display='none';
-  taskLinks=[];taskAttachments=[];taskChecklist=[];
-  renderLinksList();renderAttachList();renderChecklist();
+  taskLinks=[];taskAttachments=[];taskChecklist=[];taskTermine=[];
+  renderLinksList();renderAttachList();renderChecklist();renderTermine();
   renderTimerSection();
   openModal();
   setTimeout(()=>document.getElementById('taskTitleInput').focus(),100);
@@ -1315,7 +1356,8 @@ function openEditTaskModal(id){
   taskLinks=JSON.parse(JSON.stringify(task.links||[]));
   taskAttachments=JSON.parse(JSON.stringify(task.attachments||[]));
   taskChecklist=JSON.parse(JSON.stringify(task.checklist||[]));
-  renderLinksList();renderAttachList();renderChecklist();renderTimerSection();
+  taskTermine=JSON.parse(JSON.stringify(task.termine||[]));
+  renderLinksList();renderAttachList();renderChecklist();renderTermine();renderTimerSection();
   openModal();
 }
 
@@ -1347,6 +1389,7 @@ function saveTask(){
     tags:document.getElementById('taskTagsInput').value.split(',').map(s=>s.trim()).filter(Boolean),
     source:document.getElementById('taskSourceInput').value.trim(),
     checklist:taskChecklist,
+    termine:taskTermine,
     links:taskLinks.filter(l=>l.url.trim()),
     attachments:taskAttachments,
     timeEntries:existingTask?.timeEntries||[]
@@ -1503,9 +1546,48 @@ function toggleChecklistSection(){
   const container=document.getElementById('checklistContainer');
   const icon=document.getElementById('checklistToggleIcon');
   container.classList.toggle('open');
-  icon.classList.toggle('open');
   icon.textContent=container.classList.contains('open')?'▼':'▶';
 }
+
+function toggleTimerSection(){
+  const container=document.getElementById('timerContainer');
+  const icon=document.getElementById('timerToggleIcon');
+  container.classList.toggle('open');
+  icon.textContent=container.classList.contains('open')?'▼':'▶';
+}
+
+// ── AUßERHAUS-TERMINE ──
+let taskTermine=[];
+
+function toggleTermineSection(){
+  const container=document.getElementById('termineContainer');
+  const icon=document.getElementById('termineToggleIcon');
+  container.classList.toggle('open');
+  icon.textContent=container.classList.contains('open')?'▼':'▶';
+}
+
+function renderTermine(){
+  const total=taskTermine.length;
+  document.getElementById('termineProgress').textContent=total>0?`${total} Termin${total===1?'':'e'}`:'';
+  document.getElementById('termineItems').innerHTML=taskTermine.map((item,idx)=>`
+    <div class="termin-item">
+      <span class="termin-date">📅 ${formatDate(item.date)}</span>
+      <span class="termin-text">${esc(item.text)}</span>
+      <button class="termin-del" onclick="removeTermin(${idx})">✕</button>
+    </div>`).join('');
+}
+
+function addTermin(){
+  const date=document.getElementById('termineNewDate').value;
+  const text=document.getElementById('termineNewText').value.trim();
+  if(!date&&!text)return;
+  taskTermine.push({date:date||'',text:text||'(Kein Titel)'});
+  document.getElementById('termineNewDate').value='';
+  document.getElementById('termineNewText').value='';
+  renderTermine();
+}
+
+function termineAddOnEnter(e){if(e.key==='Enter'){e.preventDefault();addTermin();}}
 
 function renderChecklist(){
   const done=taskChecklist.filter(i=>i.done).length;
@@ -1539,6 +1621,11 @@ function toggleChecklistDone(idx){
 function removeChecklistItem(idx){
   taskChecklist.splice(idx,1);
   renderChecklist();
+}
+
+function removeTermin(idx){
+  taskTermine.splice(idx,1);
+  renderTermine();
 }
 
 function copyNasPath(){
