@@ -1298,17 +1298,27 @@ function readAuftragDatei(e){
     }
     catch(err){alert('Fehler beim Lesen der Datei: '+err.message);}
   };
-  reader.readAsText(file,'windows-1252');
+  reader.readAsText(file,'utf-8');
   e.target.value='';
 }
 function parseAuftragText(text){
   if(!text||typeof text!=='string')throw new Error('Ungültiger Dateityp');
   const lines=text.split('\n');
   const get=key=>{
-    const l=lines.find(x=>x.trim().startsWith(key+':'));
+    if(!lines||!Array.isArray(lines))return'';
+    const l=lines.find(x=>{
+      try{return x&&x.trim().startsWith(key+':');}catch(e){return false;}
+    });
     if(!l)return'';
-    const val=(l.split(':').slice(1).join(':').trim());
-    return val==='(noch offen)'||val===''?'':val;
+    try{
+      const parts=l.split(':');
+      if(parts.length<2)return'';
+      const val=parts.slice(1).join(':').trim();
+      return val==='(noch offen)'||val===''?'':val;
+    }catch(e){
+      console.error('Fehler beim Parsen von '+key,e);
+      return'';
+    }
   };
   const kostenstelle  = get('Auftrag_Kostenstelle');
   const strasse       = get('Objekt_Strasse');
