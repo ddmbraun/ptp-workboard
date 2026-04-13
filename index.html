@@ -1291,13 +1291,18 @@ function readAuftragDatei(e){
   const file=e.target.files[0];if(!file)return;
   const reader=new FileReader();
   reader.onload=ev=>{
-    try{parseAuftragText(ev.target.result);}
+    try{
+      const text=ev.target.result;
+      if(!text)throw new Error('Datei ist leer');
+      parseAuftragText(text);
+    }
     catch(err){alert('Fehler beim Lesen der Datei: '+err.message);}
   };
   reader.readAsText(file,'windows-1252');
   e.target.value='';
 }
 function parseAuftragText(text){
+  if(!text||typeof text!=='string')throw new Error('Ungültiger Dateityp');
   const lines=text.split('\n');
   const get=key=>{
     const l=lines.find(x=>x.trim().startsWith(key+':'));
