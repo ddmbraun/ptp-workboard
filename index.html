@@ -445,14 +445,17 @@ input,select,textarea{font-family:inherit;}
       <div id="ausserhausTermineList"></div>
     </div>
 
-    <!-- ZEITERFASSUNG (manuell) -->
+    <!-- ZEITERFASSUNG -->
     <div class="modal-section">
       <div class="modal-section-header">
         <span class="modal-section-title">⏱ Zeiterfassung</span>
-        <button class="modal-section-add" onclick="addZeitEntry()">+ Zeit manuell hinzufügen</button>
       </div>
+      <div id="timerDisplay" class="timer-display">00:00:00</div>
+      <button id="timerBtn" class="timer-start-btn" onclick="toggleTimer()">▶ Aufzeichnung starten</button>
+      <div style="text-align:center;font-size:11px;color:var(--text2);margin:6px 0 8px;border-top:1px solid var(--border);padding-top:8px;">oder manuell erfassen</div>
       <div class="termin-head"><span>Datum</span><span>Von</span><span>Bis</span><span>Beschreibung</span><span></span><span></span></div>
       <div id="zeiterfassungList"></div>
+      <button class="modal-section-add" style="margin-top:6px;" onclick="addZeitEntry()">+ Zeit manuell hinzufügen</button>
       <div class="termin-gesamt" id="zeitGesamtRow">Gesamt: 0 min</div>
     </div>
 
@@ -1090,7 +1093,7 @@ function readAuftragDatei(e){
     try{parseAuftragText(ev.target.result);}
     catch(err){alert('Fehler beim Lesen der Datei: '+err.message);}
   };
-  reader.readAsText(file,'UTF-8');
+  reader.readAsText(file,'windows-1252');
   e.target.value='';
 }
 function parseAuftragText(text){
@@ -1289,7 +1292,20 @@ function startTimer(taskId){
 function stopTimer(){
   if(!activeTimerTaskId)return;
   const task=findTaskById(activeTimerTaskId);
-  if(task){const running=(task.timeEntries||[]).find(e=>!e.end);if(running)running.end=Date.now();}
+  if(task){
+    const running=(task.timeEntries||[]).find(e=>!e.end);
+    if(running){
+      running.end=Date.now();
+      const s=new Date(running.start),e=new Date(running.end);
+      const datum=s.toISOString().split('T')[0];
+      const von=String(s.getHours()).padStart(2,'0')+':'+String(s.getMinutes()).padStart(2,'0');
+      const bis=String(e.getHours()).padStart(2,'0')+':'+String(e.getMinutes()).padStart(2,'0');
+      const entry={date:datum,von,bis,beschreibung:'Stoppuhr'};
+      const openId=document.getElementById('taskId')&&document.getElementById('taskId').value;
+      if(openId===activeTimerTaskId){taskZeitEntries.push(entry);renderZeiterfassung();}
+      else{if(!task.zeitEntries)task.zeitEntries=[];task.zeitEntries.push(entry);}
+    }
+  }
   clearInterval(activeTimerIntervalId);
   const stoppedId=activeTimerTaskId;
   activeTimerTaskId=null;activeTimerIntervalId=null;
@@ -1395,7 +1411,7 @@ function openNewTaskModal(){
   document.getElementById('deleteTaskBtn').style.display='none';
   taskLinks=[];taskAttachments=[];taskAusserhausTermine=[];taskZeitEntries=[];
   renderLinksList();renderAttachList();
-  renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();
+  renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();
   openModal();
   setTimeout(()=>document.getElementById('taskTitleInput').focus(),100);
 }
@@ -1419,7 +1435,7 @@ function openEditTaskModal(id){
   taskAusserhausTermine=JSON.parse(JSON.stringify(task.ausserhausTermine||[]));
   taskZeitEntries=JSON.parse(JSON.stringify(task.zeitEntries||[]));
   renderLinksList();renderAttachList();
-  renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();
+  renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();
   openModal();
 }
 
@@ -1651,15 +1667,16 @@ function pushToSync(){
   const termine=[];const zeiten=[];
   Object.entries(boards).forEach(([bn,tasks])=>{
     (tasks||[]).forEach(task=>{
+      const ks=(task.tags&&task.tags[0])||task.title.split(' – ')[0]||'';
       (task.ausserhausTermine||[]).forEach((t,i)=>{
         if(!t.date&&!t.von)return;
-        termine.push({syncId:'ptp_'+task.id+'_t'+i,source:'ptp',auftragTitle:task.title,
+        termine.push({syncId:'ptp_'+task.id+'_t'+i,source:'ptp',kostenstelle:ks,auftragTitle:task.title,
           datum:t.date||'',von:t.von||'',bis:t.bis||'',beschreibung:t.beschreibung||''});
       });
       (task.zeitEntries||[]).forEach((z,i)=>{
         if(!z.date&&!z.von)return;
         const min=parseMinutes(z.von,z.bis);
-        zeiten.push({syncId:'ptp_'+task.id+'_z'+i,source:'ptp',auftragTitle:task.title,
+        zeiten.push({syncId:'ptp_'+task.id+'_z'+i,source:'ptp',kostenstelle:ks,auftragTitle:task.title,
           datum:z.date||'',von:z.von||'',bis:z.bis||'',beschreibung:z.beschreibung||'',minuten:min});
       });
     });
@@ -1704,16 +1721,4 @@ function openSyncPanel(){
   if(bauZeiten.length){
     html+='<h4 style="font-size:11px;text-transform:uppercase;color:var(--text2);margin:0 0 8px">Zeiterfassung ('+bauZeiten.length+')</h4>';
     html+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
-    html+='<tr style="background:var(--bg2)"><th style="padding:5px 8px;text-align:left;color:var(--text2)">Datum</th><th style="color:var(--text2)">Von</th><th style="color:var(--text2)">Bis</th><th style="color:var(--text2)">Min.</th><th style="color:var(--text2)">Beschreibung</th><th style="color:var(--text2)">Auftrag</th></tr>';
-    bauZeiten.forEach(z=>{html+='<tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 8px">'+(z.datum||'–')+'</td><td>'+(z.von||'–')+'</td><td>'+(z.bis||'–')+'</td><td>'+(z.minuten||0)+'</td><td>'+(z.beschreibung||'')+'</td><td style="color:var(--text2);font-size:11px">'+(z.auftragTitle||'')+'</td></tr>';});
-    html+='</table></div>';
-  }
-  if(!bauTermine.length&&!bauZeiten.length){html+='<p style="color:var(--text2);font-size:13px">Noch keine synchronisierten Einträge von der Bau Doku App.</p>';}
-  html+='<div style="margin-top:16px;text-align:right"><button onclick="this.closest(\'div[style*=position]\').remove()" style="padding:7px 16px;border-radius:6px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:13px;font-weight:500">Schließen</button></div>';
-  html+='</div></div>';
-  document.body.insertAdjacentHTML('beforeend',html);
-}
-
-</script>
-</body>
-</html>
+    html+='<tr style="background:var(--bg2)"><th style="padding:5px 8px;text-align:left;color:var(--text2)">Datum</th><th style="color:var(-
