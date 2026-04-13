@@ -77,17 +77,17 @@ input,select,textarea{font-family:inherit;}
 .kanban-col{flex:0 0 260px;min-width:200px;background:var(--bg2);border-radius:10px;display:flex;flex-direction:column;max-height:100%;transition:flex .2s;}
 .kanban-col.collapsed{flex:0 0 52px;min-width:52px;overflow:hidden;}
 .kanban-col.collapsed .kanban-col-body{display:none;}
-.kanban-col.collapsed .kanban-col-title{writing-mode:vertical-rl;transform:rotate(180deg);font-size:11px;white-space:nowrap;max-height:160px;overflow:hidden;text-overflow:ellipsis;}
+.kanban-col.collapsed .kanban-col-title{writing-mode:vertical-rl;transform:rotate(180deg);font-size:11px;white-space:nowrap;max-height:160px;overflow:hidden;}
 .kanban-col.collapsed .kanban-col-count{font-size:11px;}
 .kanban-col.collapsed .kanban-col-header{flex-direction:column;align-items:center;padding:10px 6px;gap:8px;height:100%;justify-content:flex-start;cursor:pointer;}
 .kanban-col.collapsed .kanban-col-header:hover{background:rgba(108,99,255,0.06);border-radius:8px;}
-.col-collapse-btn{background:none;border:none;color:var(--text2);font-size:13px;cursor:pointer;padding:2px 5px;border-radius:4px;line-height:1;flex-shrink:0;}
-.col-collapse-btn:hover{color:var(--accent);background:var(--bg3);}
 .kanban-col-header{padding:12px 14px 8px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
 .kanban-col-title{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;}
 .kanban-col-count{font-size:11px;color:var(--text2);background:var(--bg4);padding:1px 7px;border-radius:10px;}
 .kanban-col-body{flex:1;overflow-y:auto;padding:6px 10px 10px;display:flex;flex-direction:column;gap:8px;}
 .kanban-col-body.drag-over{background:rgba(108,99,255,0.08);border-radius:0 0 10px 10px;}
+.col-collapse-btn{background:none;border:none;color:var(--text2);font-size:13px;cursor:pointer;padding:2px 5px;border-radius:4px;line-height:1;flex-shrink:0;}
+.col-collapse-btn:hover{color:var(--accent);background:var(--bg3);}
 
 /* TASK CARD */
 .task-card{background:var(--bg3);border-radius:8px;padding:10px 12px;cursor:grab;transition:all .15s;border:1px solid transparent;position:relative;}
@@ -105,11 +105,11 @@ input,select,textarea{font-family:inherit;}
 .task-tag{font-size:10px;padding:1px 6px;border-radius:3px;background:var(--bg);color:var(--text2);}
 .task-source{font-size:10px;color:var(--text2);font-style:italic;}
 .task-card-icons{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap;}
+.task-icon-badge{font-size:10px;color:var(--text2);background:var(--bg);padding:1px 5px;border-radius:3px;display:flex;align-items:center;gap:3px;}
 .gcal-btn{font-size:10px;padding:2px 7px;border-radius:3px;background:#1a73e8;color:#fff;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:3px;font-weight:500;transition:background .12s;}
 .gcal-btn:hover{background:#1558b0;}
 .gcal-btn-modal{padding:7px 14px;border-radius:6px;font-size:13px;font-weight:500;background:#1a73e8;color:#fff;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;}
 .gcal-btn-modal:hover{background:#1558b0;}
-.task-icon-badge{font-size:10px;color:var(--text2);background:var(--bg);padding:1px 5px;border-radius:3px;display:flex;align-items:center;gap:3px;}
 
 /* LIST / TABLE */
 .list-view{max-width:900px;}
@@ -430,7 +430,7 @@ input,select,textarea{font-family:inherit;}
 
     <div class="modal-actions">
       <button class="topbar-btn btn-danger" id="deleteTaskBtn" onclick="deleteTask()" style="display:none;margin-right:auto;">Löschen</button>
-      <button class="gcal-btn-modal" id="gcalModalBtn" onclick="openGoogleCalendarFromModal()" style="display:none;margin-right:auto;" title="In Google Kalender eintragen">📅 In Kalender eintragen</button>
+      <button class="gcal-btn-modal" id="gcalModalBtn" onclick="openGoogleCalendarFromModal()" style="display:none;margin-right:auto;">📅 In Kalender eintragen</button>
       <button class="topbar-btn btn-secondary" onclick="closeModal()">Abbrechen</button>
       <button class="topbar-btn btn-primary" onclick="saveTask()">Speichern</button>
     </div>
@@ -824,15 +824,14 @@ function formatDate(d){if(!d)return'';const p=d.split('-');return p[2]+'.'+p[1]+
 
 function isAusserhaus(task){return task.status&&task.status.toLowerCase().includes('außerhaus');}
 function openGoogleCalendar(taskId,evt){
-  if(evt){evt.stopPropagation();}
+  if(evt)evt.stopPropagation();
   const task=findTaskById(taskId)||(boards[currentBoard]||[]).find(t=>t.id===taskId);
   if(!task)return;
   const title=encodeURIComponent(task.title);
   const details=encodeURIComponent((task.desc||'')+(task.owner?'\nZuständig: '+task.owner:''));
   let dates='';
   if(task.due){const d=task.due.replace(/-/g,'');dates=d+'/'+d;}
-  const url='https://calendar.google.com/calendar/render?action=TEMPLATE&text='+title+'&dates='+dates+'&details='+details;
-  window.open(url,'_blank');
+  window.open('https://calendar.google.com/calendar/render?action=TEMPLATE&text='+title+'&dates='+dates+'&details='+details,'_blank');
 }
 function taskCardHTML(task){
   const overdue=isOverdue(task.due);
@@ -867,23 +866,21 @@ function renderKanban(){
   statuses.forEach((s,i)=>{
     const col=tasks.filter(t=>t.status===s);
     const isCollapsed=!!collapsedCols[s];
-    const arrow=isCollapsed?'▶':'◀';
     html+=`<div class="kanban-col${isCollapsed?' collapsed':''}" style="border-top:3px solid ${colColor(i)}">
       <div class="kanban-col-header">
         ${isCollapsed
-          ? `<button class="col-collapse-btn" onclick="event.stopPropagation();toggleColCollapse('${esc(s)}')" title="Spalte einblenden">${arrow}</button>
+          ? `<button class="col-collapse-btn" onclick="event.stopPropagation();toggleColCollapse('${esc(s)}')" title="Spalte einblenden">▶</button>
              <span class="kanban-col-title">${esc(s)}</span>
              <span class="kanban-col-count">${col.length}</span>`
           : `<span class="kanban-col-title">${esc(s)}</span>
              <span style="display:flex;align-items:center;gap:6px">
                <span class="kanban-col-count">${col.length}</span>
-               <button class="col-collapse-btn" onclick="event.stopPropagation();toggleColCollapse('${esc(s)}')" title="Spalte ausblenden">${arrow}</button>
+               <button class="col-collapse-btn" onclick="event.stopPropagation();toggleColCollapse('${esc(s)}')" title="Spalte ausblenden">◀</button>
              </span>`
         }
       </div>
       <div class="kanban-col-body" data-status="${esc(s)}" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
         ${col.map(taskCardHTML).join('')}
-        <button style="width:100%;padding:6px;border:1.5px dashed var(--border);border-radius:6px;background:none;color:var(--text2);font-size:12px;cursor:pointer;margin-top:4px;transition:all .12s" onclick="openNewTaskInCol('${esc(s)}')" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">+ Task</button>
       </div></div>`;
   });
   html+='</div>';
@@ -970,7 +967,19 @@ function renderBoardTabs(){
 function switchBoard(name){currentBoard=name;render();}
 function switchView(view){currentView=view;document.querySelectorAll('.view-tab').forEach(t=>t.classList.toggle('active',t.dataset.view===view));render();}
 function toggleColCollapse(status){collapsedCols[status]=!collapsedCols[status];renderKanban();}
-function openNewTaskInCol(status){openNewTaskModal();document.getElementById('taskStatusInput').value=status;}
+function updateGcalModalBtn(){
+  const status=document.getElementById('taskStatusInput').value||'';
+  const btn=document.getElementById('gcalModalBtn');
+  if(btn)btn.style.display=status.toLowerCase().includes('außerhaus')?'':'none';
+}
+function openGoogleCalendarFromModal(){
+  const title=encodeURIComponent(document.getElementById('taskTitleInput').value.trim()||'Termin');
+  const owner=document.getElementById('taskOwnerInput').value.trim();
+  const desc=encodeURIComponent((document.getElementById('taskDescInput').value.trim()||'')+(owner?'\nZuständig: '+owner:''));
+  const due=document.getElementById('taskDueInput').value;
+  let dates='';if(due){const d=due.replace(/-/g,'');dates=d+'/'+d;}
+  window.open('https://calendar.google.com/calendar/render?action=TEMPLATE&text='+title+'&dates='+dates+'&details='+desc,'_blank');
+}
 function toggleListSort(field){if(listSortField===field)listSortDir*=-1;else{listSortField=field;listSortDir=1;}render();}
 
 // ── FILTERS ──
@@ -1184,19 +1193,6 @@ dz.addEventListener('drop',e=>{
 // ── TASK MODAL ──
 function openModal(){document.getElementById('taskModal').classList.add('open');}
 function closeModal(){document.getElementById('taskModal').classList.remove('open');}
-function updateGcalModalBtn(){
-  const status=document.getElementById('taskStatusInput').value||'';
-  const btn=document.getElementById('gcalModalBtn');
-  if(btn)btn.style.display=status.toLowerCase().includes('außerhaus')?'':'none';
-}
-function openGoogleCalendarFromModal(){
-  const title=encodeURIComponent(document.getElementById('taskTitleInput').value.trim()||'Termin');
-  const desc=encodeURIComponent((document.getElementById('taskDescInput').value.trim()||'')+(document.getElementById('taskOwnerInput').value.trim()?'\nZuständig: '+document.getElementById('taskOwnerInput').value.trim():''));
-  const due=document.getElementById('taskDueInput').value;
-  let dates='';if(due){const d=due.replace(/-/g,'');dates=d+'/'+d;}
-  const url='https://calendar.google.com/calendar/render?action=TEMPLATE&text='+title+'&dates='+dates+'&details='+desc;
-  window.open(url,'_blank');
-}
 
 function openNewTaskModal(){
   document.getElementById('modalTitle').textContent='Neuer Task';
