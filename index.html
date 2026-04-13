@@ -73,10 +73,10 @@ input,select,textarea{font-family:inherit;}
 .main{flex:1;overflow:auto;padding:16px 20px;}
 
 /* KANBAN */
-.kanban{display:flex;gap:14px;height:100%;min-height:0;overflow-x:auto;padding-bottom:8px;}
-.kanban-col{flex:0 0 260px;min-width:200px;background:var(--bg2);border-radius:10px;display:flex;flex-direction:column;max-height:100%;transition:flex .2s;resize:horizontal;overflow:hidden;position:relative;}
-.kanban-col::after{content:'';position:absolute;right:0;top:0;bottom:0;width:4px;cursor:col-resize;background:linear-gradient(90deg,transparent,var(--accent));opacity:0;transition:opacity .2s;pointer-events:auto;}
-.kanban-col:hover::after{opacity:1;}
+.kanban{display:flex;gap:14px;height:100%;min-height:0;overflow-x:auto;padding-bottom:8px;user-select:none;}
+.kanban-col{flex:0 0 260px;min-width:150px;background:var(--bg2);border-radius:10px;display:flex;flex-direction:column;max-height:100%;transition:none;position:relative;}
+.kanban-col::after{content:'';position:absolute;right:-7px;top:0;bottom:0;width:14px;cursor:col-resize;background:linear-gradient(90deg,transparent,var(--accent));opacity:0;transition:opacity .2s;pointer-events:auto;border-radius:0 10px 10px 0;}
+.kanban-col:hover::after{opacity:0.8;}
 .kanban-col.collapsed{flex:0 0 52px;min-width:52px;overflow:hidden;}
 .kanban-col.collapsed .kanban-col-body{display:none;}
 .kanban-col.collapsed .kanban-col-title{writing-mode:vertical-rl;transform:rotate(180deg);font-size:11px;white-space:nowrap;max-height:160px;overflow:hidden;}
@@ -642,6 +642,42 @@ let collapsedCols = {};
 let taskAusserhausTermine = [];
 let taskZeitEntries = [];
 
+// ── KANBAN COLUMN RESIZE ──
+let resizingCol = null;
+let resizeStartX = 0;
+let resizeStartWidth = 0;
+let colWidths = {};
+
+function initColResize(){
+  const cols = document.querySelectorAll('.kanban-col');
+  cols.forEach(col=>{
+    const handle=col;
+    handle.addEventListener('mousedown',(e)=>{
+      if(e.target===col || (e.target.style&&e.target.style.cursor==='col-resize')){
+        resizingCol=col;
+        resizeStartX=e.clientX;
+        resizeStartWidth=col.offsetWidth;
+        document.addEventListener('mousemove',onColResize);
+        document.addEventListener('mouseup',stopColResize);
+        e.preventDefault();
+      }
+    });
+  });
+}
+
+function onColResize(e){
+  if(!resizingCol)return;
+  const delta=e.clientX-resizeStartX;
+  const newWidth=Math.max(150, resizeStartWidth+delta);
+  resizingCol.style.flex='0 0 '+newWidth+'px';
+}
+
+function stopColResize(){
+  resizingCol=null;
+  document.removeEventListener('mousemove',onColResize);
+  document.removeEventListener('mouseup',stopColResize);
+}
+
 // ── AUTO-SAVE DEBOUNCE ──
 let autoSaveTimer = null;
 function scheduleSave(){
@@ -1145,7 +1181,7 @@ function renderTable(){
 
 function render(){
   renderBoardTabs();updateFilterDropdowns();updateStatusSelect();
-  if(currentView==='kanban')renderKanban();
+  if(currentView==='kanban'){renderKanban();setTimeout(initColResize,0);}
   else if(currentView==='list')renderList();
   else renderTable();
 }
