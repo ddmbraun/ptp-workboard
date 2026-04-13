@@ -7,11 +7,11 @@
 <script src="https://accounts.google.com/gsi/client" async defer onload="gdriveInit()"></script>
 <style>
 :root {
-  --bg:#1a1b2e; --bg2:#232440; --bg3:#2a2b4a; --bg4:#33345a;
-  --text:#e0e0f0; --text2:#a0a0c0;
-  --accent:#6c63ff; --accent2:#8b83ff;
-  --green:#2ecc71; --orange:#f39c12; --red:#e74c3c;
-  --border:#3a3b5a; --shadow:rgba(0,0,0,0.3);
+  --bg:#ffffff; --bg2:#f4f4f8; --bg3:#eaeaf0; --bg4:#dcdce8;
+  --text:#1a1a2e; --text2:#5a5a7a;
+  --accent:#6c63ff; --accent2:#4a42dd;
+  --green:#27ae60; --orange:#e67e22; --red:#e74c3c;
+  --border:#d0d0e0; --shadow:rgba(0,0,0,0.10);
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden;}
@@ -19,8 +19,8 @@ button{cursor:pointer;border:none;font-family:inherit;}
 input,select,textarea{font-family:inherit;}
 
 /* TOP BAR */
-.topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;z-index:100;}
-.topbar-left{display:flex;align-items:center;gap:12px;flex:1;min-width:0;}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;z-index:100;overflow-x:auto;min-height:52px;}
+.topbar-left{display:flex;align-items:center;gap:12px;flex:1;min-width:200px;}
 .logo{font-size:20px;font-weight:700;color:var(--accent2);letter-spacing:1px;flex-shrink:0;}
 .board-selector{display:flex;gap:4px;align-items:center;overflow-x:auto;flex:1;min-width:0;}
 .board-tab{padding:6px 14px;border-radius:6px;background:transparent;color:var(--text2);font-size:13px;font-weight:500;transition:all .15s;white-space:nowrap;flex-shrink:0;}
@@ -41,7 +41,7 @@ input,select,textarea{font-family:inherit;}
 .btn-secondary:hover{background:var(--bg4);color:var(--text);}
 
 /* FILE BAR */
-.filebar{display:flex;align-items:center;justify-content:space-between;padding:5px 20px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;}
+.filebar{display:flex;align-items:center;justify-content:space-between;padding:5px 20px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;}
 .filebar-left{display:flex;align-items:center;gap:10px;}
 .file-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
 .file-dot.ok{background:var(--green);}
@@ -55,7 +55,7 @@ input,select,textarea{font-family:inherit;}
 .file-btn.drive-connected{color:var(--green);border-color:var(--green);}
 
 /* TOOLBAR */
-.toolbar{display:flex;align-items:center;justify-content:space-between;padding:8px 20px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;}
+.toolbar{display:flex;align-items:center;justify-content:space-between;padding:8px 20px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;}
 .toolbar-left{display:flex;align-items:center;gap:8px;}
 .view-tabs{display:flex;gap:2px;background:var(--bg2);border-radius:8px;padding:2px;}
 .view-tab{padding:5px 14px;border-radius:6px;background:transparent;color:var(--text2);font-size:12px;font-weight:500;transition:all .15s;}
@@ -73,13 +73,21 @@ input,select,textarea{font-family:inherit;}
 .main{flex:1;overflow:auto;padding:16px 20px;}
 
 /* KANBAN */
-.kanban{display:flex;gap:14px;height:100%;min-height:0;}
-.kanban-col{flex:1;min-width:200px;background:var(--bg2);border-radius:10px;display:flex;flex-direction:column;max-height:100%;}
+.kanban{display:flex;gap:14px;height:100%;min-height:0;overflow-x:auto;padding-bottom:8px;}
+.kanban-col{flex:0 0 260px;min-width:200px;background:var(--bg2);border-radius:10px;display:flex;flex-direction:column;max-height:100%;transition:flex .2s;}
+.kanban-col.collapsed{flex:0 0 52px;min-width:52px;overflow:hidden;}
+.kanban-col.collapsed .kanban-col-body{display:none;}
+.kanban-col.collapsed .kanban-col-title{writing-mode:vertical-rl;transform:rotate(180deg);font-size:11px;white-space:nowrap;max-height:160px;overflow:hidden;}
+.kanban-col.collapsed .kanban-col-count{font-size:11px;}
+.kanban-col.collapsed .kanban-col-header{flex-direction:column;align-items:center;padding:10px 6px;gap:8px;height:100%;justify-content:flex-start;cursor:pointer;}
+.kanban-col.collapsed .kanban-col-header:hover{background:rgba(108,99,255,0.06);border-radius:8px;}
 .kanban-col-header{padding:12px 14px 8px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
 .kanban-col-title{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;}
 .kanban-col-count{font-size:11px;color:var(--text2);background:var(--bg4);padding:1px 7px;border-radius:10px;}
 .kanban-col-body{flex:1;overflow-y:auto;padding:6px 10px 10px;display:flex;flex-direction:column;gap:8px;}
 .kanban-col-body.drag-over{background:rgba(108,99,255,0.08);border-radius:0 0 10px 10px;}
+.col-collapse-btn{background:none;border:none;color:var(--text2);font-size:13px;cursor:pointer;padding:2px 5px;border-radius:4px;line-height:1;flex-shrink:0;}
+.col-collapse-btn:hover{color:var(--accent);background:var(--bg3);}
 
 /* TASK CARD */
 .task-card{background:var(--bg3);border-radius:8px;padding:10px 12px;cursor:grab;transition:all .15s;border:1px solid transparent;position:relative;}
@@ -96,8 +104,26 @@ input,select,textarea{font-family:inherit;}
 .ampel-red{background:var(--red);}
 .task-tag{font-size:10px;padding:1px 6px;border-radius:3px;background:var(--bg);color:var(--text2);}
 .task-source{font-size:10px;color:var(--text2);font-style:italic;}
-.task-card-icons{display:flex;gap:4px;margin-top:5px;}
+.task-card-icons{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap;}
 .task-icon-badge{font-size:10px;color:var(--text2);background:var(--bg);padding:1px 5px;border-radius:3px;display:flex;align-items:center;gap:3px;}
+.gcal-btn{font-size:10px;padding:2px 7px;border-radius:3px;background:#1a73e8;color:#fff;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:3px;font-weight:500;transition:background .12s;}
+.gcal-btn:hover{background:#1558b0;}
+.gcal-btn-modal{padding:7px 14px;border-radius:6px;font-size:13px;font-weight:500;background:#1a73e8;color:#fff;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;}
+.gcal-btn-modal:hover{background:#1558b0;}
+
+/* TERMIN / ZEITERFASSUNG ROWS */
+.termin-table{width:100%;border-collapse:collapse;}
+.termin-head{display:grid;grid-template-columns:1fr 80px 80px 1.4fr 28px 28px;gap:5px;padding:3px 8px;font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;}
+.termin-row{display:grid;grid-template-columns:1fr 80px 80px 1.4fr 28px 28px;gap:5px;align-items:center;padding:5px 8px;background:var(--bg3);border-radius:6px;margin-bottom:4px;}
+.termin-row input[type="date"],.termin-row input[type="time"],.termin-row input[type="text"]{width:100%;padding:4px 6px;border-radius:4px;border:1px solid var(--border);background:var(--bg4);color:var(--text);font-size:12px;outline:none;font-family:inherit;}
+.termin-row input:focus{border-color:var(--accent);}
+.termin-row-btn{width:26px;height:26px;border-radius:4px;background:transparent;color:var(--text2);font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;border:none;}
+.termin-row-btn:hover{background:var(--bg4);}
+.termin-row-btn.cal:hover{background:#1a73e8;color:#fff;}
+.termin-row-btn.del:hover{color:var(--red);}
+.termin-gesamt{display:flex;justify-content:flex-end;font-size:12px;font-weight:700;color:var(--green);padding:5px 8px 2px;}
+.btn-auftrag{padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;background:#e8f0fe;color:#1a73e8;border:1px solid #c5d4f5;transition:all .15s;cursor:pointer;}
+.btn-auftrag:hover{background:#1a73e8;color:#fff;border-color:#1a73e8;}
 
 /* LIST / TABLE */
 .list-view{max-width:900px;}
@@ -283,8 +309,10 @@ input,select,textarea{font-family:inherit;}
     <span class="search-hint">/</span>
   </div>
   <div class="topbar-right">
+    <button class="btn-auftrag" onclick="openAuftragDatei()">📋 Auftrag anlegen</button>
     <button class="topbar-btn btn-primary" onclick="openNewTaskModal()">+ Neuer Task</button>
   </div>
+  <input type="file" id="auftragFileInput" accept=".txt" style="display:none" onchange="readAuftragDatei(event)">
 </div>
 
 <!-- FILE BAR -->
@@ -374,7 +402,7 @@ input,select,textarea{font-family:inherit;}
       <div class="modal-field" style="flex:1"><label>Due Date</label><input type="date" id="taskDueInput"></div>
     </div>
     <div style="display:flex;gap:12px;">
-      <div class="modal-field" style="flex:1"><label>Status</label><select id="taskStatusInput"></select></div>
+      <div class="modal-field" style="flex:1"><label>Status</label><select id="taskStatusInput" onchange="updateGcalModalBtn()"></select></div>
       <div class="modal-field" style="flex:1"><label>Ampel</label>
         <select id="taskAmpelInput"><option value="grün">🟢 Grün</option><option value="orange">🟠 Orange</option><option value="rot">🔴 Rot</option></select>
       </div>
@@ -406,18 +434,30 @@ input,select,textarea{font-family:inherit;}
       <input type="file" id="fileAttachInput" style="display:none" multiple onchange="handleFileAttach(event)">
     </div>
 
-    <!-- TIME TRACKING -->
+    <!-- AUSSERHAUS-TERMINE -->
+    <div class="modal-section">
+      <div class="modal-section-header">
+        <span class="modal-section-title">🏠 Außerhaus-Termine</span>
+        <button class="modal-section-add" onclick="addAusserhausTermin()">+ Termin hinzufügen</button>
+      </div>
+      <div class="termin-head"><span>Datum</span><span>Von</span><span>Bis</span><span>Beschreibung</span><span></span><span></span></div>
+      <div id="ausserhausTermineList"></div>
+    </div>
+
+    <!-- ZEITERFASSUNG (manuell) -->
     <div class="modal-section">
       <div class="modal-section-header">
         <span class="modal-section-title">⏱ Zeiterfassung</span>
+        <button class="modal-section-add" onclick="addZeitEntry()">+ Zeit manuell hinzufügen</button>
       </div>
-      <div id="timerDisplay" class="timer-display">00:00:00</div>
-      <button id="timerBtn" class="timer-start-btn" onclick="toggleTimer()">▶ Aufzeichnung starten</button>
-      <div class="timer-entries" id="timerEntries"></div>
+      <div class="termin-head"><span>Datum</span><span>Von</span><span>Bis</span><span>Beschreibung</span><span></span><span></span></div>
+      <div id="zeiterfassungList"></div>
+      <div class="termin-gesamt" id="zeitGesamtRow">Gesamt: 0 min</div>
     </div>
 
     <div class="modal-actions">
       <button class="topbar-btn btn-danger" id="deleteTaskBtn" onclick="deleteTask()" style="display:none;margin-right:auto;">Löschen</button>
+      <button class="gcal-btn-modal" id="gcalModalBtn" onclick="openGoogleCalendarFromModal()" style="display:none;margin-right:auto;">📅 In Kalender eintragen</button>
       <button class="topbar-btn btn-secondary" onclick="closeModal()">Abbrechen</button>
       <button class="topbar-btn btn-primary" onclick="saveTask()">Speichern</button>
     </div>
@@ -489,8 +529,20 @@ let taskAttachments = [];
 
 let fileHandle = null;
 const hasFileAPI = 'showOpenFilePicker' in window;
+let collapsedCols = {};
 
-// ── TIMER STATE ──
+// ── MODAL DATA STATE ──
+let taskAusserhausTermine = [];
+let taskZeitEntries = [];
+
+// ── AUTO-SAVE DEBOUNCE ──
+let autoSaveTimer = null;
+function scheduleSave(){
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(()=>autoSave(), 1500);
+}
+
+// ── TIMER STATE (Legacy, kept for data compatibility) ──
 let activeTimerTaskId = null;
 let activeTimerIntervalId = null;
 
@@ -808,10 +860,22 @@ function getTasks(){
 function isOverdue(due){return due&&new Date(due)<new Date(new Date().toISOString().split('T')[0]);}
 function formatDate(d){if(!d)return'';const p=d.split('-');return p[2]+'.'+p[1]+'.'+p[0].substr(2);}
 
+function isAusserhaus(task){return task.status&&task.status.toLowerCase().includes('außerhaus');}
+function openGoogleCalendar(taskId,evt){
+  if(evt)evt.stopPropagation();
+  const task=findTaskById(taskId)||(boards[currentBoard]||[]).find(t=>t.id===taskId);
+  if(!task)return;
+  const title=encodeURIComponent(task.title);
+  const details=encodeURIComponent((task.desc||'')+(task.owner?'\nZuständig: '+task.owner:''));
+  let dates='';
+  if(task.due){const d=task.due.replace(/-/g,'');dates=d+'/'+d;}
+  window.open('https://calendar.google.com/calendar/render?action=TEMPLATE&text='+title+'&dates='+dates+'&details='+details,'_blank');
+}
 function taskCardHTML(task){
   const overdue=isOverdue(task.due);
   const hasLinks=(task.links||[]).length>0;
   const hasAttach=(task.attachments||[]).length>0;
+  const isAH=isAusserhaus(task);
   return`<div class="task-card" draggable="true" data-id="${task.id}"
     ondragstart="onDragStart(event)" ondragend="onDragEnd(event)" onclick="openEditTaskModal('${task.id}')">
     <div class="task-card-title">${esc(task.title)}</div>
@@ -824,10 +888,11 @@ function taskCardHTML(task){
     ${(()=>{
       const hasTime=(task.timeEntries||[]).length>0||isTaskTimerRunning(task.id);
       const timeMs=hasTime?getTaskTotalMs(task):0;
-      return(hasLinks||hasAttach||hasTime)?`<div class="task-card-icons">
+      return(hasLinks||hasAttach||hasTime||isAH)?`<div class="task-card-icons">
         ${hasLinks?`<span class="task-icon-badge">🔗 ${(task.links||[]).length}</span>`:''}
         ${hasAttach?`<span class="task-icon-badge">📎 ${(task.attachments||[]).length}</span>`:''}
         ${hasTime?`<span class="timer-badge${isTaskTimerRunning(task.id)?' running':''}">⏱ ${formatDuration(timeMs)}</span>`:''}
+        ${isAH?`<button class="gcal-btn" onclick="openGoogleCalendar('${task.id}',event)" title="In Google Kalender eintragen">📅 Kalender</button>`:''}
       </div>`:'';
     })()}
   </div>`;
@@ -838,8 +903,20 @@ function renderKanban(){
   let html='<div class="kanban">';
   statuses.forEach((s,i)=>{
     const col=tasks.filter(t=>t.status===s);
-    html+=`<div class="kanban-col" style="border-top:3px solid ${colColor(i)}">
-      <div class="kanban-col-header"><span class="kanban-col-title">${esc(s)}</span><span class="kanban-col-count">${col.length}</span></div>
+    const isCollapsed=!!collapsedCols[s];
+    html+=`<div class="kanban-col${isCollapsed?' collapsed':''}" style="border-top:3px solid ${colColor(i)}">
+      <div class="kanban-col-header">
+        ${isCollapsed
+          ? `<button class="col-collapse-btn" onclick="event.stopPropagation();toggleColCollapse('${esc(s)}')" title="Spalte einblenden">▶</button>
+             <span class="kanban-col-title">${esc(s)}</span>
+             <span class="kanban-col-count">${col.length}</span>`
+          : `<span class="kanban-col-title">${esc(s)}</span>
+             <span style="display:flex;align-items:center;gap:6px">
+               <span class="kanban-col-count">${col.length}</span>
+               <button class="col-collapse-btn" onclick="event.stopPropagation();toggleColCollapse('${esc(s)}')" title="Spalte ausblenden">◀</button>
+             </span>`
+        }
+      </div>
       <div class="kanban-col-body" data-status="${esc(s)}" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
         ${col.map(taskCardHTML).join('')}
       </div></div>`;
@@ -927,6 +1004,167 @@ function renderBoardTabs(){
 }
 function switchBoard(name){currentBoard=name;render();}
 function switchView(view){currentView=view;document.querySelectorAll('.view-tab').forEach(t=>t.classList.toggle('active',t.dataset.view===view));render();}
+function toggleColCollapse(status){collapsedCols[status]=!collapsedCols[status];renderKanban();}
+
+// ── AUSSERHAUS-TERMINE ──
+function addAusserhausTermin(date='',von='',bis='',beschreibung=''){
+  taskAusserhausTermine.push({date,von,bis,beschreibung});
+  renderAusserhausTermine();
+}
+function removeAusserhausTermin(i){taskAusserhausTermine.splice(i,1);renderAusserhausTermine();}
+function syncAusserhausTermin(i,field,val){if(taskAusserhausTermine[i])taskAusserhausTermine[i][field]=val;}
+function openGcalTermin(i){
+  const t=taskAusserhausTermine[i];
+  const title=encodeURIComponent(document.getElementById('taskTitleInput').value.trim()||'Außerhaus-Termin');
+  const desc=encodeURIComponent(t.beschreibung||'');
+  let dates='';
+  if(t.date){
+    const d=t.date.replace(/-/g,'');
+    if(t.von&&t.bis){
+      dates=d+'T'+t.von.replace(':','')+'00/'+d+'T'+t.bis.replace(':','')+'00';
+    } else {dates=d+'/'+d;}
+  }
+  window.open('https://calendar.google.com/calendar/render?action=TEMPLATE&text='+title+'&dates='+dates+'&details='+desc,'_blank');
+}
+function renderAusserhausTermine(){
+  const el=document.getElementById('ausserhausTermineList');
+  if(!el)return;
+  if(!taskAusserhausTermine.length){el.innerHTML='<div class="no-items-hint">Noch keine Termine — oben hinzufügen</div>';return;}
+  el.innerHTML=taskAusserhausTermine.map((t,i)=>`
+    <div class="termin-row">
+      <input type="date" value="${t.date||''}" oninput="syncAusserhausTermin(${i},'date',this.value)">
+      <input type="time" value="${t.von||''}" oninput="syncAusserhausTermin(${i},'von',this.value)">
+      <input type="time" value="${t.bis||''}" oninput="syncAusserhausTermin(${i},'bis',this.value)">
+      <input type="text" value="${esc(t.beschreibung||'')}" placeholder="Beschreibung" oninput="syncAusserhausTermin(${i},'beschreibung',this.value)">
+      <button class="termin-row-btn cal" onclick="openGcalTermin(${i})" title="In Google Kalender eintragen">📅</button>
+      <button class="termin-row-btn del" onclick="removeAusserhausTermin(${i})">✕</button>
+    </div>`).join('');
+}
+
+// ── ZEITERFASSUNG (manuell) ──
+function addZeitEntry(date='',von='',bis='',beschreibung=''){
+  taskZeitEntries.push({date,von,bis,beschreibung});
+  renderZeiterfassung();
+}
+function removeZeitEntry(i){taskZeitEntries.splice(i,1);renderZeiterfassung();}
+function syncZeitEntry(i,field,val){if(taskZeitEntries[i]){taskZeitEntries[i][field]=val;renderZeitGesamt();}}
+function parseMinutes(von,bis){
+  try{
+    if(!von||!bis)return 0;
+    const [vh,vm]=von.split(':').map(Number);
+    const [bh,bm]=bis.split(':').map(Number);
+    const diff=(bh*60+bm)-(vh*60+vm);
+    return diff>0?diff:0;
+  }catch(e){return 0;}
+}
+function renderZeitGesamt(){
+  const total=taskZeitEntries.reduce((s,e)=>s+parseMinutes(e.von,e.bis),0);
+  const h=Math.floor(total/60),m=total%60;
+  const el=document.getElementById('zeitGesamtRow');
+  if(el)el.textContent='Gesamt: '+(h>0?h+'h ':'')+m+' min';
+}
+function renderZeiterfassung(){
+  const el=document.getElementById('zeiterfassungList');
+  if(!el)return;
+  if(!taskZeitEntries.length){el.innerHTML='<div class="no-items-hint">Noch keine Einträge — oben hinzufügen</div>';renderZeitGesamt();return;}
+  el.innerHTML=taskZeitEntries.map((e,i)=>`
+    <div class="termin-row">
+      <input type="date" value="${e.date||''}" oninput="syncZeitEntry(${i},'date',this.value)">
+      <input type="time" value="${e.von||''}" oninput="syncZeitEntry(${i},'von',this.value)">
+      <input type="time" value="${e.bis||''}" oninput="syncZeitEntry(${i},'bis',this.value)">
+      <input type="text" value="${esc(e.beschreibung||'')}" placeholder="Beschreibung" oninput="syncZeitEntry(${i},'beschreibung',this.value)">
+      <span></span>
+      <button class="termin-row-btn del" onclick="removeZeitEntry(${i})">✕</button>
+    </div>`).join('');
+  renderZeitGesamt();
+}
+
+// ── AUFTRAG ANLEGEN (aus Textdatei) ──
+function openAuftragDatei(){document.getElementById('auftragFileInput').click();}
+function readAuftragDatei(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{parseAuftragText(ev.target.result);}
+    catch(err){alert('Fehler beim Lesen der Datei: '+err.message);}
+  };
+  reader.readAsText(file,'UTF-8');
+  e.target.value='';
+}
+function parseAuftragText(text){
+  const lines=text.split('\n');
+  const get=key=>{
+    const l=lines.find(x=>x.trim().startsWith(key+':'));
+    if(!l)return'';
+    const val=(l.split(':').slice(1).join(':').trim());
+    return val==='(noch offen)'||val===''?'':val;
+  };
+  const kostenstelle  = get('Auftrag_Kostenstelle');
+  const strasse       = get('Objekt_Strasse');
+  const mieter        = get('Mieter_Name');
+  const eigentuemer   = get('Eigentuemer_Name');
+  const auftraggeber  = get('Auftraggeber');
+  const repNr         = get('Rep_Nr');
+  const terminAbgabe  = get('Termin_Abgabe');
+  const terminOrt     = get('Termin_Ortstermin');
+  const schadensbild  = get('Baustelle_Schadensbild');
+  const hausverwaltung= get('Objekt_Hausverwaltung');
+  const nasOrdner     = get('NAS_Auftragsordner');
+  const mieterTel     = get('Mieter_Telefon');
+  const eigTel        = get('Eigentuemer_Telefon');
+  const person        = mieter||eigentuemer||'';
+
+  // Titel aufbauen
+  const titelParts=[kostenstelle,strasse,person].filter(Boolean);
+  const titel=titelParts.join(' – ');
+
+  // Beschreibung aufbauen
+  const descParts=[];
+  if(repNr)descParts.push('Rep-Nr: '+repNr);
+  if(hausverwaltung)descParts.push('Hausverwaltung: '+hausverwaltung);
+  if(schadensbild)descParts.push('Schadensbild: '+schadensbild);
+  if(eigentuemer)descParts.push('Eigentümer: '+eigentuemer+(eigTel?' ('+eigTel+')':''));
+  if(mieter)descParts.push('Mieter: '+mieter+(mieterTel?' ('+mieterTel+')':''));
+  const beschreibung=descParts.join('\n');
+
+  // Datum konvertieren: dd.mm.yyyy → yyyy-mm-dd
+  function deDate(s){
+    if(!s)return'';
+    const m=s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+    return m?m[3]+'-'+m[2]+'-'+m[1]:'';
+  }
+  const dueDate=deDate(terminAbgabe);
+
+  // Modal öffnen und Felder befüllen
+  openNewTaskModal();
+  document.getElementById('taskTitleInput').value=titel;
+  document.getElementById('taskDescInput').value=beschreibung;
+  document.getElementById('taskOwnerInput').value=auftraggeber;
+  if(dueDate)document.getElementById('taskDueInput').value=dueDate;
+  document.getElementById('taskSourceInput').value=nasOrdner||'Auftragsakte';
+  if(schadensbild)document.getElementById('taskTagsInput').value=schadensbild+(kostenstelle?', '+kostenstelle:'');
+  else if(kostenstelle)document.getElementById('taskTagsInput').value=kostenstelle;
+
+  // Außerhaus-Termin vorausfüllen wenn Ortstermin vorhanden
+  const ortsDatum=deDate(terminOrt);
+  if(ortsDatum){addAusserhausTermin(ortsDatum,'','','Ortstermin');}
+
+  updateGcalModalBtn();
+}
+
+function updateGcalModalBtn(){
+  const status=document.getElementById('taskStatusInput').value||'';
+  const btn=document.getElementById('gcalModalBtn');
+  if(btn)btn.style.display=status.toLowerCase().includes('außerhaus')?'':'none';
+}
+function openGoogleCalendarFromModal(){
+  const title=encodeURIComponent(document.getElementById('taskTitleInput').value.trim()||'Termin');
+  const owner=document.getElementById('taskOwnerInput').value.trim();
+  const desc=encodeURIComponent((document.getElementById('taskDescInput').value.trim()||'')+(owner?'\nZuständig: '+owner:''));
+  const due=document.getElementById('taskDueInput').value;
+  let dates='';if(due){const d=due.replace(/-/g,'');dates=d+'/'+d;}
+  window.open('https://calendar.google.com/calendar/render?action=TEMPLATE&text='+title+'&dates='+dates+'&details='+desc,'_blank');
+}
 function toggleListSort(field){if(listSortField===field)listSortDir*=-1;else{listSortField=field;listSortDir=1;}render();}
 
 // ── FILTERS ──
@@ -957,7 +1195,7 @@ function onDrop(e){
   e.preventDefault();e.currentTarget.classList.remove('drag-over');
   const ns=e.currentTarget.dataset.status;
   const task=(boards[currentBoard]||[]).find(t=>t.id===draggedTaskId);
-  if(task&&statuses.includes(ns)){task.status=ns;render();autoSave();}
+  if(task&&statuses.includes(ns)){task.status=ns;render();scheduleSave();}
 }
 
 // ── LINKS ──
@@ -1153,9 +1391,9 @@ function openNewTaskModal(){
   document.getElementById('taskTagsInput').value='';
   document.getElementById('taskSourceInput').value='';
   document.getElementById('deleteTaskBtn').style.display='none';
-  taskLinks=[];taskAttachments=[];
+  taskLinks=[];taskAttachments=[];taskAusserhausTermine=[];taskZeitEntries=[];
   renderLinksList();renderAttachList();
-  renderTimerSection();
+  renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();
   openModal();
   setTimeout(()=>document.getElementById('taskTitleInput').focus(),100);
 }
@@ -1176,7 +1414,10 @@ function openEditTaskModal(id){
   document.getElementById('deleteTaskBtn').style.display='';
   taskLinks=JSON.parse(JSON.stringify(task.links||[]));
   taskAttachments=JSON.parse(JSON.stringify(task.attachments||[]));
-  renderLinksList();renderAttachList();renderTimerSection();
+  taskAusserhausTermine=JSON.parse(JSON.stringify(task.ausserhausTermine||[]));
+  taskZeitEntries=JSON.parse(JSON.stringify(task.zeitEntries||[]));
+  renderLinksList();renderAttachList();
+  renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();
   openModal();
 }
 
@@ -1196,11 +1437,13 @@ function saveTask(){
     source:document.getElementById('taskSourceInput').value.trim(),
     links:taskLinks.filter(l=>l.url.trim()),
     attachments:taskAttachments,
-    timeEntries:existingTask?.timeEntries||[]
+    timeEntries:existingTask?.timeEntries||[],
+    ausserhausTermine:taskAusserhausTermine,
+    zeitEntries:taskZeitEntries
   };
   if(id){const idx=boards[currentBoard].findIndex(t=>t.id===id);if(idx>=0)boards[currentBoard][idx]=data;}
   else boards[currentBoard].push(data);
-  closeModal();render();autoSave();
+  closeModal();render();scheduleSave();
 }
 
 function deleteTask(){
