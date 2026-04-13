@@ -7,11 +7,11 @@
 <script src="https://accounts.google.com/gsi/client" async defer onload="gdriveInit()"></script>
 <style>
 :root {
-  --bg:#1a1b2e; --bg2:#232440; --bg3:#2a2b4a; --bg4:#33345a;
-  --text:#e0e0f0; --text2:#a0a0c0;
-  --accent:#6c63ff; --accent2:#8b83ff;
-  --green:#2ecc71; --orange:#f39c12; --red:#e74c3c;
-  --border:#3a3b5a; --shadow:rgba(0,0,0,0.3);
+  --bg:#ffffff; --bg2:#f4f4f8; --bg3:#eaeaf0; --bg4:#dcdce8;
+  --text:#1a1a2e; --text2:#5a5a7a;
+  --accent:#6c63ff; --accent2:#4a42dd;
+  --green:#27ae60; --orange:#e67e22; --red:#e74c3c;
+  --border:#d0d0e0; --shadow:rgba(0,0,0,0.10);
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden;}
@@ -19,8 +19,8 @@ button{cursor:pointer;border:none;font-family:inherit;}
 input,select,textarea{font-family:inherit;}
 
 /* TOP BAR */
-.topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;z-index:100;}
-.topbar-left{display:flex;align-items:center;gap:12px;flex:1;min-width:0;}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;z-index:100;overflow-x:auto;min-height:52px;}
+.topbar-left{display:flex;align-items:center;gap:12px;flex:1;min-width:200px;}
 .logo{font-size:20px;font-weight:700;color:var(--accent2);letter-spacing:1px;flex-shrink:0;}
 .board-selector{display:flex;gap:4px;align-items:center;overflow-x:auto;flex:1;min-width:0;}
 .board-tab{padding:6px 14px;border-radius:6px;background:transparent;color:var(--text2);font-size:13px;font-weight:500;transition:all .15s;white-space:nowrap;flex-shrink:0;}
@@ -41,7 +41,7 @@ input,select,textarea{font-family:inherit;}
 .btn-secondary:hover{background:var(--bg4);color:var(--text);}
 
 /* FILE BAR */
-.filebar{display:flex;align-items:center;justify-content:space-between;padding:5px 20px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;}
+.filebar{display:flex;align-items:center;justify-content:space-between;padding:5px 20px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;}
 .filebar-left{display:flex;align-items:center;gap:10px;}
 .file-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
 .file-dot.ok{background:var(--green);}
@@ -55,7 +55,7 @@ input,select,textarea{font-family:inherit;}
 .file-btn.drive-connected{color:var(--green);border-color:var(--green);}
 
 /* TOOLBAR */
-.toolbar{display:flex;align-items:center;justify-content:space-between;padding:8px 20px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;}
+.toolbar{display:flex;align-items:center;justify-content:space-between;padding:8px 20px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;}
 .toolbar-left{display:flex;align-items:center;gap:8px;}
 .view-tabs{display:flex;gap:2px;background:var(--bg2);border-radius:8px;padding:2px;}
 .view-tab{padding:5px 14px;border-radius:6px;background:transparent;color:var(--text2);font-size:12px;font-weight:500;transition:all .15s;}
@@ -73,8 +73,16 @@ input,select,textarea{font-family:inherit;}
 .main{flex:1;overflow:auto;padding:16px 20px;}
 
 /* KANBAN */
-.kanban{display:flex;gap:14px;height:100%;min-height:0;}
-.kanban-col{flex:1;min-width:200px;background:var(--bg2);border-radius:10px;display:flex;flex-direction:column;max-height:100%;}
+.kanban{display:flex;gap:14px;height:100%;min-height:0;overflow-x:auto;padding-bottom:8px;}
+.kanban-col{flex:0 0 260px;min-width:200px;background:var(--bg2);border-radius:10px;display:flex;flex-direction:column;max-height:100%;transition:flex .2s;}
+.kanban-col.collapsed{flex:0 0 52px;min-width:52px;overflow:hidden;}
+.kanban-col.collapsed .kanban-col-body{display:none;}
+.kanban-col.collapsed .kanban-col-title{writing-mode:vertical-rl;transform:rotate(180deg);font-size:11px;white-space:nowrap;max-height:160px;overflow:hidden;text-overflow:ellipsis;}
+.kanban-col.collapsed .kanban-col-count{font-size:11px;}
+.kanban-col.collapsed .kanban-col-header{flex-direction:column;align-items:center;padding:10px 6px;gap:8px;height:100%;justify-content:flex-start;cursor:pointer;}
+.kanban-col.collapsed .kanban-col-header:hover{background:rgba(108,99,255,0.06);border-radius:8px;}
+.col-collapse-btn{background:none;border:none;color:var(--text2);font-size:13px;cursor:pointer;padding:2px 5px;border-radius:4px;line-height:1;flex-shrink:0;}
+.col-collapse-btn:hover{color:var(--accent);background:var(--bg3);}
 .kanban-col-header{padding:12px 14px 8px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
 .kanban-col-title{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;}
 .kanban-col-count{font-size:11px;color:var(--text2);background:var(--bg4);padding:1px 7px;border-radius:10px;}
@@ -82,7 +90,7 @@ input,select,textarea{font-family:inherit;}
 .kanban-col-body.drag-over{background:rgba(108,99,255,0.08);border-radius:0 0 10px 10px;}
 
 /* TASK CARD */
-.task-card{background:var(--bg3);border-radius:8px;padding:10px 12px;cursor:grab;transition:all .15s;border:1px solid transparent;position:relative;transform-origin:top left;transform:scale(calc(var(--card-size, 100) / 100));}
+.task-card{background:var(--bg3);border-radius:8px;padding:10px 12px;cursor:grab;transition:all .15s;border:1px solid transparent;position:relative;}
 .task-card:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:0 4px 12px var(--shadow);}
 .task-card.dragging{opacity:0.5;}
 .task-card-title{font-size:13px;font-weight:500;margin-bottom:6px;line-height:1.3;}
@@ -96,7 +104,11 @@ input,select,textarea{font-family:inherit;}
 .ampel-red{background:var(--red);}
 .task-tag{font-size:10px;padding:1px 6px;border-radius:3px;background:var(--bg);color:var(--text2);}
 .task-source{font-size:10px;color:var(--text2);font-style:italic;}
-.task-card-icons{display:flex;gap:4px;margin-top:5px;}
+.task-card-icons{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap;}
+.gcal-btn{font-size:10px;padding:2px 7px;border-radius:3px;background:#1a73e8;color:#fff;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:3px;font-weight:500;transition:background .12s;}
+.gcal-btn:hover{background:#1558b0;}
+.gcal-btn-modal{padding:7px 14px;border-radius:6px;font-size:13px;font-weight:500;background:#1a73e8;color:#fff;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;}
+.gcal-btn-modal:hover{background:#1558b0;}
 .task-icon-badge{font-size:10px;color:var(--text2);background:var(--bg);padding:1px 5px;border-radius:3px;display:flex;align-items:center;gap:3px;}
 
 /* LIST / TABLE */
@@ -122,81 +134,46 @@ input,select,textarea{font-family:inherit;}
 /* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;}
 .modal-overlay.open{opacity:1;pointer-events:all;}
-.modal{background:var(--bg2);border-radius:12px;padding:calc(16px * var(--modal-font-scale, 1));width:540px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px var(--shadow);}
-.modal h2{font-size:calc(15px * var(--modal-font-scale, 1));margin-bottom:calc(12px * var(--modal-font-scale, 1));}
-.modal-field{margin-bottom:calc(8px * var(--modal-font-scale, 1));}
-.modal-field label{display:block;font-size:calc(11px * var(--modal-font-scale, 1));color:var(--text2);margin-bottom:calc(3px * var(--modal-font-scale, 1));font-weight:500;}
-.modal-field input,.modal-field select,.modal-field textarea{width:100%;padding:calc(6px * var(--modal-font-scale, 1)) calc(8px * var(--modal-font-scale, 1));border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:calc(12px * var(--modal-font-scale, 1));outline:none;}
+.modal{background:var(--bg2);border-radius:12px;padding:24px;width:540px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px var(--shadow);}
+.modal h2{font-size:18px;margin-bottom:16px;}
+.modal-field{margin-bottom:12px;}
+.modal-field label{display:block;font-size:12px;color:var(--text2);margin-bottom:4px;font-weight:500;}
+.modal-field input,.modal-field select,.modal-field textarea{width:100%;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;outline:none;}
 .modal-field input:focus,.modal-field select:focus,.modal-field textarea:focus{border-color:var(--accent);}
-.modal-field textarea{resize:none;min-height:calc(95px * var(--modal-font-scale, 1));max-height:calc(95px * var(--modal-font-scale, 1));overflow-y:auto;transition:max-height .2s;cursor:text;}
-.modal-field textarea.desc-expanded{max-height:calc(400px * var(--modal-font-scale, 1));}
-.desc-hint{font-size:calc(10px * var(--modal-font-scale, 1));color:var(--text2);margin-top:2px;font-style:italic;}
-.modal-actions{display:flex;gap:calc(6px * var(--modal-font-scale, 1));justify-content:flex-end;margin-top:calc(12px * var(--modal-font-scale, 1));}
-.modal-actions button{padding:calc(6px * var(--modal-font-scale, 1)) calc(14px * var(--modal-font-scale, 1));border-radius:6px;font-size:calc(12px * var(--modal-font-scale, 1));font-weight:500;}
+.modal-field textarea{resize:vertical;min-height:60px;}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
+.modal-actions button{padding:8px 18px;border-radius:6px;font-size:13px;font-weight:500;}
 .btn-danger{background:var(--red);color:#fff;}
 .btn-danger:hover{opacity:0.85;}
 
 /* SECTION DIVIDER */
-.modal-section{margin-top:calc(10px * var(--modal-font-scale, 1));padding-top:calc(10px * var(--modal-font-scale, 1));border-top:1px solid var(--border);}
-.modal-section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:calc(6px * var(--modal-font-scale, 1));}
-.modal-section-title{font-size:calc(11px * var(--modal-font-scale, 1));font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;}
-.modal-section-add{padding:calc(2px * var(--modal-font-scale, 1)) calc(8px * var(--modal-font-scale, 1));border-radius:4px;font-size:calc(10px * var(--modal-font-scale, 1));background:var(--bg3);color:var(--text2);border:1px solid var(--border);transition:all .15s;}
+.modal-section{margin-top:14px;padding-top:14px;border-top:1px solid var(--border);}
+.modal-section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.modal-section-title{font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;}
+.modal-section-add{padding:3px 10px;border-radius:4px;font-size:11px;background:var(--bg3);color:var(--text2);border:1px solid var(--border);transition:all .15s;}
 .modal-section-add:hover{background:var(--accent);color:#fff;border-color:var(--accent);}
 
 /* LINKS */
-.link-row{display:flex;align-items:center;gap:calc(4px * var(--modal-font-scale, 1));margin-bottom:calc(4px * var(--modal-font-scale, 1));background:var(--bg3);border-radius:6px;padding:calc(4px * var(--modal-font-scale, 1)) calc(6px * var(--modal-font-scale, 1));}
-.link-row input{flex:1;background:var(--bg4);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:calc(3px * var(--modal-font-scale, 1)) calc(6px * var(--modal-font-scale, 1));font-size:calc(11px * var(--modal-font-scale, 1));outline:none;}
+.link-row{display:flex;align-items:center;gap:6px;margin-bottom:6px;background:var(--bg3);border-radius:6px;padding:6px 8px;}
+.link-row input{flex:1;background:var(--bg4);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:4px 8px;font-size:12px;outline:none;}
 .link-row input:focus{border-color:var(--accent);}
-.link-row input.url-input{flex:2;font-family:'Courier New',monospace;letter-spacing:0.3px;}
-.link-row a{font-family:'Courier New',monospace;font-size:calc(12px * var(--modal-font-scale,1));letter-spacing:0.3px;}
-.link-remove-btn{width:calc(20px * var(--modal-font-scale, 1));height:calc(20px * var(--modal-font-scale, 1));border-radius:4px;background:transparent;color:var(--text2);font-size:calc(12px * var(--modal-font-scale, 1));display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.link-row input.url-input{flex:2;}
+.link-remove-btn{width:22px;height:22px;border-radius:4px;background:transparent;color:var(--text2);font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .link-remove-btn:hover{color:var(--red);}
-.no-items-hint{font-size:calc(11px * var(--modal-font-scale, 1));color:var(--text2);text-align:center;padding:calc(6px * var(--modal-font-scale, 1));font-style:italic;}
-
-/* TERMINE */
-.termin-item{display:flex;align-items:center;gap:calc(6px * var(--modal-font-scale,1));padding:calc(6px * var(--modal-font-scale,1));margin-bottom:calc(4px * var(--modal-font-scale,1));background:var(--bg3);border-radius:6px;flex-wrap:wrap;}
-.termin-date{font-size:calc(10px * var(--modal-font-scale,1));font-weight:600;color:var(--accent2);white-space:nowrap;}
-.termin-time{font-size:calc(10px * var(--modal-font-scale,1));color:var(--text2);white-space:nowrap;font-family:'Courier New',monospace;}
-.termin-duration{font-size:calc(10px * var(--modal-font-scale,1));color:var(--accent);font-weight:600;background:var(--bg4);padding:calc(2px * var(--modal-font-scale,1)) calc(4px * var(--modal-font-scale,1));border-radius:3px;white-space:nowrap;}
-.termin-text{flex:1;font-size:calc(11px * var(--modal-font-scale,1));color:var(--text);min-width:100px;}
-.termin-del{width:calc(20px * var(--modal-font-scale,1));height:calc(20px * var(--modal-font-scale,1));background:transparent;color:var(--text2);border:none;font-size:calc(12px * var(--modal-font-scale,1));cursor:pointer;border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
-.termin-del:hover{color:var(--red);}
-
-/* RAHMENFELDER */
-.modal-section{border:1px solid var(--border);border-radius:8px;padding:calc(8px * var(--modal-font-scale,1)) calc(10px * var(--modal-font-scale,1));margin-top:calc(8px * var(--modal-font-scale,1));}
-.modal-section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:0;}
+.no-items-hint{font-size:12px;color:var(--text2);text-align:center;padding:8px;font-style:italic;}
 
 /* ATTACHMENTS */
-.attach-row{display:flex;align-items:center;gap:calc(6px * var(--modal-font-scale, 1));margin-bottom:calc(4px * var(--modal-font-scale, 1));background:var(--bg3);border-radius:6px;padding:calc(4px * var(--modal-font-scale, 1)) calc(8px * var(--modal-font-scale, 1));}
-.attach-icon{font-size:calc(14px * var(--modal-font-scale, 1));flex-shrink:0;}
+.attach-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;background:var(--bg3);border-radius:6px;padding:6px 10px;}
+.attach-icon{font-size:16px;flex-shrink:0;}
 .attach-info{flex:1;min-width:0;}
-.attach-name{font-size:calc(11px * var(--modal-font-scale, 1));font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.attach-size{font-size:calc(9px * var(--modal-font-scale, 1));color:var(--text2);}
-.attach-download{padding:calc(2px * var(--modal-font-scale, 1)) calc(6px * var(--modal-font-scale, 1));border-radius:4px;font-size:calc(10px * var(--modal-font-scale, 1));background:var(--bg4);color:var(--text2);border:1px solid var(--border);flex-shrink:0;}
+.attach-name{font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.attach-size{font-size:10px;color:var(--text2);}
+.attach-download{padding:3px 8px;border-radius:4px;font-size:11px;background:var(--bg4);color:var(--text2);border:1px solid var(--border);flex-shrink:0;}
 .attach-download:hover{background:var(--accent);color:#fff;border-color:var(--accent);}
-.attach-remove{width:calc(20px * var(--modal-font-scale, 1));height:calc(20px * var(--modal-font-scale, 1));border-radius:4px;background:transparent;color:var(--text2);font-size:calc(12px * var(--modal-font-scale, 1));display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.attach-remove{width:22px;height:22px;border-radius:4px;background:transparent;color:var(--text2);font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .attach-remove:hover{color:var(--red);}
-.attach-drop-zone{border:1.5px dashed var(--border);border-radius:6px;padding:calc(10px * var(--modal-font-scale, 1));text-align:center;font-size:calc(11px * var(--modal-font-scale, 1));color:var(--text2);cursor:pointer;transition:all .15s;}
+.attach-drop-zone{border:1.5px dashed var(--border);border-radius:6px;padding:12px;text-align:center;font-size:12px;color:var(--text2);cursor:pointer;transition:all .15s;}
 .attach-drop-zone:hover,.attach-drop-zone.dragover{border-color:var(--accent);background:rgba(108,99,255,0.06);color:var(--text);}
-
-/* CHECKLISTE */
-.checklist-container{display:none;}
-.checklist-container.open{display:block;}
-.checklist-header{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:4px 0;}
-.checklist-header:hover .modal-section-title{color:var(--text);}
-.checklist-toggle{font-size:calc(11px * var(--modal-font-scale,1));color:var(--text2);transition:transform .2s;}
-.checklist-toggle.open{transform:rotate(90deg);}
-.checklist-item{display:flex;align-items:center;gap:8px;padding:calc(4px * var(--modal-font-scale,1)) 0;border-bottom:1px solid var(--bg3);}
-.checklist-item input[type=checkbox]{width:calc(14px * var(--modal-font-scale,1));height:calc(14px * var(--modal-font-scale,1));cursor:pointer;accent-color:var(--accent);flex-shrink:0;}
-.checklist-item-text{flex:1;font-size:calc(12px * var(--modal-font-scale,1));color:var(--text);background:none;border:none;outline:none;padding:2px 4px;border-radius:4px;}
-.checklist-item-text:focus{background:var(--bg3);}
-.checklist-item-text.done{text-decoration:line-through;color:var(--text2);}
-.checklist-item-del{width:calc(20px * var(--modal-font-scale,1));height:calc(20px * var(--modal-font-scale,1));background:transparent;color:var(--text2);border:none;font-size:calc(12px * var(--modal-font-scale,1));cursor:pointer;border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
-.checklist-item-del:hover{color:var(--red);}
-.checklist-add-row{display:flex;align-items:center;gap:6px;margin-top:6px;}
-.checklist-add-input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:calc(5px * var(--modal-font-scale,1)) calc(8px * var(--modal-font-scale,1));font-size:calc(12px * var(--modal-font-scale,1));outline:none;}
-.checklist-add-input:focus{border-color:var(--accent);}
-.checklist-progress{font-size:calc(11px * var(--modal-font-scale,1));color:var(--accent2);font-weight:600;}
 
 /* TIMER */
 .timer-display{font-size:34px;font-weight:700;color:var(--accent2);font-variant-numeric:tabular-nums;letter-spacing:3px;text-align:center;padding:10px 0 8px;font-family:'Courier New',monospace;}
@@ -318,7 +295,6 @@ input,select,textarea{font-family:inherit;}
     <span class="search-hint">/</span>
   </div>
   <div class="topbar-right">
-    <button class="topbar-btn btn-secondary" onclick="importAuftrag()" title="README.txt importieren">&#128229; Auftrag</button>
     <button class="topbar-btn btn-primary" onclick="openNewTaskModal()">+ Neuer Task</button>
   </div>
 </div>
@@ -356,12 +332,12 @@ input,select,textarea{font-family:inherit;}
         <div class="filter-dropdown" id="filterOwnerDropdown"></div>
       </div>
       <div class="filter-wrapper">
-        <button class="filter-btn" id="filterTagBtn" onclick="toggleFilter('tag')">Tag ▾</button>
-        <div class="filter-dropdown" id="filterTagDropdown"></div>
+        <button class="filter-btn" id="filterAmpelBtn" onclick="toggleFilter('ampel')">Ampel ▾</button>
+        <div class="filter-dropdown" id="filterAmpelDropdown"></div>
       </div>
       <div class="filter-wrapper">
-        <button class="filter-btn" id="filterDueBtn" onclick="toggleFilter('due')">Fälligkeit ▾</button>
-        <div class="filter-dropdown" id="filterDueDropdown"></div>
+        <button class="filter-btn" id="filterTagBtn" onclick="toggleFilter('tag')">Tag ▾</button>
+        <div class="filter-dropdown" id="filterTagDropdown"></div>
       </div>
       <button class="filter-btn" id="clearFiltersBtn" onclick="clearFilters()" style="display:none">✕ Zurücksetzen</button>
     </div>
@@ -404,106 +380,57 @@ input,select,textarea{font-family:inherit;}
     <h2 id="modalTitle">Neuer Task</h2>
     <input type="hidden" id="taskId">
     <div class="modal-field"><label>Titel *</label><input type="text" id="taskTitleInput" placeholder="Task-Titel eingeben…"></div>
-    <div class="modal-field"><label>Beschreibung <span class="desc-hint">(Doppelklick zum Aufklappen)</span></label><textarea id="taskDescInput" placeholder="Beschreibung…" ondblclick="toggleDescExpand(this)"></textarea></div>
+    <div class="modal-field"><label>Beschreibung</label><textarea id="taskDescInput" placeholder="Beschreibung…"></textarea></div>
     <div style="display:flex;gap:12px;">
       <div class="modal-field" style="flex:1"><label>Owner</label><input type="text" id="taskOwnerInput" placeholder="Name"></div>
-      <div class="modal-field" style="flex:1"><label>Fällig am</label><input type="date" id="taskDueInput"></div>
+      <div class="modal-field" style="flex:1"><label>Due Date</label><input type="date" id="taskDueInput"></div>
     </div>
-    <div style="display:flex;gap:12px;align-items:flex-end;">
-      <div class="modal-field" style="flex:1"><label>Adresse</label><input type="text" id="taskAddressInput" placeholder="z.B. Hauptstr. 62, 40210 Düsseldorf"></div>
-      <button class="topbar-btn btn-primary" onclick="openGoogleMaps()" style="padding:8px 14px;font-size:12px;white-space:nowrap;">🗺 Maps</button>
-    </div>
-    <div style="display:flex;gap:12px;align-items:flex-end;">
-      <div class="modal-field" style="flex:1"><label>NAS-Ordner</label><input type="text" id="taskNasPathInput" placeholder="z.B. \\nas-ddbraun\Kunden\..."></div>
-      <button class="topbar-btn btn-primary" onclick="copyNasPath()" style="padding:8px 14px;font-size:12px;white-space:nowrap;">📋 Pfad kopieren</button>
-    </div>
-    <div class="modal-field"><label>Status</label><select id="taskStatusInput"></select></div>
-    <!-- CHECKLISTE -->
-    <div class="modal-section">
-      <div class="checklist-header" onclick="toggleChecklistSection()">
-        <span class="modal-section-title">☑ CHECKLISTE <span class="checklist-progress" id="checklistProgress"></span></span>
-        <span class="checklist-toggle" id="checklistToggleIcon">▶</span>
-      </div>
-      <div class="checklist-container" id="checklistContainer">
-        <div id="checklistItems"></div>
-        <div class="checklist-add-row">
-          <input type="text" class="checklist-add-input" id="checklistNewInput" placeholder="+ Eintrag hinzufügen…" onkeydown="checklistAddOnEnter(event)">
-          <button class="modal-section-add" onclick="addChecklistItem()">+ Hinzufügen</button>
-        </div>
+    <div style="display:flex;gap:12px;">
+      <div class="modal-field" style="flex:1"><label>Status</label><select id="taskStatusInput" onchange="updateGcalModalBtn()"></select></div>
+      <div class="modal-field" style="flex:1"><label>Ampel</label>
+        <select id="taskAmpelInput"><option value="grün">🟢 Grün</option><option value="orange">🟠 Orange</option><option value="rot">🔴 Rot</option></select>
       </div>
     </div>
     <div style="display:flex;gap:12px;">
       <div class="modal-field" style="flex:1"><label>Tags (Komma-getrennt)</label><input type="text" id="taskTagsInput" placeholder="z.B. Report, Budget"></div>
       <div class="modal-field" style="flex:1"><label>Quelle</label><input type="text" id="taskSourceInput" placeholder="z.B. E-Mail, Meeting"></div>
     </div>
-    <div class="modal-field"><label>Kartengröße</label><div style="display:flex;align-items:center;gap:12px;"><input type="range" id="taskSizeInput" min="65" max="150" value="100" style="flex:1;cursor:pointer;"><span id="taskSizeLabel" style="min-width:40px;text-align:center;font-weight:600;color:var(--accent);">100%</span></div></div>
 
     <!-- LINKS -->
     <div class="modal-section">
-      <div class="checklist-header" onclick="toggleLinksSection()">
-        <span class="modal-section-title">🔗 LINKS <span class="checklist-progress" id="linksProgress"></span></span>
-        <span class="checklist-toggle" id="linksToggleIcon">▶</span>
+      <div class="modal-section-header">
+        <span class="modal-section-title">🔗 Links</span>
+        <button class="modal-section-add" onclick="addLinkRow()">+ Link hinzufügen</button>
       </div>
-      <div class="checklist-container" id="linksContainer">
-        <div id="linksList"></div>
-        <button class="modal-section-add" onclick="addLinkRow()" style="width:100%;margin-top:6px;">+ Link hinzufügen</button>
-      </div>
+      <div id="linksList"></div>
     </div>
 
     <!-- ATTACHMENTS -->
     <div class="modal-section">
-      <div class="checklist-header" onclick="toggleAttachSection()">
-        <span class="modal-section-title">📎 DATEIANHÄNGE <span class="checklist-progress" id="attachProgress"></span></span>
-        <span class="checklist-toggle" id="attachToggleIcon">▶</span>
+      <div class="modal-section-header">
+        <span class="modal-section-title">📎 Dateianhänge</span>
+        <button class="modal-section-add" onclick="triggerFileInput()">+ Datei anhängen</button>
       </div>
-      <div class="checklist-container" id="attachContainer">
-        <div id="attachList"></div>
-        <div class="attach-drop-zone" id="dropZone" onclick="triggerFileInput()">
-          Datei hier hineinziehen oder klicken zum Auswählen
-        </div>
-        <button class="modal-section-add" onclick="triggerFileInput()" style="width:100%;margin-top:6px;">+ Datei anhängen</button>
-        <input type="file" id="fileAttachInput" style="display:none" multiple onchange="handleFileAttach(event)">
+      <div id="attachList"></div>
+      <div class="attach-drop-zone" id="dropZone" onclick="triggerFileInput()">
+        Datei hier hineinziehen oder klicken zum Auswählen
       </div>
+      <input type="file" id="fileAttachInput" style="display:none" multiple onchange="handleFileAttach(event)">
     </div>
 
     <!-- TIME TRACKING -->
     <div class="modal-section">
-      <div class="checklist-header" onclick="toggleTimerSection()">
-        <span class="modal-section-title">⏱ ZEITERFASSUNG <span class="checklist-progress" id="timerProgress"></span></span>
-        <span class="checklist-toggle" id="timerToggleIcon">▶</span>
+      <div class="modal-section-header">
+        <span class="modal-section-title">⏱ Zeiterfassung</span>
       </div>
-      <div class="checklist-container" id="timerContainer">
-        <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px;">
-          <div id="timerDisplay" class="timer-display" style="font-size:calc(22px * var(--modal-font-scale,1));padding:4px 0;flex:1;">00:00:00</div>
-          <button id="timerBtn" class="timer-start-btn" style="flex:1;" onclick="toggleTimer()">▶ Aufzeichnung starten</button>
-        </div>
-        <div class="timer-entries" id="timerEntries"></div>
-      </div>
-    </div>
-
-    <!-- AUßERHAUS-TERMINE -->
-    <div class="modal-section">
-      <div class="checklist-header" onclick="toggleTermineSection()">
-        <span class="modal-section-title">📅 AUSSERHAUS-TERMINE <span class="checklist-progress" id="termineProgress"></span></span>
-        <span class="checklist-toggle" id="termineToggleIcon">▶</span>
-      </div>
-      <div class="checklist-container" id="termineContainer">
-        <div id="termineItems"></div>
-        <div style="background:var(--bg3);border-radius:6px;padding:8px;margin-bottom:8px;font-size:11px;color:var(--accent2);font-weight:600;">
-          Gesamtdauer: <span id="termineTotalDuration">0h 0min</span>
-        </div>
-        <div class="checklist-add-row" style="flex-wrap:wrap;gap:6px;">
-          <input type="date" class="checklist-add-input" id="termineNewDate" style="flex:0.4;">
-          <input type="time" class="checklist-add-input" id="termineNewTimeFrom" placeholder="von" style="flex:0.3;">
-          <input type="time" class="checklist-add-input" id="termineNewTimeTo" placeholder="bis" style="flex:0.3;">
-          <input type="text" class="checklist-add-input" id="termineNewText" placeholder="Beschreibung…" style="flex:1;" onkeydown="termineAddOnEnter(event)">
-          <button class="modal-section-add" onclick="addTermin()">+</button>
-        </div>
-      </div>
+      <div id="timerDisplay" class="timer-display">00:00:00</div>
+      <button id="timerBtn" class="timer-start-btn" onclick="toggleTimer()">▶ Aufzeichnung starten</button>
+      <div class="timer-entries" id="timerEntries"></div>
     </div>
 
     <div class="modal-actions">
       <button class="topbar-btn btn-danger" id="deleteTaskBtn" onclick="deleteTask()" style="display:none;margin-right:auto;">Löschen</button>
+      <button class="gcal-btn-modal" id="gcalModalBtn" onclick="openGoogleCalendarFromModal()" style="display:none;margin-right:auto;" title="In Google Kalender eintragen">📅 In Kalender eintragen</button>
       <button class="topbar-btn btn-secondary" onclick="closeModal()">Abbrechen</button>
       <button class="topbar-btn btn-primary" onclick="saveTask()">Speichern</button>
     </div>
@@ -564,7 +491,7 @@ let boards = {};
 let statuses = ['Backlog','Diese Woche','Heute','Waiting','Done'];
 let currentBoard = '';
 let currentView = 'kanban';
-let filters = {owner:null,tag:null,due:null};
+let filters = {owner:null,ampel:null,tag:null};
 let searchQuery = '';
 let listSortField = 'due', listSortDir = 1;
 let draggedTaskId = null;
@@ -575,6 +502,7 @@ let taskAttachments = [];
 
 let fileHandle = null;
 const hasFileAPI = 'showOpenFilePicker' in window;
+let collapsedCols = {};
 
 // ── TIMER STATE ──
 let activeTimerTaskId = null;
@@ -585,7 +513,6 @@ function colColor(i){return COL_COLORS[i%COL_COLORS.length];}
 function generateId(){return 't_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);}
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
 function formatBytes(b){if(b<1024)return b+'B';if(b<1048576)return (b/1024).toFixed(1)+'KB';return (b/1048576).toFixed(1)+'MB';}
-function autoResizeTextarea(el){el.style.height='auto';el.style.height=Math.max(60,el.scrollHeight)+'px';}
 
 // ── GOOGLE DRIVE INTEGRATION ──
 const GDRIVE_CLIENT_ID = '56419258975-2ri3eujer9p6saph1mesa5hihlcae1pl.apps.googleusercontent.com';
@@ -860,81 +787,6 @@ function fallbackImport(){
   };inp.click();
 }
 
-// ── AUFTRAG IMPORT (README.txt) ──
-function importAuftrag(){
-  const inp=document.createElement('input');inp.type='file';inp.accept='.txt';
-  inp.onchange=e=>{
-    const f=e.target.files[0];if(!f)return;
-    const r=new FileReader();
-    r.onload=ev=>{
-      try{parseAndCreateTask(ev.target.result);}
-      catch(err){alert('Fehler beim Importieren: '+err.message);}
-    };
-    r.readAsText(f,'utf-8');
-  };inp.click();
-}
-
-function parseReadmeTxt(txt){
-  const t=txt.replace(/\r\n/g,'\n').replace(/\r/g,'\n'); // Windows-Zeilenenden normalisieren
-  const get=key=>{const m=t.match(new RegExp(key+':\\s*(.+)'));return m?m[1].trim():'';};
-  const schadenMatch=t.match(/SCHADENSBESCHREIBUNG[^\n]*\n[=]+\n+([\s\S]*?)$/);
-  const schaden=schadenMatch?schadenMatch[1].trim():'';
-  return{
-    kostenstelle:get('Auftrag_Kostenstelle'),
-    strasse:get('Objekt_Strasse'),
-    hausverwaltung:get('Objekt_Hausverwaltung'),
-    eigName:get('Eigentuemer_Name'),
-    eigTel:get('Eigentuemer_Telefon'),
-    eigEmail:get('Eigentuemer_Email'),
-    mieterName:get('Mieter_Name'),
-    mieterTel:get('Mieter_Telefon'),
-    mieterEmail:get('Mieter_Email'),
-    schaden:schaden==='(Hier Schadensbeschreibung eintragen)'?'':schaden
-  };
-}
-
-function parseAndCreateTask(txt){
-  const d=parseReadmeTxt(txt);
-
-  // Spalte "Eingang" ganz links einfügen falls nicht vorhanden
-  if(!statuses.includes('Eingang')) statuses.unshift('Eingang');
-
-  // Titel: Kostenstelle | Straße | Mieter
-  const offen='(noch offen)';
-  const titleParts=[d.kostenstelle,d.strasse,d.mieterName].filter(x=>x&&x!==offen);
-  const title=titleParts.join(' | ')||'Neuer Auftrag';
-
-  // Tags: Hausverwaltung
-  const tags=[];
-  if(d.hausverwaltung&&d.hausverwaltung!==offen) tags.push(d.hausverwaltung.replace(/\.$/,''));
-
-  // Links: Telefon + E-Mail anklickbar
-  const links=[];
-  const cleanTel=t=>t.replace(/[^\d+]/g,'');
-  const isValid=v=>v&&v!==offen&&v!=='Keine Email.'&&v!=='';
-  if(isValid(d.eigTel))  links.push({label:'📞 Eigentümer: '+d.eigName.replace(/\.$/,''), url:'tel:'+cleanTel(d.eigTel)});
-  if(isValid(d.eigEmail)) links.push({label:'✉️ Eigentümer: '+d.eigName.replace(/\.$/,''), url:'mailto:'+d.eigEmail});
-  if(isValid(d.mieterTel)) links.push({label:'📞 Mieter: '+d.mieterName.replace(/\.$/,''), url:'tel:'+cleanTel(d.mieterTel)});
-  if(isValid(d.mieterEmail)) links.push({label:'✉️ Mieter: '+d.mieterName.replace(/\.$/,''), url:'mailto:'+d.mieterEmail});
-
-  // Board sicherstellen
-  if(!boards[currentBoard]){
-    const k=Object.keys(boards);
-    if(k.length) currentBoard=k[0];
-    else{boards['Aufträge']=[];currentBoard='Aufträge';}
-  }
-
-  const task={
-    id:generateId(), title, desc:d.schaden, owner:'Braun',
-    due:'', address:d.strasse, status:'Eingang', ampel:'orange',
-    tags, source:'', links, attachments:[], timeEntries:[]
-  };
-
-  boards[currentBoard].push(task);
-  render(); autoSave();
-  alert('✅ Auftrag importiert:\n'+title);
-}
-
 // ── SEED DATA ──
 function seedData(){
   const today=new Date();
@@ -963,32 +815,35 @@ function getTasks(){
   let t=boards[currentBoard]||[];
   if(searchQuery){const q=searchQuery.toLowerCase();t=t.filter(x=>x.title.toLowerCase().includes(q)||(x.desc||'').toLowerCase().includes(q)||x.owner.toLowerCase().includes(q)||(x.tags||[]).some(tg=>tg.toLowerCase().includes(q)));}
   if(filters.owner)t=t.filter(x=>x.owner===filters.owner);
+  if(filters.ampel)t=t.filter(x=>x.ampel===filters.ampel);
   if(filters.tag)t=t.filter(x=>(x.tags||[]).includes(filters.tag));
-  if(filters.due){
-    const today=new Date().toISOString().split('T')[0];
-    const weekEnd=new Date(Date.now()+7*86400000).toISOString().split('T')[0];
-    if(filters.due==='today')t=t.filter(x=>x.due===today);
-    else if(filters.due==='week')t=t.filter(x=>x.due&&x.due>=today&&x.due<=weekEnd);
-    else if(filters.due==='overdue')t=t.filter(x=>x.due&&x.due<today);
-    else if(filters.due==='nodue')t=t.filter(x=>!x.due);
-  }
   return t;
 }
 function isOverdue(due){return due&&new Date(due)<new Date(new Date().toISOString().split('T')[0]);}
 function formatDate(d){if(!d)return'';const p=d.split('-');return p[2]+'.'+p[1]+'.'+p[0].substr(2);}
 
+function isAusserhaus(task){return task.status&&task.status.toLowerCase().includes('außerhaus');}
+function openGoogleCalendar(taskId,evt){
+  if(evt){evt.stopPropagation();}
+  const task=findTaskById(taskId)||(boards[currentBoard]||[]).find(t=>t.id===taskId);
+  if(!task)return;
+  const title=encodeURIComponent(task.title);
+  const details=encodeURIComponent((task.desc||'')+(task.owner?'\nZuständig: '+task.owner:''));
+  let dates='';
+  if(task.due){const d=task.due.replace(/-/g,'');dates=d+'/'+d;}
+  const url='https://calendar.google.com/calendar/render?action=TEMPLATE&text='+title+'&dates='+dates+'&details='+details;
+  window.open(url,'_blank');
+}
 function taskCardHTML(task){
   const overdue=isOverdue(task.due);
   const hasLinks=(task.links||[]).length>0;
   const hasAttach=(task.attachments||[]).length>0;
-  const cl=task.checklist||[];
-  const clDone=cl.filter(i=>i.done).length;
-  const clTotal=cl.length;
+  const isAH=isAusserhaus(task);
   return`<div class="task-card" draggable="true" data-id="${task.id}"
     ondragstart="onDragStart(event)" ondragend="onDragEnd(event)" onclick="openEditTaskModal('${task.id}')">
     <div class="task-card-title">${esc(task.title)}</div>
     <div class="task-card-meta">
-      ${clTotal>0?`<span class="task-icon-badge" title="Checkliste">☑ ${clDone}/${clTotal}</span>`:''}
+      <span class="ampel ampel-${task.ampel==='grün'?'green':task.ampel==='orange'?'orange':'red'}"></span>
       <span class="task-card-owner">${esc(task.owner)}</span>
       ${task.due?`<span class="task-card-due ${overdue?'overdue':''}">${formatDate(task.due)}</span>`:''}
       ${(task.tags||[]).map(t=>`<span class="task-tag">${esc(t)}</span>`).join('')}
@@ -996,10 +851,11 @@ function taskCardHTML(task){
     ${(()=>{
       const hasTime=(task.timeEntries||[]).length>0||isTaskTimerRunning(task.id);
       const timeMs=hasTime?getTaskTotalMs(task):0;
-      return(hasLinks||hasAttach||hasTime)?`<div class="task-card-icons">
+      return(hasLinks||hasAttach||hasTime||isAH)?`<div class="task-card-icons">
         ${hasLinks?`<span class="task-icon-badge">🔗 ${(task.links||[]).length}</span>`:''}
         ${hasAttach?`<span class="task-icon-badge">📎 ${(task.attachments||[]).length}</span>`:''}
         ${hasTime?`<span class="timer-badge${isTaskTimerRunning(task.id)?' running':''}">⏱ ${formatDuration(timeMs)}</span>`:''}
+        ${isAH?`<button class="gcal-btn" onclick="openGoogleCalendar('${task.id}',event)" title="In Google Kalender eintragen">📅 Kalender</button>`:''}
       </div>`:'';
     })()}
   </div>`;
@@ -1010,10 +866,24 @@ function renderKanban(){
   let html='<div class="kanban">';
   statuses.forEach((s,i)=>{
     const col=tasks.filter(t=>t.status===s);
-    html+=`<div class="kanban-col" style="border-top:3px solid ${colColor(i)}">
-      <div class="kanban-col-header"><span class="kanban-col-title">${esc(s)}</span><span class="kanban-col-count">${col.length}</span></div>
+    const isCollapsed=!!collapsedCols[s];
+    const arrow=isCollapsed?'▶':'◀';
+    html+=`<div class="kanban-col${isCollapsed?' collapsed':''}" style="border-top:3px solid ${colColor(i)}">
+      <div class="kanban-col-header">
+        ${isCollapsed
+          ? `<button class="col-collapse-btn" onclick="event.stopPropagation();toggleColCollapse('${esc(s)}')" title="Spalte einblenden">${arrow}</button>
+             <span class="kanban-col-title">${esc(s)}</span>
+             <span class="kanban-col-count">${col.length}</span>`
+          : `<span class="kanban-col-title">${esc(s)}</span>
+             <span style="display:flex;align-items:center;gap:6px">
+               <span class="kanban-col-count">${col.length}</span>
+               <button class="col-collapse-btn" onclick="event.stopPropagation();toggleColCollapse('${esc(s)}')" title="Spalte ausblenden">${arrow}</button>
+             </span>`
+        }
+      </div>
       <div class="kanban-col-body" data-status="${esc(s)}" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
         ${col.map(taskCardHTML).join('')}
+        <button style="width:100%;padding:6px;border:1.5px dashed var(--border);border-radius:6px;background:none;color:var(--text2);font-size:12px;cursor:pointer;margin-top:4px;transition:all .12s" onclick="openNewTaskInCol('${esc(s)}')" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">+ Task</button>
       </div></div>`;
   });
   html+='</div>';
@@ -1035,9 +905,8 @@ function renderList(){
   for(const t of tasks){
     const overdue=isOverdue(t.due);
     const badges=[(t.links||[]).length>0?`🔗${(t.links||[]).length}`:'',(t.attachments||[]).length>0?`📎${(t.attachments||[]).length}`:''].filter(Boolean).join(' ');
-    const cl2=t.checklist||[];const cl2d=cl2.filter(i=>i.done).length;
     html+=`<div class="list-item" onclick="openEditTaskModal('${t.id}')">
-      ${cl2.length>0?`<span style="font-size:10px;color:var(--accent2)">☑${cl2d}/${cl2.length}</span>`:''}
+      <span class="ampel ampel-${t.ampel==='grün'?'green':t.ampel==='orange'?'orange':'red'}"></span>
       <span class="list-item-title">${esc(t.title)}${badges?` <span style="font-size:10px;color:var(--text2)">${badges}</span>`:''}</span>
       <span class="list-item-owner">${esc(t.owner)}</span>
       <span class="list-item-due ${overdue?'overdue':''}">${formatDate(t.due)}</span>
@@ -1050,30 +919,30 @@ function renderList(){
 
 function renderTable(){
   const tasks=getTasks();
-  // Telefonnummern aus Links extrahieren
-  const getTelFromLinks=(links,type)=>{
-    const link=(links||[]).find(l=>l.url.startsWith('tel:')&&l.label.includes(type));
-    return link?link.url.replace('tel:',''):'';
-  };
   let html=`<div class="table-view"><table><thead><tr>
     <th onclick="toggleListSort('title')">Titel</th><th onclick="toggleListSort('status')">Status</th>
-    <th>Tel. Mieter</th><th>Tel. Eigentümer</th><th>Tags</th>
+    <th onclick="toggleListSort('owner')">Owner</th><th onclick="toggleListSort('due')">Due Date</th>
+    <th>Ampel</th><th>Tags</th><th>Links/Anhänge</th>
   </tr></thead><tbody>`;
   const sorted=tasks.slice().sort((a,b)=>{
     const f=listSortField;
+    if(f==='due'){const da=a.due||'9999',db=b.due||'9999';return(da<db?-1:da>db?1:0)*listSortDir;}
+    if(f==='owner')return a.owner.localeCompare(b.owner)*listSortDir;
     if(f==='status')return(statuses.indexOf(a.status)-statuses.indexOf(b.status))*listSortDir;
     if(f==='title')return a.title.localeCompare(b.title)*listSortDir;
     return 0;
   });
   for(const t of sorted){
-    const telMieter=getTelFromLinks(t.links,'Mieter');
-    const telEigent=getTelFromLinks(t.links,'Eigentümer');
+    const overdue=isOverdue(t.due);
+    const lc=(t.links||[]).length,ac=(t.attachments||[]).length;
     html+=`<tr onclick="openEditTaskModal('${t.id}')">
       <td>${esc(t.title)}</td>
       <td><span class="list-item-status">${esc(t.status)}</span></td>
-      <td style="font-size:11px;">${telMieter?`<a href="tel:${telMieter}" style="color:var(--accent2);text-decoration:none;">${telMieter}</a>`:'-'}</td>
-      <td style="font-size:11px;">${telEigent?`<a href="tel:${telEigent}" style="color:var(--accent2);text-decoration:none;">${telEigent}</a>`:'-'}</td>
+      <td>${esc(t.owner)}</td>
+      <td class="${overdue?'overdue':''}">${formatDate(t.due)}</td>
+      <td><span class="ampel ampel-${t.ampel==='grün'?'green':t.ampel==='orange'?'orange':'red'}"></span></td>
       <td>${(t.tags||[]).map(tg=>`<span class="task-tag">${esc(tg)}</span>`).join(' ')}</td>
+      <td style="font-size:11px;color:var(--text2)">${lc?`🔗${lc} `:''}${ac?`📎${ac}`:''}</td>
     </tr>`;
   }
   html+='</tbody></table></div>';
@@ -1100,6 +969,8 @@ function renderBoardTabs(){
 }
 function switchBoard(name){currentBoard=name;render();}
 function switchView(view){currentView=view;document.querySelectorAll('.view-tab').forEach(t=>t.classList.toggle('active',t.dataset.view===view));render();}
+function toggleColCollapse(status){collapsedCols[status]=!collapsedCols[status];renderKanban();}
+function openNewTaskInCol(status){openNewTaskModal();document.getElementById('taskStatusInput').value=status;}
 function toggleListSort(field){if(listSortField===field)listSortDir*=-1;else{listSortField=field;listSortDir=1;}render();}
 
 // ── FILTERS ──
@@ -1107,19 +978,18 @@ function getAllOwners(){return[...new Set(Object.values(boards).flat().map(t=>t.
 function getAllTags(){return[...new Set(Object.values(boards).flat().flatMap(t=>t.tags||[]))].sort();}
 function updateFilterDropdowns(){
   document.getElementById('filterOwnerDropdown').innerHTML=getAllOwners().map(o=>`<div class="filter-dropdown-item ${filters.owner===o?'selected':''}" onclick="setFilter('owner','${esc(o)}')">${esc(o)}</div>`).join('');
+  document.getElementById('filterAmpelDropdown').innerHTML=['grün','orange','rot'].map(a=>`<div class="filter-dropdown-item ${filters.ampel===a?'selected':''}" onclick="setFilter('ampel','${esc(a)}')">${a==='grün'?'🟢 Grün':a==='orange'?'🟠 Orange':'🔴 Rot'}</div>`).join('');
   document.getElementById('filterTagDropdown').innerHTML=getAllTags().map(t=>`<div class="filter-dropdown-item ${filters.tag===t?'selected':''}" onclick="setFilter('tag','${esc(t)}')">${esc(t)}</div>`).join('');
-  const dueOpts=[{val:'today',label:'📅 Heute'},{val:'week',label:'📅 Diese Woche'},{val:'overdue',label:'⚠️ Überfällig'},{val:'nodue',label:'— Kein Datum'}];
-  document.getElementById('filterDueDropdown').innerHTML=dueOpts.map(d=>`<div class="filter-dropdown-item ${filters.due===d.val?'selected':''}" onclick="setFilter('due','${d.val}')">${d.label}</div>`).join('');
-  const has=filters.owner||filters.tag||filters.due;
+  const has=filters.owner||filters.ampel||filters.tag;
   document.getElementById('clearFiltersBtn').style.display=has?'':'none';
   document.getElementById('filterOwnerBtn').classList.toggle('active',!!filters.owner);
+  document.getElementById('filterAmpelBtn').classList.toggle('active',!!filters.ampel);
   document.getElementById('filterTagBtn').classList.toggle('active',!!filters.tag);
-  document.getElementById('filterDueBtn').classList.toggle('active',!!filters.due);
 }
 function toggleFilter(type){const dd=document.getElementById(`filter${type.charAt(0).toUpperCase()+type.slice(1)}Dropdown`);const was=dd.classList.contains('open');closeAllDropdowns();if(!was)dd.classList.add('open');}
 function closeAllDropdowns(){document.querySelectorAll('.filter-dropdown').forEach(d=>d.classList.remove('open'));}
 function setFilter(type,value){filters[type]=filters[type]===value?null:value;closeAllDropdowns();render();}
-function clearFilters(){filters={owner:null,tag:null,due:null};render();}
+function clearFilters(){filters={owner:null,ampel:null,tag:null};render();}
 document.getElementById('searchInput').addEventListener('input',function(){searchQuery=this.value;render();});
 
 // ── DRAG & DROP ──
@@ -1137,18 +1007,13 @@ function onDrop(e){
 // ── LINKS ──
 function renderLinksList(){
   const el=document.getElementById('linksList');
-  document.getElementById('linksProgress').textContent=taskLinks.length>0?`${taskLinks.length}`:'';
   if(!taskLinks.length){el.innerHTML=`<div class="no-items-hint">Noch keine Links — oben hinzufügen</div>`;return;}
-  el.innerHTML=taskLinks.map((l,i)=>{
-    const isTel=l.url.startsWith('tel:');
-    const isMailto=l.url.startsWith('mailto:');
-    const isClickable=isTel||isMailto;
-    return`<div class="link-row">
-      ${isClickable?`<a href="${esc(l.url)}" style="flex:1;color:var(--accent2);text-decoration:none;padding:5px;border-radius:4px;cursor:pointer;word-break:break-all;" title="${esc(l.url)}">${esc(l.label)}</a>`:`<input type="text" value="${esc(l.label)}" placeholder="Bezeichnung" style="flex:1" oninput="taskLinks[${i}].label=this.value">`}
+  el.innerHTML=taskLinks.map((l,i)=>`
+    <div class="link-row">
+      <input type="text" value="${esc(l.label)}" placeholder="Bezeichnung" oninput="taskLinks[${i}].label=this.value">
       <input type="url" class="url-input" value="${esc(l.url)}" placeholder="https://…" oninput="taskLinks[${i}].url=this.value">
       <button class="link-remove-btn" onclick="removeLink(${i})">✕</button>
-    </div>`;
-  }).join('');
+    </div>`).join('');
 }
 function addLinkRow(){taskLinks.push({label:'',url:''});renderLinksList();}
 function removeLink(i){taskLinks.splice(i,1);renderLinksList();}
@@ -1171,7 +1036,6 @@ function handleFileAttach(e){
 }
 function renderAttachList(){
   const el=document.getElementById('attachList');
-  document.getElementById('attachProgress').textContent=taskAttachments.length>0?`${taskAttachments.length}`:'';
   if(!taskAttachments.length){el.innerHTML='';return;}
   el.innerHTML=taskAttachments.map((a,i)=>{
     const isImg=a.type&&a.type.startsWith('image/');
@@ -1318,13 +1182,20 @@ dz.addEventListener('drop',e=>{
 });
 
 // ── TASK MODAL ──
-function openModal(){document.getElementById('taskModal').classList.add('open');setTimeout(()=>autoResizeTextarea(document.getElementById('taskDescInput')),50);}
+function openModal(){document.getElementById('taskModal').classList.add('open');}
 function closeModal(){document.getElementById('taskModal').classList.remove('open');}
-function openGoogleMaps(){
-  const addr=document.getElementById('taskAddressInput').value.trim();
-  if(!addr){alert('Bitte zuerst eine Adresse eingeben.');return;}
-  const mapsUrl='https://maps.google.com/?q='+encodeURIComponent(addr);
-  window.open(mapsUrl,'_blank');
+function updateGcalModalBtn(){
+  const status=document.getElementById('taskStatusInput').value||'';
+  const btn=document.getElementById('gcalModalBtn');
+  if(btn)btn.style.display=status.toLowerCase().includes('außerhaus')?'':'none';
+}
+function openGoogleCalendarFromModal(){
+  const title=encodeURIComponent(document.getElementById('taskTitleInput').value.trim()||'Termin');
+  const desc=encodeURIComponent((document.getElementById('taskDescInput').value.trim()||'')+(document.getElementById('taskOwnerInput').value.trim()?'\nZuständig: '+document.getElementById('taskOwnerInput').value.trim():''));
+  const due=document.getElementById('taskDueInput').value;
+  let dates='';if(due){const d=due.replace(/-/g,'');dates=d+'/'+d;}
+  const url='https://calendar.google.com/calendar/render?action=TEMPLATE&text='+title+'&dates='+dates+'&details='+desc;
+  window.open(url,'_blank');
 }
 
 function openNewTaskModal(){
@@ -1332,17 +1203,16 @@ function openNewTaskModal(){
   document.getElementById('taskId').value='';
   document.getElementById('taskTitleInput').value='';
   document.getElementById('taskDescInput').value='';
-  document.getElementById('taskDescInput').classList.remove('desc-expanded');
   document.getElementById('taskOwnerInput').value='';
   document.getElementById('taskDueInput').value='';
-  document.getElementById('taskAddressInput').value='';
   document.getElementById('taskStatusInput').value=statuses[0]||'';
+  document.getElementById('taskAmpelInput').value='grün';
   document.getElementById('taskTagsInput').value='';
   document.getElementById('taskSourceInput').value='';
   document.getElementById('deleteTaskBtn').style.display='none';
-  taskLinks=[];taskAttachments=[];taskChecklist=[];taskTermine=[];
-  renderLinksList();renderAttachList();renderChecklist();renderTermine();
-  renderTimerSection();
+  taskLinks=[];taskAttachments=[];
+  renderLinksList();renderAttachList();
+  renderTimerSection();updateGcalModalBtn();
   openModal();
   setTimeout(()=>document.getElementById('taskTitleInput').focus(),100);
 }
@@ -1356,37 +1226,16 @@ function openEditTaskModal(id){
   document.getElementById('taskDescInput').value=task.desc||'';
   document.getElementById('taskOwnerInput').value=task.owner;
   document.getElementById('taskDueInput').value=task.due||'';
-  document.getElementById('taskAddressInput').value=task.address||'';
-  document.getElementById('taskNasPathInput').value=task.nasPath||'';
   document.getElementById('taskStatusInput').value=task.status;
+  document.getElementById('taskAmpelInput').value=task.ampel;
   document.getElementById('taskTagsInput').value=(task.tags||[]).join(', ');
   document.getElementById('taskSourceInput').value=task.source||'';
-  document.getElementById('taskDescInput').classList.remove('desc-expanded');
-  const savedSize=localStorage.getItem('modalFontSize')||100;
-  document.getElementById('taskSizeInput').value=savedSize;
-  document.getElementById('taskSizeLabel').textContent=savedSize+'%';
-  const modalEl=document.querySelector('.modal');
-  if(modalEl)modalEl.style.setProperty('--modal-font-scale', savedSize/100);
   document.getElementById('deleteTaskBtn').style.display='';
   taskLinks=JSON.parse(JSON.stringify(task.links||[]));
   taskAttachments=JSON.parse(JSON.stringify(task.attachments||[]));
-  taskChecklist=JSON.parse(JSON.stringify(task.checklist||[]));
-  taskTermine=JSON.parse(JSON.stringify(task.termine||[]));
-  renderLinksList();renderAttachList();renderChecklist();renderTermine();renderTimerSection();
+  renderLinksList();renderAttachList();renderTimerSection();updateGcalModalBtn();
   openModal();
 }
-
-// Update modal font size while slider moves
-document.addEventListener('input', function(e){
-  if(e.target.id==='taskSizeInput'){
-    const size=e.target.value;
-    const scale=size/100;
-    document.getElementById('taskSizeLabel').textContent=size+'%';
-    const modalEl=document.querySelector('.modal');
-    if(modalEl)modalEl.style.setProperty('--modal-font-scale', scale);
-    localStorage.setItem('modalFontSize', size);
-  }
-});
 
 function saveTask(){
   const title=document.getElementById('taskTitleInput').value.trim();
@@ -1398,13 +1247,10 @@ function saveTask(){
     desc:document.getElementById('taskDescInput').value.trim(),
     owner:document.getElementById('taskOwnerInput').value.trim(),
     due:document.getElementById('taskDueInput').value,
-    address:document.getElementById('taskAddressInput').value.trim(),
-    nasPath:document.getElementById('taskNasPathInput').value.trim(),
     status:document.getElementById('taskStatusInput').value,
+    ampel:document.getElementById('taskAmpelInput').value,
     tags:document.getElementById('taskTagsInput').value.split(',').map(s=>s.trim()).filter(Boolean),
     source:document.getElementById('taskSourceInput').value.trim(),
-    checklist:taskChecklist,
-    termine:taskTermine,
     links:taskLinks.filter(l=>l.url.trim()),
     attachments:taskAttachments,
     timeEntries:existingTask?.timeEntries||[]
@@ -1518,7 +1364,7 @@ function closeQuickAdd(){document.getElementById('quickAddBar').classList.remove
 document.getElementById('quickAddInput').addEventListener('keydown',function(e){
   if(e.key==='Enter'){
     const t=this.value.trim();
-    if(t){boards[currentBoard].push({id:generateId(),title:t,desc:'',owner:'',due:'',address:'',nasPath:'',status:statuses[0]||'',ampel:'grün',tags:[],source:'',links:[],attachments:[],timeEntries:[]});render();autoSave();}
+    if(t){boards[currentBoard].push({id:generateId(),title:t,desc:'',owner:'',due:'',status:statuses[0]||'',ampel:'grün',tags:[],source:'',links:[],attachments:[],timeEntries:[]});render();autoSave();}
     closeQuickAdd();
   }
   if(e.key==='Escape')closeQuickAdd();
@@ -1547,154 +1393,6 @@ document.addEventListener('keydown',function(e){
   if(e.key==='/'){e.preventDefault();document.getElementById('searchInput').focus();}
 });
 document.addEventListener('click',function(e){if(!e.target.closest('.filter-wrapper'))closeAllDropdowns();});
-
-// ── NAS FOLDER OPENER ──
-// ── BESCHREIBUNG EXPAND ──
-function toggleDescExpand(el){
-  el.classList.toggle('desc-expanded');
-}
-
-// ── CHECKLISTE ──
-let taskChecklist=[];
-
-function toggleChecklistSection(){
-  const container=document.getElementById('checklistContainer');
-  const icon=document.getElementById('checklistToggleIcon');
-  container.classList.toggle('open');
-  icon.textContent=container.classList.contains('open')?'▼':'▶';
-}
-
-function toggleTimerSection(){
-  const container=document.getElementById('timerContainer');
-  const icon=document.getElementById('timerToggleIcon');
-  container.classList.toggle('open');
-  icon.textContent=container.classList.contains('open')?'▼':'▶';
-}
-
-function toggleLinksSection(){
-  const container=document.getElementById('linksContainer');
-  const icon=document.getElementById('linksToggleIcon');
-  container.classList.toggle('open');
-  icon.textContent=container.classList.contains('open')?'▼':'▶';
-}
-
-function toggleAttachSection(){
-  const container=document.getElementById('attachContainer');
-  const icon=document.getElementById('attachToggleIcon');
-  container.classList.toggle('open');
-  icon.textContent=container.classList.contains('open')?'▼':'▶';
-}
-
-// ── AUßERHAUS-TERMINE ──
-let taskTermine=[];
-
-function toggleTermineSection(){
-  const container=document.getElementById('termineContainer');
-  const icon=document.getElementById('termineToggleIcon');
-  container.classList.toggle('open');
-  icon.textContent=container.classList.contains('open')?'▼':'▶';
-}
-
-function calcTerminDuration(timeFrom,timeTo){
-  if(!timeFrom||!timeTo)return 0;
-  const[hf,mf]=timeFrom.split(':').map(Number);
-  const[ht,mt]=timeTo.split(':').map(Number);
-  const minFrom=hf*60+mf;
-  const minTo=ht*60+mt;
-  return Math.max(0,minTo-minFrom);
-}
-
-function formatDurationShort(minutes){
-  if(minutes<=0)return'0min';
-  const h=Math.floor(minutes/60);
-  const m=minutes%60;
-  if(h===0)return`${m}min`;
-  return m===0?`${h}h`:`${h}h ${m}min`;
-}
-
-function renderTermine(){
-  const total=taskTermine.length;
-  let totalMinutes=0;
-  document.getElementById('termineProgress').textContent=total>0?`${total} Termin${total===1?'':'e'}`:'';
-  document.getElementById('termineItems').innerHTML=taskTermine.map((item,idx)=>{
-    const duration=calcTerminDuration(item.timeFrom,item.timeTo);
-    totalMinutes+=duration;
-    const durationText=formatDurationShort(duration);
-    return`
-    <div class="termin-item">
-      <span class="termin-date">📅 ${formatDate(item.date)}</span>
-      ${item.timeFrom?`<span class="termin-time">⏰ ${item.timeFrom}${item.timeTo?'-'+item.timeTo:''}</span>`:''}
-      ${duration>0?`<span class="termin-duration">${durationText}</span>`:''}
-      <span class="termin-text">${esc(item.text)}</span>
-      <button class="termin-del" onclick="removeTermin(${idx})">✕</button>
-    </div>`}).join('');
-  document.getElementById('termineTotalDuration').textContent=formatDurationShort(totalMinutes);
-}
-
-function addTermin(){
-  const date=document.getElementById('termineNewDate').value;
-  const timeFrom=document.getElementById('termineNewTimeFrom').value;
-  const timeTo=document.getElementById('termineNewTimeTo').value;
-  const text=document.getElementById('termineNewText').value.trim();
-  if(!date&&!timeFrom&&!timeTo&&!text)return;
-  taskTermine.push({date:date||'',timeFrom:timeFrom||'',timeTo:timeTo||'',text:text||'(Kein Titel)'});
-  document.getElementById('termineNewDate').value='';
-  document.getElementById('termineNewTimeFrom').value='';
-  document.getElementById('termineNewTimeTo').value='';
-  document.getElementById('termineNewText').value='';
-  renderTermine();
-}
-
-function termineAddOnEnter(e){if(e.key==='Enter'){e.preventDefault();addTermin();}}
-
-function renderChecklist(){
-  const done=taskChecklist.filter(i=>i.done).length;
-  const total=taskChecklist.length;
-  document.getElementById('checklistProgress').textContent=total>0?`${done}/${total}`:'';
-  document.getElementById('checklistItems').innerHTML=taskChecklist.map((item,idx)=>`
-    <div class="checklist-item">
-      <input type="checkbox" ${item.done?'checked':''} onchange="toggleChecklistDone(${idx})">
-      <input type="text" class="checklist-item-text ${item.done?'done':''}" value="${esc(item.text)}" oninput="taskChecklist[${idx}].text=this.value" placeholder="Eintrag…">
-      <button class="checklist-item-del" onclick="removeChecklistItem(${idx})">✕</button>
-    </div>`).join('');
-}
-
-function addChecklistItem(){
-  const input=document.getElementById('checklistNewInput');
-  const text=input.value.trim();
-  if(!text)return;
-  taskChecklist.push({id:generateId(),text,done:false});
-  input.value='';
-  renderChecklist();
-  input.focus();
-}
-
-function checklistAddOnEnter(e){if(e.key==='Enter'){e.preventDefault();addChecklistItem();}}
-
-function toggleChecklistDone(idx){
-  taskChecklist[idx].done=!taskChecklist[idx].done;
-  renderChecklist();
-}
-
-function removeChecklistItem(idx){
-  taskChecklist.splice(idx,1);
-  renderChecklist();
-}
-
-function removeTermin(idx){
-  taskTermine.splice(idx,1);
-  renderTermine();
-}
-
-function copyNasPath(){
-  const path=document.getElementById('taskNasPathInput').value.trim();
-  if(!path){alert('Bitte NAS-Pfad eingeben!');return;}
-  navigator.clipboard.writeText(path).then(()=>{
-    alert('✅ Pfad kopiert!\n\n' + path + '\n\nÖffne den Explorer (Win+E) und drücke Strg+V zum Einfügen!');
-  }).catch(err=>{
-    alert('Fehler beim Kopieren: ' + err);
-  });
-}
 
 // ── INIT ──
 boards={};render();
