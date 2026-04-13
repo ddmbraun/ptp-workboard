@@ -1417,9 +1417,19 @@ function stopTimer(){
       const bis=String(e.getHours()).padStart(2,'0')+':'+String(e.getMinutes()).padStart(2,'0');
       const entry={date:datum,von,bis,beschreibung:'Stoppuhr'};
       const openId=document.getElementById('taskId')&&document.getElementById('taskId').value;
+      // Always write directly to task.zeitEntries so pushToSync can read it
+      if(!task.zeitEntries)task.zeitEntries=[];
+      task.zeitEntries.push(entry);
+      // If modal is open for this task, also refresh the display
       if(openId===activeTimerTaskId){taskZeitEntries.push(entry);renderZeiterfassung();}
-      else{if(!task.zeitEntries)task.zeitEntries=[];task.zeitEntries.push(entry);}
     }
+  }
+  clearInterval(activeTimerIntervalId);
+  const stoppedId=activeTimerTaskId;
+  activeTimerTaskId=null;activeTimerIntervalId=null;
+  scheduleSave();  // includes pushToSync()
+  updateCardTimerBadge(stoppedId);
+}
   }
   clearInterval(activeTimerIntervalId);
   const stoppedId=activeTimerTaskId;
