@@ -988,11 +988,16 @@ function taskCardHTML(task){
     ${(()=>{
       const hasTime=(task.timeEntries||[]).length>0||isTaskTimerRunning(task.id);
       const timeMs=hasTime?getTaskTotalMs(task):0;
-      return(hasLinks||hasAttach||hasTime||isAH)?`<div class="task-card-icons">
+      const ks=(task.tags&&task.tags[0])||'';
+      const bauTermCount=ks?(syncData.termine||[]).filter(t=>t.source==='bau'&&t.kostenstelle===ks).length:0;
+      const bauZeitCount=ks?(syncData.zeiterfassung||[]).filter(z=>z.source==='bau'&&z.kostenstelle===ks).length:0;
+      const bauTotal=bauTermCount+bauZeitCount;
+      return(hasLinks||hasAttach||hasTime||isAH||bauTotal>0)?`<div class="task-card-icons">
         ${hasLinks?`<span class="task-icon-badge">🔗 ${(task.links||[]).length}</span>`:''}
         ${hasAttach?`<span class="task-icon-badge">📎 ${(task.attachments||[]).length}</span>`:''}
         ${hasTime?`<span class="timer-badge${isTaskTimerRunning(task.id)?' running':''}">⏱ ${formatDuration(timeMs)}</span>`:''}
         ${isAH?`<button class="gcal-btn" onclick="openGoogleCalendar('${task.id}',event)" title="In Google Kalender eintragen">📅 Kalender</button>`:''}
+        ${bauTotal>0?`<span class="task-icon-badge" style="color:#e67e22;background:rgba(230,126,34,.12);border:1px solid rgba(230,126,34,.3);cursor:pointer" onclick="event.stopPropagation();openSyncPanel()" title="Daten von Bau Doku">🔄 ${bauTotal} Bau</span>`:''}
       </div>`:'';
     })()}
   </div>`;
@@ -1515,7 +1520,7 @@ function addKontaktPTP(rolle,name,tel,email){
     +'<select class="k-rolle">'
     +rolleOpts.map(r=>'<option value="'+r+'"'+(r===rolle?' selected':'')+'>'+rolleLabel[r]+'</option>').join('')
     +'</select>'
-    +'<button type="button" class="rm-btn" onclick="this.closest('.kontakt-entry').remove();updateKontaktePTPTitle()" title="Entfernen">✕</button>'
+    +'<button type="button" class="rm-btn" onclick="this.closest(\'.kontakt-entry\').remove();updateKontaktePTPTitle()" title="Entfernen">✕</button>'
     +'</div>'
     +'<div class="modal-grid">'
     +'<div class="modal-field"><label>Name</label><input type="text" class="k-name" value="'+name.replace(/"/g,'&quot;')+'" placeholder="Max Mustermann"></div>'
@@ -1903,8 +1908,16 @@ function updateSyncUI(){
   const bauTermine=(syncData.termine||[]).filter(t=>t.source==='bau');
   const bauZeiten=(syncData.zeiterfassung||[]).filter(z=>z.source==='bau');
   const total=bauTermine.length+bauZeiten.length;
-  btn.textContent=total>0?'📡 Sync ('+total+')':'📡 Sync';
-  btn.style.color=syncFileId?'var(--green)':'var(--red)';
+  if(total>0){
+    btn.textContent='📡 Bau ('+total+')';
+    btn.style.color='#e67e22';btn.style.borderColor='#e67e22';btn.style.background='rgba(230,126,34,.1)';
+  }else{
+    btn.textContent='📡 Sync';
+    btn.style.color=syncFileId?'var(--green)':'var(--red)';
+    btn.style.borderColor=syncFileId?'var(--green)':'var(--red)';
+    btn.style.background='transparent';
+  }
+  render();
 }
 function showSyncToast(count){
   const d=document.createElement('div');
