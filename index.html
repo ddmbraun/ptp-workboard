@@ -1721,4 +1721,16 @@ function openSyncPanel(){
   if(bauZeiten.length){
     html+='<h4 style="font-size:11px;text-transform:uppercase;color:var(--text2);margin:0 0 8px">Zeiterfassung ('+bauZeiten.length+')</h4>';
     html+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
-    html+='<tr style="background:var(--bg2)"><th style="padding:5px 8px;text-align:left;color:var(--text2)">Datum</th><th style="color:var(-
+    html+='<tr style="background:var(--bg2)"><th style="padding:5px 8px;text-align:left;color:var(--text2)">Datum</th><th style="color:var(--text2)">Von</th><th style="color:var(--text2)">Bis</th><th style="color:var(--text2)">Min.</th><th style="color:var(--text2)">Beschreibung</th><th style="color:var(--text2)">Auftrag</th></tr>';
+    bauZeiten.forEach(z=>{html+='<tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 8px">'+(z.datum||'–')+'</td><td>'+(z.von||'–')+'</td><td>'+(z.bis||'–')+'</td><td>'+(z.minuten||0)+'</td><td>'+(z.beschreibung||'')+'</td><td style="color:var(--text2);font-size:11px">'+(z.auftragTitle||'')+'</td></tr>';});
+    html+='</table></div>';
+  }
+  if(!bauTermine.length&&!bauZeiten.length){html+='<p style="color:var(--text2);font-size:13px">Noch keine synchronisierten Einträge von der Bau Doku App.</p>';}
+  html+='<div style="margin-top:16px;text-align:right"><button onclick="this.closest(\'div[style*=position]\').remove()" style="padding:7px 16px;border-radius:6px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:13px;font-weight:500">Schließen</button></div>';
+  html+='</div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+</script>
+</body>
+</html>
