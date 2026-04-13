@@ -155,6 +155,24 @@ input,select,textarea{font-family:inherit;}
 .modal-field input,.modal-field select,.modal-field textarea{width:100%;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;outline:none;}
 .modal-field input:focus,.modal-field select:focus,.modal-field textarea:focus{border-color:var(--accent);}
 .modal-field textarea{resize:vertical;min-height:60px;}
+.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.modal-field.full{grid-column:1/-1;}
+.form-collapse{margin-top:14px;border-top:1px solid var(--border);}
+.form-collapse-header{display:flex;align-items:center;justify-content:space-between;padding:10px 0 8px;cursor:pointer;user-select:none;-webkit-user-select:none;}
+.form-collapse-title{font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;}
+.form-collapse-arrow{color:var(--text2);font-size:13px;transition:transform .2s;}
+.form-collapse-body{display:none;padding-bottom:4px;}
+.form-collapse.open .form-collapse-arrow{transform:rotate(180deg);}
+.form-collapse.open .form-collapse-body{display:block;}
+.add-row-btn{width:100%;padding:8px;border-radius:7px;font-size:12px;color:var(--accent2);background:rgba(108,99,255,.1);border:1px dashed rgba(108,99,255,.4);margin-top:4px;transition:all .15s;cursor:pointer;}
+.add-row-btn:hover{background:rgba(108,99,255,.2);}
+.timer-divider{text-align:center;font-size:10px;color:var(--text2);margin:10px 0 6px;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:8px;}
+.timer-divider::before,.timer-divider::after{content:'';flex:1;height:1px;background:var(--border);}
+.link-row-2{display:flex;gap:6px;margin-bottom:6px;}
+.link-row-2 input{flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;outline:none;}
+.link-row-2 input:focus{border-color:var(--accent);}
+.link-btn-2{padding:8px 12px;border-radius:6px;font-size:14px;background:var(--bg3);color:var(--text2);border:1px solid var(--border);flex-shrink:0;cursor:pointer;transition:all .15s;}
+.link-btn-2:hover{background:var(--accent);color:#fff;border-color:var(--accent);}
 .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
 .modal-actions button{padding:8px 18px;border-radius:6px;font-size:13px;font-weight:500;}
 .btn-danger{background:var(--red);color:#fff;}
@@ -397,10 +415,9 @@ input,select,textarea{font-family:inherit;}
     <h2 id="modalTitle">Neuer Task</h2>
     <input type="hidden" id="taskId">
     <div class="modal-field"><label>Titel *</label><input type="text" id="taskTitleInput" placeholder="Task-Titel eingeben…"></div>
-    <div class="modal-field"><label>Beschreibung</label><textarea id="taskDescInput" placeholder="Beschreibung…"></textarea></div>
     <div style="display:flex;gap:12px;">
       <div class="modal-field" style="flex:1"><label>Owner</label><input type="text" id="taskOwnerInput" placeholder="Name"></div>
-      <div class="modal-field" style="flex:1"><label>Due Date</label><input type="date" id="taskDueInput"></div>
+      <div class="modal-field" style="flex:1"><label>Fälligkeit</label><input type="date" id="taskDueInput"></div>
     </div>
     <div style="display:flex;gap:12px;">
       <div class="modal-field" style="flex:1"><label>Status</label><select id="taskStatusInput" onchange="updateGcalModalBtn()"></select></div>
@@ -409,54 +426,141 @@ input,select,textarea{font-family:inherit;}
       </div>
     </div>
     <div style="display:flex;gap:12px;">
-      <div class="modal-field" style="flex:1"><label>Tags (Komma-getrennt)</label><input type="text" id="taskTagsInput" placeholder="z.B. Report, Budget"></div>
+      <div class="modal-field" style="flex:1"><label>Tags / Kostenstelle</label><input type="text" id="taskTagsInput" placeholder="z.B. 260036, Report"></div>
       <div class="modal-field" style="flex:1"><label>Quelle</label><input type="text" id="taskSourceInput" placeholder="z.B. E-Mail, Meeting"></div>
     </div>
 
-    <!-- LINKS -->
-    <div class="modal-section">
-      <div class="modal-section-header">
-        <span class="modal-section-title">🔗 Links</span>
-        <button class="modal-section-add" onclick="addLinkRow()">+ Link hinzufügen</button>
+    <!-- OBJEKT -->
+    <div class="form-collapse" id="tObjektSect">
+      <div class="form-collapse-header" onclick="toggleFormSection('tObjektSect')">
+        <span class="form-collapse-title">📍 Objekt</span>
+        <span class="form-collapse-arrow">▾</span>
       </div>
-      <div id="linksList"></div>
+      <div class="form-collapse-body">
+        <div class="modal-grid">
+          <div class="modal-field full"><label>Auftraggeber / Hausverwaltung</label><input type="text" id="tHV" placeholder="z.B. AHV, Muster Verwaltung"></div>
+          <div class="modal-field full">
+            <label>Adresse (Straße + PLZ + Ort)</label>
+            <div style="display:flex;gap:6px;">
+              <input type="text" id="tAdr" placeholder="Musterstraße 44, 99086 Erfurt" style="flex:1;">
+              <button type="button" onclick="tMapsOeffnen()" style="padding:8px 14px;border-radius:8px;background:var(--accent);color:#fff;font-size:13px;font-weight:600;border:none;cursor:pointer;flex-shrink:0;">🗺 Maps</button>
+            </div>
+          </div>
+          <div class="modal-field full"><label>Beschreibung / Schadensbild</label><textarea id="tSch" placeholder="z.B. 2. OG links, Feuchtigkeit Küche…" rows="2"></textarea></div>
+        </div>
+      </div>
     </div>
 
-    <!-- ATTACHMENTS -->
-    <div class="modal-section">
-      <div class="modal-section-header">
-        <span class="modal-section-title">📎 Dateianhänge</span>
-        <button class="modal-section-add" onclick="triggerFileInput()">+ Datei anhängen</button>
+    <!-- ANSPRECHPARTNER -->
+    <div class="form-collapse open" id="tAnsprchSect">
+      <div class="form-collapse-header" onclick="toggleFormSection('tAnsprchSect')">
+        <span class="form-collapse-title">👥 Ansprechpartner</span>
+        <span class="form-collapse-arrow">▾</span>
       </div>
-      <div id="attachList"></div>
-      <div class="attach-drop-zone" id="dropZone" onclick="triggerFileInput()">
-        Datei hier hineinziehen oder klicken zum Auswählen
+      <div class="form-collapse-body">
+        <div style="font-size:10px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">👔 Kontaktperson Auftraggeber</div>
+        <div class="modal-grid">
+          <div class="modal-field"><label>Name</label><input type="text" id="tAGN" placeholder="Fr. Beck"></div>
+          <div class="modal-field"><label>Telefon</label><input type="tel" id="tAGT" placeholder="0361 / 123456"></div>
+          <div class="modal-field full"><label>E-Mail</label><input type="email" id="tAGE" placeholder="beck@hausverwaltung.de"></div>
+        </div>
+        <div style="font-size:10px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.4px;margin:14px 0 8px;">🏠 Mieter</div>
+        <div class="modal-grid">
+          <div class="modal-field"><label>Name</label><input type="text" id="tMN" placeholder="Frau Tester"></div>
+          <div class="modal-field"><label>Telefon</label><input type="tel" id="tMT" placeholder="03611234"></div>
+          <div class="modal-field full"><label>E-Mail</label><input type="email" id="tME"></div>
+        </div>
+        <div style="font-size:10px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.4px;margin:14px 0 8px;">👤 Eigentümer</div>
+        <div class="modal-grid">
+          <div class="modal-field"><label>Name</label><input type="text" id="tEN"></div>
+          <div class="modal-field"><label>Telefon</label><input type="tel" id="tET" placeholder="0361/123456"></div>
+          <div class="modal-field full"><label>E-Mail</label><input type="email" id="tEE"></div>
+        </div>
       </div>
-      <input type="file" id="fileAttachInput" style="display:none" multiple onchange="handleFileAttach(event)">
     </div>
 
     <!-- AUSSERHAUS-TERMINE -->
-    <div class="modal-section">
-      <div class="modal-section-header">
-        <span class="modal-section-title">🏠 Außerhaus-Termine</span>
-        <button class="modal-section-add" onclick="addAusserhausTermin()">+ Termin hinzufügen</button>
+    <div class="form-collapse" id="tTermineSect">
+      <div class="form-collapse-header" onclick="toggleFormSection('tTermineSect')">
+        <span class="form-collapse-title" id="tTermineTitle">📅 Außerhaus-Termine</span>
+        <span class="form-collapse-arrow">▾</span>
       </div>
-      <div class="termin-head"><span>Datum</span><span>Von</span><span>Bis</span><span>Beschreibung</span><span></span><span></span></div>
-      <div id="ausserhausTermineList"></div>
+      <div class="form-collapse-body">
+        <div class="termin-head"><span>Datum</span><span>Von</span><span>Bis</span><span>Beschreibung</span><span></span><span></span></div>
+        <div id="ausserhausTermineList"></div>
+        <button class="add-row-btn" onclick="addAusserhausTermin()">+ Termin hinzufügen</button>
+      </div>
     </div>
 
     <!-- ZEITERFASSUNG -->
-    <div class="modal-section">
-      <div class="modal-section-header">
-        <span class="modal-section-title">⏱ Zeiterfassung</span>
+    <div class="form-collapse" id="tZeitSect">
+      <div class="form-collapse-header" onclick="toggleFormSection('tZeitSect')">
+        <span class="form-collapse-title" id="tZeitTitle">⏱ Zeiterfassung</span>
+        <span class="form-collapse-arrow">▾</span>
       </div>
-      <div id="timerDisplay" class="timer-display">00:00:00</div>
-      <button id="timerBtn" class="timer-start-btn" onclick="toggleTimer()">▶ Aufzeichnung starten</button>
-      <div style="text-align:center;font-size:11px;color:var(--text2);margin:6px 0 8px;border-top:1px solid var(--border);padding-top:8px;">oder manuell erfassen</div>
-      <div class="termin-head"><span>Datum</span><span>Von</span><span>Bis</span><span>Beschreibung</span><span></span><span></span></div>
-      <div id="zeiterfassungList"></div>
-      <button class="modal-section-add" style="margin-top:6px;" onclick="addZeitEntry()">+ Zeit manuell hinzufügen</button>
-      <div class="termin-gesamt" id="zeitGesamtRow">Gesamt: 0 min</div>
+      <div class="form-collapse-body">
+        <div id="timerDisplay" class="timer-display">00:00:00</div>
+        <button id="timerBtn" class="timer-start-btn" onclick="toggleTimer()">▶ Aufzeichnung starten</button>
+        <div class="timer-divider">oder manuell erfassen</div>
+        <div class="termin-head"><span>Datum</span><span>Von</span><span>Bis</span><span>Beschreibung</span><span></span><span></span></div>
+        <div id="zeiterfassungList"></div>
+        <button class="add-row-btn" onclick="addZeitEntry()">+ Zeit hinzufügen</button>
+        <div class="termin-gesamt" id="zeitGesamtRow">Gesamt: 0 min</div>
+      </div>
+    </div>
+
+    <!-- VERKNUEPFUNGEN -->
+    <div class="form-collapse" id="tVerkSect">
+      <div class="form-collapse-header" onclick="toggleFormSection('tVerkSect')">
+        <span class="form-collapse-title">🔗 Verknüpfungen</span>
+        <span class="form-collapse-arrow">▾</span>
+      </div>
+      <div class="form-collapse-body">
+        <div class="modal-grid">
+          <div class="modal-field full">
+            <label>Google Drive – Foto-Ordner</label>
+            <div class="link-row-2">
+              <input type="url" id="tGD" placeholder="https://drive.google.com/drive/folders/…">
+              <button class="link-btn-2" onclick="tDriveOeffnen()" title="Ordner öffnen">📁</button>
+            </div>
+          </div>
+          <div class="modal-field full">
+            <label>NAS-Pfad</label>
+            <div class="link-row-2">
+              <input type="text" id="tNAS" placeholder="\\nas-ddbraun\Datenarchiv\...">
+              <button class="link-btn-2" id="tNasBtn" onclick="tNasKopieren()" title="Pfad kopieren">📋</button>
+            </div>
+          </div>
+        </div>
+        <div id="linksList" style="margin-top:8px;"></div>
+        <button class="add-row-btn" onclick="addLinkRow()">+ weiteren Link hinzufügen</button>
+      </div>
+    </div>
+
+    <!-- DATEIHAENGE -->
+    <div class="form-collapse" id="tAnhangSect">
+      <div class="form-collapse-header" onclick="toggleFormSection('tAnhangSect')">
+        <span class="form-collapse-title">📎 Dateianhänge</span>
+        <span class="form-collapse-arrow">▾</span>
+      </div>
+      <div class="form-collapse-body">
+        <div id="attachList"></div>
+        <div class="attach-drop-zone" id="dropZone" onclick="triggerFileInput()">
+          Datei hier hineinziehen oder klicken zum Auswählen
+        </div>
+        <input type="file" id="fileAttachInput" style="display:none" multiple onchange="handleFileAttach(event)">
+      </div>
+    </div>
+
+    <!-- NOTIZEN -->
+    <div class="form-collapse" id="tNotizenSect">
+      <div class="form-collapse-header" onclick="toggleFormSection('tNotizenSect')">
+        <span class="form-collapse-title">📝 Notizen</span>
+        <span class="form-collapse-arrow">▾</span>
+      </div>
+      <div class="form-collapse-body">
+        <div class="modal-field"><textarea id="taskDescInput" placeholder="Interne Notizen…" rows="3"></textarea></div>
+      </div>
     </div>
 
     <div class="modal-actions">
@@ -1143,17 +1247,28 @@ function parseAuftragText(text){
   // Modal öffnen und Felder befüllen
   openNewTaskModal();
   document.getElementById('taskTitleInput').value=titel;
-  document.getElementById('taskDescInput').value=beschreibung;
   document.getElementById('taskOwnerInput').value=auftraggeber;
   if(dueDate)document.getElementById('taskDueInput').value=dueDate;
-  document.getElementById('taskSourceInput').value=nasOrdner||'Auftragsakte';
+  document.getElementById('taskSourceInput').value='Auftragsakte';
   if(schadensbild)document.getElementById('taskTagsInput').value=schadensbild+(kostenstelle?', '+kostenstelle:'');
   else if(kostenstelle)document.getElementById('taskTagsInput').value=kostenstelle;
+  // Objekt-Felder
+  if(hausverwaltung)document.getElementById('tHV').value=hausverwaltung;
+  if(strasse)document.getElementById('tAdr').value=strasse;
+  if(schadensbild)document.getElementById('tSch').value=schadensbild;
+  // Ansprechpartner-Felder
+  if(mieter)document.getElementById('tMN').value=mieter;
+  if(mieterTel)document.getElementById('tMT').value=mieterTel;
+  if(eigentuemer)document.getElementById('tEN').value=eigentuemer;
+  if(eigTel)document.getElementById('tET').value=eigTel;
+  // Verknüpfungen
+  if(nasOrdner)document.getElementById('tNAS').value=nasOrdner;
 
   // Außerhaus-Termin vorausfüllen wenn Ortstermin vorhanden
   const ortsDatum=deDate(terminOrt);
   if(ortsDatum){addAusserhausTermin(ortsDatum,'','','Ortstermin');}
 
+  // Zeiterfassung-Abschnitt auföffnen wenn nötig
   updateGcalModalBtn();
 }
 
@@ -1393,6 +1508,29 @@ dz.addEventListener('drop',e=>{
   handleFileAttach({target:{files},preventDefault:()=>{}});
 });
 
+// ── FORM COLLAPSE ──
+function toggleFormSection(id){
+  const el=document.getElementById(id);
+  if(el)el.classList.toggle('open');
+}
+function tMapsOeffnen(){
+  const adr=document.getElementById('tAdr').value.trim();
+  if(adr)window.open('https://www.google.com/maps/search/'+encodeURIComponent(adr),'_blank');
+  else alert('Bitte zuerst eine Adresse eingeben.');
+}
+function tDriveOeffnen(){
+  const url=document.getElementById('tGD').value.trim();
+  if(url)window.open(url,'_blank');
+  else alert('Bitte zuerst einen Google Drive Link eingeben.');
+}
+function tNasKopieren(){
+  const v=document.getElementById('tNAS').value.trim();
+  if(!v){alert('Kein NAS-Pfad eingetragen.');return;}
+  navigator.clipboard.writeText(v).then(()=>{
+    const btn=document.getElementById('tNasBtn');
+    if(btn){const orig=btn.textContent;btn.textContent='✓ Kopiert';setTimeout(()=>{btn.textContent=orig;},1500);}
+  });
+}
 // ── TASK MODAL ──
 function openModal(){document.getElementById('taskModal').classList.add('open');}
 function closeModal(){document.getElementById('taskModal').classList.remove('open');}
@@ -1408,6 +1546,9 @@ function openNewTaskModal(){
   document.getElementById('taskAmpelInput').value='grün';
   document.getElementById('taskTagsInput').value='';
   document.getElementById('taskSourceInput').value='';
+  ['tHV','tAdr','tSch','tAGN','tAGT','tAGE','tMN','tMT','tME','tEN','tET','tEE','tGD','tNAS'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value='';
+  });
   document.getElementById('deleteTaskBtn').style.display='none';
   taskLinks=[];taskAttachments=[];taskAusserhausTermine=[];taskZeitEntries=[];
   renderLinksList();renderAttachList();
@@ -1429,6 +1570,20 @@ function openEditTaskModal(id){
   document.getElementById('taskAmpelInput').value=task.ampel;
   document.getElementById('taskTagsInput').value=(task.tags||[]).join(', ');
   document.getElementById('taskSourceInput').value=task.source||'';
+  document.getElementById('tHV').value=task.hausverwaltung||'';
+  document.getElementById('tAdr').value=task.adresse||'';
+  document.getElementById('tSch').value=task.schadensbild||'';
+  document.getElementById('tAGN').value=task.agKontaktName||'';
+  document.getElementById('tAGT').value=task.agKontaktTel||'';
+  document.getElementById('tAGE').value=task.agKontaktEmail||'';
+  document.getElementById('tMN').value=task.mieterName||'';
+  document.getElementById('tMT').value=task.mieterTel||'';
+  document.getElementById('tME').value=task.mieterEmail||'';
+  document.getElementById('tEN').value=task.eigentuemerName||'';
+  document.getElementById('tET').value=task.eigentuemerTel||'';
+  document.getElementById('tEE').value=task.eigentuemerEmail||'';
+  document.getElementById('tGD').value=task.gdrive||'';
+  document.getElementById('tNAS').value=task.nas||'';
   document.getElementById('deleteTaskBtn').style.display='';
   taskLinks=JSON.parse(JSON.stringify(task.links||[]));
   taskAttachments=JSON.parse(JSON.stringify(task.attachments||[]));
@@ -1453,6 +1608,20 @@ function saveTask(){
     ampel:document.getElementById('taskAmpelInput').value,
     tags:document.getElementById('taskTagsInput').value.split(',').map(s=>s.trim()).filter(Boolean),
     source:document.getElementById('taskSourceInput').value.trim(),
+    hausverwaltung:document.getElementById('tHV').value.trim(),
+    adresse:document.getElementById('tAdr').value.trim(),
+    schadensbild:document.getElementById('tSch').value.trim(),
+    agKontaktName:document.getElementById('tAGN').value.trim(),
+    agKontaktTel:document.getElementById('tAGT').value.trim(),
+    agKontaktEmail:document.getElementById('tAGE').value.trim(),
+    mieterName:document.getElementById('tMN').value.trim(),
+    mieterTel:document.getElementById('tMT').value.trim(),
+    mieterEmail:document.getElementById('tME').value.trim(),
+    eigentuemerName:document.getElementById('tEN').value.trim(),
+    eigentuemerTel:document.getElementById('tET').value.trim(),
+    eigentuemerEmail:document.getElementById('tEE').value.trim(),
+    gdrive:document.getElementById('tGD').value.trim(),
+    nas:document.getElementById('tNAS').value.trim(),
     links:taskLinks.filter(l=>l.url.trim()),
     attachments:taskAttachments,
     timeEntries:existingTask?.timeEntries||[],
