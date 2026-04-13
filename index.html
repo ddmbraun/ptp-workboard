@@ -121,6 +121,11 @@ input,select,textarea{font-family:inherit;}
 .termin-row-btn:hover{background:var(--bg4);}
 .termin-row-btn.cal:hover{background:#1a73e8;color:#fff;}
 .termin-row-btn.del:hover{color:var(--red);}
+.bau-sync-divider{display:flex;align-items:center;gap:8px;font-size:10px;font-weight:700;color:#e67e22;text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px;}
+.bau-sync-divider::before,.bau-sync-divider::after{content:'';flex:1;height:1px;background:rgba(230,126,34,.3);}
+.termin-row.bau-readonly{background:rgba(230,126,34,.06);border:1px solid rgba(230,126,34,.2);opacity:.85;}
+.termin-row.bau-readonly input{color:var(--text2);background:transparent;border-color:transparent;cursor:default;}
+.zeit-gesamt-bau{color:#e67e22;}
 .termin-gesamt{display:flex;justify-content:flex-end;font-size:12px;font-weight:700;color:var(--green);padding:5px 8px 2px;}
 .btn-auftrag{padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;background:#e8f0fe;color:#1a73e8;border:1px solid #c5d4f5;transition:all .15s;cursor:pointer;}
 .btn-auftrag:hover{background:#1a73e8;color:#fff;border-color:#1a73e8;}
@@ -1134,8 +1139,13 @@ function openGcalTermin(i){
 function renderAusserhausTermine(){
   const el=document.getElementById('ausserhausTermineList');
   if(!el)return;
-  if(!taskAusserhausTermine.length){el.innerHTML='<div class="no-items-hint">Noch keine Termine — oben hinzufügen</div>';return;}
-  el.innerHTML=taskAusserhausTermine.map((t,i)=>`
+  const ks=(document.getElementById('taskTagsInput')?.value||'').split(',')[0].trim();
+  const bauTermine=ks?(syncData.termine||[]).filter(t=>t.source==='bau'&&t.kostenstelle===ks):[];
+  let html='';
+  if(!taskAusserhausTermine.length){
+    html+='<div class="no-items-hint">Noch keine Termine — oben hinzufügen</div>';
+  }else{
+    html+=taskAusserhausTermine.map((t,i)=>`
     <div class="termin-row">
       <input type="date" value="${t.date||''}" oninput="syncAusserhausTermin(${i},'date',this.value)">
       <input type="time" value="${t.von||''}" oninput="syncAusserhausTermin(${i},'von',this.value)">
@@ -1144,6 +1154,19 @@ function renderAusserhausTermine(){
       <button class="termin-row-btn cal" onclick="openGcalTermin(${i})" title="In Google Kalender eintragen">📅</button>
       <button class="termin-row-btn del" onclick="removeAusserhausTermin(${i})">✕</button>
     </div>`).join('');
+  }
+  if(bauTermine.length){
+    html+=`<div class="bau-sync-divider">📡 Von Bau Doku (${bauTermine.length})</div>`;
+    html+=bauTermine.map(t=>`
+    <div class="termin-row bau-readonly">
+      <input type="date" value="${t.datum||t.date||''}" disabled>
+      <input type="time" value="${t.von||''}" disabled>
+      <input type="time" value="${t.bis||''}" disabled>
+      <input type="text" value="${esc(t.beschreibung||t.titel||t.title||'')}" disabled>
+      <span></span><span></span>
+    </div>`).join('');
+  }
+  el.innerHTML=html;
 }
 
 // ── ZEITERFASSUNG (manuell) ──
@@ -1163,16 +1186,34 @@ function parseMinutes(von,bis){
   }catch(e){return 0;}
 }
 function renderZeitGesamt(){
-  const total=taskZeitEntries.reduce((s,e)=>s+parseMinutes(e.von,e.bis),0);
-  const h=Math.floor(total/60),m=total%60;
+  const ks=(document.getElementById('taskTagsInput')?.value||'').split(',')[0].trim();
+  const bauZeiten=ks?(syncData.zeiterfassung||[]).filter(z=>z.source==='bau'&&z.kostenstelle===ks):[];
+  const totalPTP=taskZeitEntries.reduce((s,e)=>s+parseMinutes(e.von,e.bis),0);
+  const hP=Math.floor(totalPTP/60),mP=totalPTP%60;
   const el=document.getElementById('zeitGesamtRow');
-  if(el)el.textContent='Gesamt: '+(h>0?h+'h ':'')+m+' min';
+  if(!el)return;
+  if(bauZeiten.length){
+    const totalBau=bauZeiten.reduce((s,z)=>s+parseMinutes(z.von,z.bis),0);
+    const hB=Math.floor(totalBau/60),mB=totalBau%60;
+    const totalAll=totalPTP+totalBau;
+    const hA=Math.floor(totalAll/60),mA=totalAll%60;
+    el.innerHTML='PTP: '+(hP>0?hP+'h ':'')+mP+' min'
+      +' &nbsp;|&nbsp; <span class="zeit-gesamt-bau">Bau: '+(hB>0?hB+'h ':'')+mB+' min</span>'
+      +' &nbsp;|&nbsp; <strong>Gesamt: '+(hA>0?hA+'h ':'')+mA+' min</strong>';
+  }else{
+    el.textContent='Gesamt: '+(hP>0?hP+'h ':'')+mP+' min';
+  }
 }
 function renderZeiterfassung(){
   const el=document.getElementById('zeiterfassungList');
   if(!el)return;
-  if(!taskZeitEntries.length){el.innerHTML='<div class="no-items-hint">Noch keine Einträge — oben hinzufügen</div>';renderZeitGesamt();return;}
-  el.innerHTML=taskZeitEntries.map((e,i)=>`
+  const ks=(document.getElementById('taskTagsInput')?.value||'').split(',')[0].trim();
+  const bauZeiten=ks?(syncData.zeiterfassung||[]).filter(z=>z.source==='bau'&&z.kostenstelle===ks):[];
+  let html='';
+  if(!taskZeitEntries.length){
+    html+='<div class="no-items-hint">Noch keine Eintr\u00e4ge — oben hinzufügen</div>';
+  }else{
+    html+=taskZeitEntries.map((e,i)=>`
     <div class="termin-row">
       <input type="date" value="${e.date||''}" oninput="syncZeitEntry(${i},'date',this.value)">
       <input type="time" value="${e.von||''}" oninput="syncZeitEntry(${i},'von',this.value)">
@@ -1181,6 +1222,19 @@ function renderZeiterfassung(){
       <span></span>
       <button class="termin-row-btn del" onclick="removeZeitEntry(${i})">✕</button>
     </div>`).join('');
+  }
+  if(bauZeiten.length){
+    html+=`<div class="bau-sync-divider">📡 Von Bau Doku (${bauZeiten.length})</div>`;
+    html+=bauZeiten.map(z=>`
+    <div class="termin-row bau-readonly">
+      <input type="date" value="${z.datum||z.date||''}" disabled>
+      <input type="time" value="${z.von||''}" disabled>
+      <input type="time" value="${z.bis||''}" disabled>
+      <input type="text" value="${esc(z.beschreibung||z.titel||z.title||'')}" disabled>
+      <span></span><span></span>
+    </div>`).join('');
+  }
+  el.innerHTML=html;
   renderZeitGesamt();
 }
 
@@ -1950,9 +2004,10 @@ function openSyncPanel(){
   if(!bauTermine.length&&!bauZeiten.length){html+='<p style="color:var(--text2);font-size:13px">Noch keine synchronisierten Einträge von der Bau Doku App.</p>';}
   html+='<div style="margin-top:16px;text-align:right"><button onclick="this.closest(\'div[style*=position]\').remove()" style="padding:7px 16px;border-radius:6px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:13px;font-weight:500">Schließen</button></div>';
   html+='</div></div>';
-  document.body.insertAdjacentHTML('beforeend',html);
+  const overlay=document.createElement('div');
+  overlay.innerHTML=html;
+  document.body.appendChild(overlay);
 }
-
 </script>
 </body>
 </html>
