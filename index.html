@@ -173,6 +173,13 @@ input,select,textarea{font-family:inherit;}
 .link-row-2 input:focus{border-color:var(--accent);}
 .link-btn-2{padding:8px 12px;border-radius:6px;font-size:14px;background:var(--bg3);color:var(--text2);border:1px solid var(--border);flex-shrink:0;cursor:pointer;transition:all .15s;}
 .link-btn-2:hover{background:var(--accent);color:#fff;border-color:var(--accent);}
+.kontakt-entry{background:var(--bg3);border-radius:10px;padding:12px;margin-bottom:8px;border:1px solid var(--border);}
+.kontakt-entry-header{display:flex;align-items:center;gap:6px;margin-bottom:10px;}
+.k-rolle{flex:1;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;font-weight:600;outline:none;cursor:pointer;}
+.k-rolle:focus{border-color:var(--accent);}
+.tel-call-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:38px;border-radius:7px;background:rgba(46,204,113,.1);color:var(--green);font-size:16px;text-decoration:none;flex-shrink:0;border:1px solid rgba(46,204,113,.3);}
+.tel-call-btn:hover{background:rgba(46,204,113,.25);}
+.tel-call-btn.disabled{opacity:.3;pointer-events:none;}
 .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
 .modal-actions button{padding:8px 18px;border-radius:6px;font-size:13px;font-weight:500;}
 .btn-danger{background:var(--red);color:#fff;}
@@ -454,28 +461,12 @@ input,select,textarea{font-family:inherit;}
     <!-- ANSPRECHPARTNER -->
     <div class="form-collapse open" id="tAnsprchSect">
       <div class="form-collapse-header" onclick="toggleFormSection('tAnsprchSect')">
-        <span class="form-collapse-title">👥 Ansprechpartner</span>
+        <span class="form-collapse-title" id="tAnsprchTitle">👥 Ansprechpartner</span>
         <span class="form-collapse-arrow">▾</span>
       </div>
       <div class="form-collapse-body">
-        <div style="font-size:10px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">👔 Kontaktperson Auftraggeber</div>
-        <div class="modal-grid">
-          <div class="modal-field"><label>Name</label><input type="text" id="tAGN" placeholder="Fr. Beck"></div>
-          <div class="modal-field"><label>Telefon</label><input type="tel" id="tAGT" placeholder="0361 / 123456"></div>
-          <div class="modal-field full"><label>E-Mail</label><input type="email" id="tAGE" placeholder="beck@hausverwaltung.de"></div>
-        </div>
-        <div style="font-size:10px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.4px;margin:14px 0 8px;">🏠 Mieter</div>
-        <div class="modal-grid">
-          <div class="modal-field"><label>Name</label><input type="text" id="tMN" placeholder="Frau Tester"></div>
-          <div class="modal-field"><label>Telefon</label><input type="tel" id="tMT" placeholder="03611234"></div>
-          <div class="modal-field full"><label>E-Mail</label><input type="email" id="tME"></div>
-        </div>
-        <div style="font-size:10px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.4px;margin:14px 0 8px;">👤 Eigentümer</div>
-        <div class="modal-grid">
-          <div class="modal-field"><label>Name</label><input type="text" id="tEN"></div>
-          <div class="modal-field"><label>Telefon</label><input type="tel" id="tET" placeholder="0361/123456"></div>
-          <div class="modal-field full"><label>E-Mail</label><input type="email" id="tEE"></div>
-        </div>
+        <div id="tKontakteContainer"></div>
+        <button class="add-row-btn" onclick="addKontaktPTP('sonstiges','','','')">+ Kontakt hinzufügen</button>
       </div>
     </div>
 
@@ -1256,11 +1247,13 @@ function parseAuftragText(text){
   if(hausverwaltung)document.getElementById('tHV').value=hausverwaltung;
   if(strasse)document.getElementById('tAdr').value=strasse;
   if(schadensbild)document.getElementById('tSch').value=schadensbild;
-  // Ansprechpartner-Felder
-  if(mieter)document.getElementById('tMN').value=mieter;
-  if(mieterTel)document.getElementById('tMT').value=mieterTel;
-  if(eigentuemer)document.getElementById('tEN').value=eigentuemer;
-  if(eigTel)document.getElementById('tET').value=eigTel;
+  // Ansprechpartner: nur anlegen wenn Daten vorhanden
+  if(auftraggeber||get('AG_Kontakt_Name')||get('AG_Kontakt_Tel')||get('AG_Kontakt_Email'))
+    addKontaktPTP('ag',get('AG_Kontakt_Name')||'',get('AG_Kontakt_Tel')||'',get('AG_Kontakt_Email')||'');
+  if(eigentuemer||eigTel||get('Eigentuemer_Email'))
+    addKontaktPTP('eigentuemer',eigentuemer,eigTel,get('Eigentuemer_Email')||'');
+  if(mieter||mieterTel||get('Mieter_Email'))
+    addKontaktPTP('mieter',mieter,mieterTel,get('Mieter_Email')||'');
   // Verknüpfungen
   if(nasOrdner)document.getElementById('tNAS').value=nasOrdner;
 
@@ -1511,6 +1504,56 @@ dz.addEventListener('drop',e=>{
   handleFileAttach({target:{files},preventDefault:()=>{}});
 });
 
+// ── KONTAKTE (dynamisch) ──
+function addKontaktPTP(rolle,name,tel,email){
+  const c=document.getElementById('tKontakteContainer');if(!c)return;
+  const rolleOpts=['ag','mieter','eigentuemer','sonstiges'];
+  const rolleLabel={ag:'👔 AG Kontakt',mieter:'🏠 Mieter',eigentuemer:'👤 Eigentümer',sonstiges:'👥 Sonstiges'};
+  name=name||'';tel=tel||'';email=email||'';
+  const div=document.createElement('div');div.className='kontakt-entry';
+  div.innerHTML='<div class="kontakt-entry-header">'
+    +'<select class="k-rolle">'
+    +rolleOpts.map(r=>'<option value="'+r+'"'+(r===rolle?' selected':'')+'>'+rolleLabel[r]+'</option>').join('')
+    +'</select>'
+    +'<button type="button" class="rm-btn" onclick="this.closest('.kontakt-entry').remove();updateKontaktePTPTitle()" title="Entfernen">✕</button>'
+    +'</div>'
+    +'<div class="modal-grid">'
+    +'<div class="modal-field"><label>Name</label><input type="text" class="k-name" value="'+name.replace(/"/g,'&quot;')+'" placeholder="Max Mustermann"></div>'
+    +'<div class="modal-field"><label>Telefon</label><div style="display:flex;gap:4px;">'
+    +'<input type="tel" class="k-tel" value="'+tel.replace(/"/g,'&quot;')+'" style="flex:1;" placeholder="0361 / 123456">'
+    +'<a class="tel-call-btn'+(tel?'':' disabled')+'" href="'+(tel?'tel:'+tel:'#')+'"><span style="font-size:18px">📞</span></a>'
+    +'</div></div>'
+    +'<div class="modal-field full"><label>E-Mail</label><input type="email" class="k-email" value="'+email.replace(/"/g,'&quot;')+'" placeholder="max@beispiel.de"></div>'
+    +'</div>';
+  const telInput=div.querySelector('.k-tel');
+  const telLink=div.querySelector('.tel-call-btn');
+  telInput.addEventListener('input',()=>{
+    const v=telInput.value.trim();
+    telLink.href=v?'tel:'+v:'#';
+    telLink.classList.toggle('disabled',!v);
+  });
+  c.appendChild(div);
+  updateKontaktePTPTitle();
+}
+function renderKontaktePTP(kontakte){
+  const c=document.getElementById('tKontakteContainer');if(!c)return;
+  c.innerHTML='';
+  for(const k of(kontakte||[]))addKontaktPTP(k.rolle||'sonstiges',k.name||'',k.tel||'',k.email||'');
+}
+function getKontaktePTP(){
+  const c=document.getElementById('tKontakteContainer');if(!c)return[];
+  return[...c.querySelectorAll('.kontakt-entry')].map(e=>({
+    rolle:e.querySelector('.k-rolle').value,
+    name:e.querySelector('.k-name').value.trim(),
+    tel:e.querySelector('.k-tel').value.trim(),
+    email:e.querySelector('.k-email').value.trim()
+  })).filter(k=>k.name||k.tel||k.email);
+}
+function updateKontaktePTPTitle(){
+  const count=document.getElementById('tKontakteContainer')?.querySelectorAll('.kontakt-entry').length||0;
+  const el=document.getElementById('tAnsprchTitle');
+  if(el)el.innerHTML='👥 Ansprechpartner'+(count?' <span style="color:var(--accent2);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">('+count+')</span>':'');
+}
 // ── FORM COLLAPSE ──
 function toggleFormSection(id){
   const el=document.getElementById(id);
@@ -1549,9 +1592,9 @@ function openNewTaskModal(){
   document.getElementById('taskAmpelInput').value='grün';
   document.getElementById('taskTagsInput').value='';
   document.getElementById('taskSourceInput').value='';
-  ['tHV','tAdr','tSch','tAGN','tAGT','tAGE','tMN','tMT','tME','tEN','tET','tEE','tGD','tNAS'].forEach(id=>{
-    const el=document.getElementById(id);if(el)el.value='';
-  });
+  ['tHV','tAdr','tSch','tGD','tNAS'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const kc=document.getElementById('tKontakteContainer');if(kc)kc.innerHTML='';
+  updateKontaktePTPTitle();
   document.getElementById('deleteTaskBtn').style.display='none';
   taskLinks=[];taskAttachments=[];taskAusserhausTermine=[];taskZeitEntries=[];
   renderLinksList();renderAttachList();
@@ -1576,15 +1619,17 @@ function openEditTaskModal(id){
   document.getElementById('tHV').value=task.hausverwaltung||'';
   document.getElementById('tAdr').value=task.adresse||'';
   document.getElementById('tSch').value=task.schadensbild||'';
-  document.getElementById('tAGN').value=task.agKontaktName||'';
-  document.getElementById('tAGT').value=task.agKontaktTel||'';
-  document.getElementById('tAGE').value=task.agKontaktEmail||'';
-  document.getElementById('tMN').value=task.mieterName||'';
-  document.getElementById('tMT').value=task.mieterTel||'';
-  document.getElementById('tME').value=task.mieterEmail||'';
-  document.getElementById('tEN').value=task.eigentuemerName||'';
-  document.getElementById('tET').value=task.eigentuemerTel||'';
-  document.getElementById('tEE').value=task.eigentuemerEmail||'';
+  // Kontakte: migrate old static fields if no kontakte array yet
+  let _kontakte=task.kontakte||[];
+  if(!_kontakte.length){
+    if(task.agKontaktName||task.agKontaktTel||task.agKontaktEmail)
+      _kontakte.push({rolle:'ag',name:task.agKontaktName||'',tel:task.agKontaktTel||'',email:task.agKontaktEmail||''});
+    if(task.mieterName||task.mieterTel||task.mieterEmail)
+      _kontakte.push({rolle:'mieter',name:task.mieterName||'',tel:task.mieterTel||'',email:task.mieterEmail||''});
+    if(task.eigentuemerName||task.eigentuemerTel||task.eigentuemerEmail)
+      _kontakte.push({rolle:'eigentuemer',name:task.eigentuemerName||'',tel:task.eigentuemerTel||'',email:task.eigentuemerEmail||''});
+  }
+  renderKontaktePTP(_kontakte);
   document.getElementById('tGD').value=task.gdrive||'';
   document.getElementById('tNAS').value=task.nas||'';
   document.getElementById('deleteTaskBtn').style.display='';
@@ -1614,15 +1659,7 @@ function saveTask(){
     hausverwaltung:document.getElementById('tHV').value.trim(),
     adresse:document.getElementById('tAdr').value.trim(),
     schadensbild:document.getElementById('tSch').value.trim(),
-    agKontaktName:document.getElementById('tAGN').value.trim(),
-    agKontaktTel:document.getElementById('tAGT').value.trim(),
-    agKontaktEmail:document.getElementById('tAGE').value.trim(),
-    mieterName:document.getElementById('tMN').value.trim(),
-    mieterTel:document.getElementById('tMT').value.trim(),
-    mieterEmail:document.getElementById('tME').value.trim(),
-    eigentuemerName:document.getElementById('tEN').value.trim(),
-    eigentuemerTel:document.getElementById('tET').value.trim(),
-    eigentuemerEmail:document.getElementById('tEE').value.trim(),
+    kontakte:getKontaktePTP(),
     gdrive:document.getElementById('tGD').value.trim(),
     nas:document.getElementById('tNAS').value.trim(),
     links:taskLinks.filter(l=>l.url.trim()),
