@@ -643,39 +643,33 @@ let taskAusserhausTermine = [];
 let taskZeitEntries = [];
 
 // ── KANBAN COLUMN RESIZE ──
-let resizingCol = null;
-let resizeStartX = 0;
-let resizeStartWidth = 0;
-let colWidths = {};
+let resizingCol=null,resizeStartX=0,resizeStartWidth=0;
 
-function initColResize(){
-  const cols = document.querySelectorAll('.kanban-col');
-  cols.forEach(col=>{
-    const handle=col;
-    handle.addEventListener('mousedown',(e)=>{
-      if(e.target===col || (e.target.style&&e.target.style.cursor==='col-resize')){
-        resizingCol=col;
-        resizeStartX=e.clientX;
-        resizeStartWidth=col.offsetWidth;
-        document.addEventListener('mousemove',onColResize);
-        document.addEventListener('mouseup',stopColResize);
-        e.preventDefault();
-      }
-    });
-  });
-}
+document.addEventListener('mousedown',(e)=>{
+  if(e.target.closest('.kanban-col')){
+    const col=e.target.closest('.kanban-col');
+    const rect=col.getBoundingClientRect();
+    const isHandle=(e.clientX-rect.left)>(rect.width-10);
+    if(isHandle){
+      resizingCol=col;
+      resizeStartX=e.clientX;
+      resizeStartWidth=col.offsetWidth;
+      e.preventDefault();
+    }
+  }
+});
 
-function onColResize(e){
+document.addEventListener('mousemove',(e)=>{
   if(!resizingCol)return;
   const delta=e.clientX-resizeStartX;
-  const newWidth=Math.max(150, resizeStartWidth+delta);
+  const newWidth=Math.max(150,resizeStartWidth+delta);
   resizingCol.style.flex='0 0 '+newWidth+'px';
-}
+});
 
-function stopColResize(){
-  resizingCol=null;
-  document.removeEventListener('mousemove',onColResize);
-  document.removeEventListener('mouseup',stopColResize);
+document.addEventListener('mouseup',()=>{resizingCol=null;});
+
+function initColResize(){
+  // Dummy function – resize is now handled globally
 }
 
 // ── AUTO-SAVE DEBOUNCE ──
@@ -1353,15 +1347,35 @@ function readAuftragDatei(e){
 }
 function parseAuftragText(text){
   try{
-    if(!text||typeof text!=='string') throw new Error('Text ungültig');
-    const lines=text.split('\n').filter(l=>l);
+    if(!text||typeof text!=='string'){
+      alert('Datei konnte nicht gelesen werden');
+      return;
+    }
+
+    // Splitte Text in Zeilen
+    let lines=[];
+    try{
+      lines=text.split('\n');
+    }catch(e){
+      alert('Fehler beim Parsen: '+e.message);
+      return;
+    }
 
     const get=key=>{
-      const l=lines.find(x=>x.toLowerCase().includes(key.toLowerCase()+':'));
-      if(!l)return'';
-      const idx=l.indexOf(':');
-      const val=l.substring(idx+1).trim();
-      return(val==='(noch offen)'||val==='')?'':val;
+      if(!lines||!Array.isArray(lines))return'';
+      for(let i=0;i<lines.length;i++){
+        const line=lines[i];
+        if(!line||typeof line!=='string')continue;
+        const lower=line.toLowerCase();
+        const keyLower=key.toLowerCase();
+        if(lower.includes(keyLower+':')){
+          const idx=line.indexOf(':');
+          if(idx<0)continue;
+          const val=line.substring(idx+1).trim();
+          return(val==='(noch offen)'||val==='')?'':val;
+        }
+      }
+      return'';
     };
 
     const kostenstelle=get('Auftrag_Kostenstelle');
