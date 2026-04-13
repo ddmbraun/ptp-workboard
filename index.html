@@ -375,7 +375,7 @@ input,select,textarea{font-family:inherit;}
     <span class="filter-label">Filter:</span>
     <div class="filter-group">
       <div class="filter-wrapper">
-        <button class="filter-btn" id="filterOwnerBtn" onclick="toggleFilter('owner')">Owner ▾</button>
+        <button class="filter-btn" id="filterOwnerBtn" onclick="toggleFilter('owner')">Bearbeiter ▾</button>
         <div class="filter-dropdown" id="filterOwnerDropdown"></div>
       </div>
       <div class="filter-wrapper">
@@ -426,20 +426,20 @@ input,select,textarea{font-family:inherit;}
   <div class="modal">
     <h2 id="modalTitle">Neuer Task</h2>
     <input type="hidden" id="taskId">
-    <div class="modal-field"><label>Titel *</label><input type="text" id="taskTitleInput" placeholder="Task-Titel eingeben…"></div>
+    <div class="modal-field"><label>Titel *</label><input type="text" id="taskTitleInput" placeholder="Task-Titel eingeben…" oninput="scheduleTaskFieldSave()"></div>
     <div style="display:flex;gap:12px;">
-      <div class="modal-field" style="flex:1"><label>Owner</label><input type="text" id="taskOwnerInput" placeholder="Name"></div>
-      <div class="modal-field" style="flex:1"><label>Fälligkeit</label><input type="date" id="taskDueInput"></div>
+      <div class="modal-field" style="flex:1"><label>Bearbeiter</label><input type="text" id="taskOwnerInput" placeholder="Name" oninput="scheduleTaskFieldSave()"></div>
+      <div class="modal-field" style="flex:1"><label>Fälligkeit</label><input type="date" id="taskDueInput" onchange="scheduleTaskFieldSave()"></div>
     </div>
     <div style="display:flex;gap:12px;">
-      <div class="modal-field" style="flex:1"><label>Status</label><select id="taskStatusInput" onchange="updateGcalModalBtn()"></select></div>
+      <div class="modal-field" style="flex:1"><label>Status</label><select id="taskStatusInput" onchange="updateGcalModalBtn();scheduleTaskFieldSave()"></select></div>
       <div class="modal-field" style="flex:1"><label>Ampel</label>
-        <select id="taskAmpelInput"><option value="grün">🟢 Grün</option><option value="orange">🟠 Orange</option><option value="rot">🔴 Rot</option></select>
+        <select id="taskAmpelInput" onchange="scheduleTaskFieldSave()"><option value="grün">🟢 Grün</option><option value="orange">🟠 Orange</option><option value="rot">🔴 Rot</option></select>
       </div>
     </div>
     <div style="display:flex;gap:12px;">
-      <div class="modal-field" style="flex:1"><label>Tags / Kostenstelle</label><input type="text" id="taskTagsInput" placeholder="z.B. 260036, Report"></div>
-      <div class="modal-field" style="flex:1"><label>Quelle</label><input type="text" id="taskSourceInput" placeholder="z.B. E-Mail, Meeting"></div>
+      <div class="modal-field" style="flex:1"><label>Tags / Kostenstelle</label><input type="text" id="taskTagsInput" placeholder="z.B. 260036, Report" oninput="scheduleTaskFieldSave()"></div>
+      <div class="modal-field" style="flex:1"><label>Quelle</label><input type="text" id="taskSourceInput" placeholder="z.B. E-Mail, Meeting" oninput="scheduleTaskFieldSave()"></div>
     </div>
 
     <!-- OBJEKT -->
@@ -643,7 +643,53 @@ let taskZeitEntries = [];
 let autoSaveTimer = null;
 function scheduleSave(){
   clearTimeout(autoSaveTimer);
-  autoSaveTimer = setTimeout(async ()=>{await autoSave();pushToSync();}, 1500);
+  autoSaveTimer = setTimeout(async ()=>{await autoSave();pushToSync();}, 1000);
+}
+// Wird von oninput/onchange der Task-Felder aufgerufen
+// Für bestehende Tasks: sofort speichern (1s Debounce)
+// Für neue Tasks: nur beim Schließen speichern
+function scheduleTaskFieldSave(){
+  const id=document.getElementById('taskId').value;
+  if(!id) return; // Neuer Task: erst beim Schließen speichern
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(()=>{saveTaskData();}, 1000);
+}
+// Speichert Task-Daten ohne Modal zu schließen
+function saveTaskData(){
+  const title=document.getElementById('taskTitleInput').value.trim();
+  if(!title) return false;
+  const id=document.getElementById('taskId').value;
+  const existingTask=id?findTaskById(id):null;
+  const data={
+    id:id||generateId(),title,
+    desc:document.getElementById('taskDescInput').value.trim(),
+    owner:document.getElementById('taskOwnerInput').value.trim(),
+    due:document.getElementById('taskDueInput').value,
+    status:document.getElementById('taskStatusInput').value,
+    ampel:document.getElementById('taskAmpelInput').value,
+    tags:document.getElementById('taskTagsInput').value.split(',').map(s=>s.trim()).filter(Boolean),
+    source:document.getElementById('taskSourceInput').value.trim(),
+    hausverwaltung:document.getElementById('tHV').value.trim(),
+    adresse:document.getElementById('tAdr').value.trim(),
+    schadensbild:document.getElementById('tSch').value.trim(),
+    kontakte:getKontaktePTP(),
+    gdrive:document.getElementById('tGD').value.trim(),
+    nas:document.getElementById('tNAS').value.trim(),
+    links:taskLinks.filter(l=>l.url.trim()),
+    attachments:taskAttachments,
+    timeEntries:existingTask?.timeEntries||[],
+    ausserhausTermine:taskAusserhausTermine,
+    zeitEntries:taskZeitEntries
+  };
+  if(id){
+    const idx=boards[currentBoard].findIndex(t=>t.id===id);
+    if(idx>=0) boards[currentBoard][idx]=data;
+  } else {
+    document.getElementById('taskId').value=data.id; // ID setzen damit Folge-Saves updaten
+    boards[currentBoard].push(data);
+  }
+  render(); scheduleSave();
+  return true;
 }
 
 // ── TIMER STATE (Legacy, kept for data compatibility) ──
@@ -1043,7 +1089,7 @@ function renderList(){
   });
   let html=`<div class="list-view"><div class="list-sort-header">
     <span style="flex:1;font-size:11px;color:var(--text2)">TITEL</span>
-    <button class="list-sort-btn ${listSortField==='owner'?'active':''}" style="min-width:80px" onclick="toggleListSort('owner')">Owner ${listSortField==='owner'?(listSortDir===1?'↑':'↓'):''}</button>
+    <button class="list-sort-btn ${listSortField==='owner'?'active':''}" style="min-width:80px" onclick="toggleListSort('owner')">Bearbeiter ${listSortField==='owner'?(listSortDir===1?'↑':'↓'):''}</button>
     <button class="list-sort-btn ${listSortField==='due'?'active':''}" style="min-width:90px" onclick="toggleListSort('due')">Due Date ${listSortField==='due'?(listSortDir===1?'↑':'↓'):''}</button>
     <span style="min-width:80px;font-size:11px;color:var(--text2);text-align:center">STATUS</span>
     <span style="width:12px"></span></div>`;
@@ -1066,7 +1112,7 @@ function renderTable(){
   const tasks=getTasks();
   let html=`<div class="table-view"><table><thead><tr>
     <th onclick="toggleListSort('title')">Titel</th><th onclick="toggleListSort('status')">Status</th>
-    <th onclick="toggleListSort('owner')">Owner</th><th onclick="toggleListSort('due')">Due Date</th>
+    <th onclick="toggleListSort('owner')">Bearbeiter</th><th onclick="toggleListSort('due')">Due Date</th>
     <th>Ampel</th><th>Tags</th><th>Links/Anhänge</th>
   </tr></thead><tbody>`;
   const sorted=tasks.slice().sort((a,b)=>{
@@ -1644,11 +1690,12 @@ function openModal(){
     const el=document.getElementById(id);if(el)el.classList.remove('open');
   });
 }
-function closeModal(){document.getElementById('taskModal').classList.remove('open');}
+function closeModal(){
+  saveTaskData(); // Auto-Speichern beim Schließen (kein Effekt wenn kein Titel)
+  document.getElementById('taskModal').classList.remove('open');
+}
 function saveTaskAndBack(){
-  const title=document.getElementById('taskTitleInput').value.trim();
-  if(!title){closeModal();return;}  // Kein Titel = nur schließen
-  saveTask();  // speichert und schließt bereits
+  saveTask(); // speichert (wenn Titel vorhanden) und schließt
 }
 
 function openNewTaskModal(){
@@ -1656,7 +1703,7 @@ function openNewTaskModal(){
   document.getElementById('taskId').value='';
   document.getElementById('taskTitleInput').value='';
   document.getElementById('taskDescInput').value='';
-  document.getElementById('taskOwnerInput').value='';
+  document.getElementById('taskOwnerInput').value='Braun';
   document.getElementById('taskDueInput').value='';
   document.getElementById('taskStatusInput').value=statuses[0]||'';
   document.getElementById('taskAmpelInput').value='grün';
@@ -1680,7 +1727,7 @@ function openEditTaskModal(id){
   document.getElementById('taskId').value=task.id;
   document.getElementById('taskTitleInput').value=task.title;
   document.getElementById('taskDescInput').value=task.desc||'';
-  document.getElementById('taskOwnerInput').value=task.owner;
+  document.getElementById('taskOwnerInput').value=task.owner||'Braun';
   document.getElementById('taskDueInput').value=task.due||'';
   document.getElementById('taskStatusInput').value=task.status;
   document.getElementById('taskAmpelInput').value=task.ampel;
@@ -1715,32 +1762,7 @@ function openEditTaskModal(id){
 function saveTask(){
   const title=document.getElementById('taskTitleInput').value.trim();
   if(!title){document.getElementById('taskTitleInput').focus();return;}
-  const id=document.getElementById('taskId').value;
-  const existingTask=id?findTaskById(id):null;
-  const data={
-    id:id||generateId(),title,
-    desc:document.getElementById('taskDescInput').value.trim(),
-    owner:document.getElementById('taskOwnerInput').value.trim(),
-    due:document.getElementById('taskDueInput').value,
-    status:document.getElementById('taskStatusInput').value,
-    ampel:document.getElementById('taskAmpelInput').value,
-    tags:document.getElementById('taskTagsInput').value.split(',').map(s=>s.trim()).filter(Boolean),
-    source:document.getElementById('taskSourceInput').value.trim(),
-    hausverwaltung:document.getElementById('tHV').value.trim(),
-    adresse:document.getElementById('tAdr').value.trim(),
-    schadensbild:document.getElementById('tSch').value.trim(),
-    kontakte:getKontaktePTP(),
-    gdrive:document.getElementById('tGD').value.trim(),
-    nas:document.getElementById('tNAS').value.trim(),
-    links:taskLinks.filter(l=>l.url.trim()),
-    attachments:taskAttachments,
-    timeEntries:existingTask?.timeEntries||[],
-    ausserhausTermine:taskAusserhausTermine,
-    zeitEntries:taskZeitEntries
-  };
-  if(id){const idx=boards[currentBoard].findIndex(t=>t.id===id);if(idx>=0)boards[currentBoard][idx]=data;}
-  else boards[currentBoard].push(data);
-  closeModal();render();scheduleSave();
+  if(saveTaskData()) document.getElementById('taskModal').classList.remove('open');
 }
 
 function deleteTask(){
