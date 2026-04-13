@@ -1319,9 +1319,11 @@ function parseAuftragText(text){
   const eigTel        = get('Eigentuemer_Telefon');
   const person        = mieter||eigentuemer||'';
 
-  // Titel aufbauen
-  const titelParts=[kostenstelle,strasse,person].filter(Boolean);
-  const titel=titelParts.join(' – ');
+  // Titel aufbauen: Kostenstelle–Straße_Hausnummer–Person (ohne Leerzeichen, ohne PLZ)
+  const strasseHausnr = (strasse ? strasse.replace(/ /g,'_') : '');
+  const personStr = (person ? person.replace(/ /g,'_') : '');
+  const titelParts=[kostenstelle, strasseHausnr, personStr].filter(Boolean);
+  const titel=titelParts.join('–');
 
   // Beschreibung aufbauen
   const descParts=[];
@@ -1343,7 +1345,7 @@ function parseAuftragText(text){
   // Modal öffnen und Felder befüllen
   openNewTaskModal();
   document.getElementById('taskTitleInput').value=titel;
-  document.getElementById('taskOwnerInput').value=auftraggeber;
+  // taskOwnerInput bleibt auf "Braun" (gesetzt durch openNewTaskModal)
   if(dueDate)document.getElementById('taskDueInput').value=dueDate;
   document.getElementById('taskSourceInput').value='Auftragsakte';
   if(schadensbild)document.getElementById('taskTagsInput').value=schadensbild+(kostenstelle?', '+kostenstelle:'');
