@@ -1288,38 +1288,56 @@ function renderZeiterfassung(){
 // ── AUFTRAG ANLEGEN (aus Textdatei) ──
 function openAuftragDatei(){document.getElementById('auftragFileInput').click();}
 function readAuftragDatei(e){
-  const file=e.target.files[0];if(!file)return;
+  const file=e.target.files[0];
+  if(!file){alert('Keine Datei ausgewählt');return;}
   const reader=new FileReader();
+  reader.onerror=err=>{
+    alert('Fehler beim Lesen der Datei: '+err);
+    console.error('FileReader error:',err);
+  };
   reader.onload=ev=>{
     try{
-      const text=ev.target.result;
-      if(!text)throw new Error('Datei ist leer');
+      const text=ev.target?.result;
+      console.log('Datei gelesen, Länge:',text?.length,'Typ:',typeof text);
+      if(!text||typeof text!=='string'){
+        throw new Error('Dateiinhalt ist leer oder nicht lesbar');
+      }
       parseAuftragText(text);
     }
-    catch(err){alert('Fehler beim Lesen der Datei: '+err.message);}
+    catch(err){
+      console.error('Fehler in readAuftragDatei:',err);
+      alert('Fehler beim Lesen der Datei: '+err.message);
+    }
   };
+  // Versuche zuerst UTF-8, dann Fallback auf windows-1252
   reader.readAsText(file,'utf-8');
   e.target.value='';
 }
 function parseAuftragText(text){
-  if(!text||typeof text!=='string')throw new Error('Ungültiger Dateityp');
-  const lines=text.split('\n');
-  const get=key=>{
-    if(!lines||!Array.isArray(lines))return'';
-    const l=lines.find(x=>{
-      try{return x&&x.trim().startsWith(key+':');}catch(e){return false;}
-    });
-    if(!l)return'';
-    try{
-      const parts=l.split(':');
-      if(parts.length<2)return'';
-      const val=parts.slice(1).join(':').trim();
-      return val==='(noch offen)'||val===''?'':val;
-    }catch(e){
-      console.error('Fehler beim Parsen von '+key,e);
-      return'';
+  try{
+    console.log('parseAuftragText gestartet, text-länge:',text?.length);
+    if(!text||typeof text!=='string'){
+      throw new Error('Text ist nicht vom Typ string');
     }
-  };
+    const lines=text.split('\n');
+    console.log('Lines gesplittet, Anzahl:',lines.length);
+    if(!lines||lines.length===0){
+      throw new Error('Datei ist leer oder konnte nicht gelesen werden');
+    }
+
+    const get=key=>{
+      try{
+        const l=lines.find(x=>x&&typeof x==='string'&&x.trim().startsWith(key+':'));
+        if(!l)return'';
+        const idx=l.indexOf(':');
+        if(idx===-1)return'';
+        const val=l.substring(idx+1).trim();
+        return val==='(noch offen)'||val===''?'':val;
+      }catch(e){
+        console.error('Fehler beim get('+key+')',e);
+        return'';
+      }
+    };
   const kostenstelle  = get('Auftrag_Kostenstelle');
   const strasse       = get('Objekt_Strasse');
   const mieter        = get('Mieter_Name');
