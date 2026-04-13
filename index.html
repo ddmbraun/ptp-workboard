@@ -464,7 +464,7 @@ input,select,textarea{font-family:inherit;}
     </div>
 
     <!-- ANSPRECHPARTNER -->
-    <div class="form-collapse open" id="tAnsprchSect">
+    <div class="form-collapse" id="tAnsprchSect">
       <div class="form-collapse-header" onclick="toggleFormSection('tAnsprchSect')">
         <span class="form-collapse-title" id="tAnsprchTitle">👥 Ansprechpartner</span>
         <span class="form-collapse-arrow">▾</span>
@@ -562,7 +562,7 @@ input,select,textarea{font-family:inherit;}
     <div class="modal-actions">
       <button class="topbar-btn btn-danger" id="deleteTaskBtn" onclick="deleteTask()" style="display:none;margin-right:auto;">Löschen</button>
       <button class="gcal-btn-modal" id="gcalModalBtn" onclick="openGoogleCalendarFromModal()" style="display:none;margin-right:auto;">📅 In Kalender eintragen</button>
-      <button class="topbar-btn btn-secondary" onclick="closeModal()">Abbrechen</button>
+      <button class="topbar-btn btn-secondary" onclick="saveTaskAndBack()">← Zurück</button>
       <button class="topbar-btn btn-primary" onclick="saveTask()">Speichern</button>
     </div>
   </div>
@@ -1637,8 +1637,19 @@ function tNasKopieren(){
   });
 }
 // ── TASK MODAL ──
-function openModal(){document.getElementById('taskModal').classList.add('open');}
+function openModal(){
+  document.getElementById('taskModal').classList.add('open');
+  // Alle Sektionen beim Öffnen schließen
+  ['tObjektSect','tAnsprchSect','tTermineSect','tZeitSect','tVerkSect','tAnhangSect','tNotizenSect'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.classList.remove('open');
+  });
+}
 function closeModal(){document.getElementById('taskModal').classList.remove('open');}
+function saveTaskAndBack(){
+  const title=document.getElementById('taskTitleInput').value.trim();
+  if(!title){closeModal();return;}  // Kein Titel = nur schließen
+  saveTask();  // speichert und schließt bereits
+}
 
 function openNewTaskModal(){
   document.getElementById('modalTitle').textContent='Neuer Task';
