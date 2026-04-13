@@ -74,7 +74,9 @@ input,select,textarea{font-family:inherit;}
 
 /* KANBAN */
 .kanban{display:flex;gap:14px;height:100%;min-height:0;overflow-x:auto;padding-bottom:8px;}
-.kanban-col{flex:0 0 260px;min-width:200px;background:var(--bg2);border-radius:10px;display:flex;flex-direction:column;max-height:100%;transition:flex .2s;}
+.kanban-col{flex:0 0 260px;min-width:200px;background:var(--bg2);border-radius:10px;display:flex;flex-direction:column;max-height:100%;transition:flex .2s;resize:horizontal;overflow:hidden;position:relative;}
+.kanban-col::after{content:'';position:absolute;right:0;top:0;bottom:0;width:4px;cursor:col-resize;background:linear-gradient(90deg,transparent,var(--accent));opacity:0;transition:opacity .2s;pointer-events:auto;}
+.kanban-col:hover::after{opacity:1;}
 .kanban-col.collapsed{flex:0 0 52px;min-width:52px;overflow:hidden;}
 .kanban-col.collapsed .kanban-col-body{display:none;}
 .kanban-col.collapsed .kanban-col-title{writing-mode:vertical-rl;transform:rotate(180deg);font-size:11px;white-space:nowrap;max-height:160px;overflow:hidden;}
@@ -1315,97 +1317,65 @@ function readAuftragDatei(e){
 }
 function parseAuftragText(text){
   try{
-    console.log('parseAuftragText gestartet, text-länge:',text?.length);
-    if(!text||typeof text!=='string'){
-      throw new Error('Text ist nicht vom Typ string');
-    }
-    const lines=text.split('\n');
-    console.log('Lines gesplittet, Anzahl:',lines.length);
-    if(!lines||lines.length===0){
-      throw new Error('Datei ist leer oder konnte nicht gelesen werden');
-    }
+    if(!text||typeof text!=='string') throw new Error('Text ungültig');
+    const lines=text.split('\n').filter(l=>l);
 
     const get=key=>{
-      try{
-        const l=lines.find(x=>x&&typeof x==='string'&&x.trim().startsWith(key+':'));
-        if(!l)return'';
-        const idx=l.indexOf(':');
-        if(idx===-1)return'';
-        const val=l.substring(idx+1).trim();
-        return val==='(noch offen)'||val===''?'':val;
-      }catch(e){
-        console.error('Fehler beim get('+key+')',e);
-        return'';
-      }
+      const l=lines.find(x=>x.toLowerCase().includes(key.toLowerCase()+':'));
+      if(!l)return'';
+      const idx=l.indexOf(':');
+      const val=l.substring(idx+1).trim();
+      return(val==='(noch offen)'||val==='')?'':val;
     };
-  const kostenstelle  = get('Auftrag_Kostenstelle');
-  const strasse       = get('Objekt_Strasse');
-  const mieter        = get('Mieter_Name');
-  const eigentuemer   = get('Eigentuemer_Name');
-  const auftraggeber  = get('Auftraggeber');
-  const repNr         = get('Rep_Nr');
-  const terminAbgabe  = get('Termin_Abgabe');
-  const terminOrt     = get('Termin_Ortstermin');
-  const schadensbild  = get('Baustelle_Schadensbild');
-  const hausverwaltung= get('Objekt_Hausverwaltung');
-  const nasOrdner     = get('NAS_Auftragsordner');
-  const mieterTel     = get('Mieter_Telefon');
-  const eigTel        = get('Eigentuemer_Telefon');
-  const person        = mieter||eigentuemer||'';
 
-  // Titel aufbauen: Kostenstelle–Straße_Hausnummer–Person (ohne Leerzeichen, ohne PLZ)
-  const strasseHausnr = (strasse ? strasse.replace(/ /g,'_') : '');
-  const personStr = (person ? person.replace(/ /g,'_') : '');
-  const titelParts=[kostenstelle, strasseHausnr, personStr].filter(Boolean);
-  const titel=titelParts.join('–');
+    const kostenstelle=get('Auftrag_Kostenstelle');
+    const strasse=get('Objekt_Strasse');
+    const mieter=get('Mieter_Name');
+    const eigentuemer=get('Eigentuemer_Name');
+    const auftraggeber=get('Auftraggeber');
+    const repNr=get('Rep_Nr');
+    const terminAbgabe=get('Termin_Abgabe');
+    const terminOrt=get('Termin_Ortstermin');
+    const schadensbild=get('Baustelle_Schadensbild');
+    const hausverwaltung=get('Objekt_Hausverwaltung');
+    const nasOrdner=get('NAS_Auftragsordner');
+    const mieterTel=get('Mieter_Telefon');
+    const eigTel=get('Eigentuemer_Telefon');
+    const person=mieter||eigentuemer||'';
 
-  // Beschreibung aufbauen
-  const descParts=[];
-  if(repNr)descParts.push('Rep-Nr: '+repNr);
-  if(hausverwaltung)descParts.push('Hausverwaltung: '+hausverwaltung);
-  if(schadensbild)descParts.push('Schadensbild: '+schadensbild);
-  if(eigentuemer)descParts.push('Eigentümer: '+eigentuemer+(eigTel?' ('+eigTel+')':''));
-  if(mieter)descParts.push('Mieter: '+mieter+(mieterTel?' ('+mieterTel+')':''));
-  const beschreibung=descParts.join('\n');
+    const strasseHausnr=(strasse?strasse.replace(/ /g,'_'):'');
+    const personStr=(person?person.replace(/ /g,'_'):'');
+    const titelParts=[kostenstelle,strasseHausnr,personStr].filter(Boolean);
+    const titel=titelParts.join('–');
 
-  // Datum konvertieren: dd.mm.yyyy → yyyy-mm-dd
-  function deDate(s){
-    if(!s)return'';
-    const m=s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
-    return m?m[3]+'-'+m[2]+'-'+m[1]:'';
+    function deDate(s){if(!s)return'';const m=s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);return m?m[3]+'-'+m[2]+'-'+m[1]:'';}
+    const dueDate=deDate(terminAbgabe);
+
+    openNewTaskModal();
+    document.getElementById('taskTitleInput').value=titel;
+    if(dueDate)document.getElementById('taskDueInput').value=dueDate;
+    document.getElementById('taskSourceInput').value='Auftragsakte';
+    if(kostenstelle)document.getElementById('taskTagsInput').value=kostenstelle;
+    if(schadensbild)document.getElementById('taskDescInput').value=schadensbild;
+    if(hausverwaltung)document.getElementById('tHV').value=hausverwaltung;
+    if(strasse)document.getElementById('tAdr').value=strasse;
+    if(schadensbild)document.getElementById('tSch').value=schadensbild;
+
+    if(auftraggeber||get('AG_Kontakt_Name')||get('AG_Kontakt_Tel')||get('AG_Kontakt_Email'))
+      addKontaktPTP('ag',get('AG_Kontakt_Name')||'',get('AG_Kontakt_Tel')||'',get('AG_Kontakt_Email')||'');
+    if(eigentuemer||eigTel||get('Eigentuemer_Email'))
+      addKontaktPTP('eigentuemer',eigentuemer,eigTel,get('Eigentuemer_Email')||'');
+    if(mieter||mieterTel||get('Mieter_Email'))
+      addKontaktPTP('mieter',mieter,mieterTel,get('Mieter_Email')||'');
+    if(nasOrdner)document.getElementById('tNAS').value=nasOrdner;
+
+    const ortsDatum=deDate(terminOrt);
+    if(ortsDatum){addAusserhausTermin(ortsDatum,'','','Ortstermin');}
+    updateGcalModalBtn();
+  }catch(err){
+    console.error('Fehler in parseAuftragText:',err);
+    alert('Fehler beim Einlesen der Auftragsakte: '+err.message);
   }
-  const dueDate=deDate(terminAbgabe);
-
-  // Modal öffnen und Felder befüllen
-  openNewTaskModal();
-  document.getElementById('taskTitleInput').value=titel;
-  // taskOwnerInput bleibt auf "Braun" (gesetzt durch openNewTaskModal)
-  if(dueDate)document.getElementById('taskDueInput').value=dueDate;
-  document.getElementById('taskSourceInput').value='Auftragsakte';
-  // Tags: nur Kostenstelle
-  if(kostenstelle)document.getElementById('taskTagsInput').value=kostenstelle;
-  // Beschreibung: Schadensbild
-  if(schadensbild)document.getElementById('taskDescInput').value=schadensbild;
-  // Objekt-Felder
-  if(hausverwaltung)document.getElementById('tHV').value=hausverwaltung;
-  if(strasse)document.getElementById('tAdr').value=strasse;
-  if(schadensbild)document.getElementById('tSch').value=schadensbild;
-  // Ansprechpartner: nur anlegen wenn Daten vorhanden
-  if(auftraggeber||get('AG_Kontakt_Name')||get('AG_Kontakt_Tel')||get('AG_Kontakt_Email'))
-    addKontaktPTP('ag',get('AG_Kontakt_Name')||'',get('AG_Kontakt_Tel')||'',get('AG_Kontakt_Email')||'');
-  if(eigentuemer||eigTel||get('Eigentuemer_Email'))
-    addKontaktPTP('eigentuemer',eigentuemer,eigTel,get('Eigentuemer_Email')||'');
-  if(mieter||mieterTel||get('Mieter_Email'))
-    addKontaktPTP('mieter',mieter,mieterTel,get('Mieter_Email')||'');
-  // Verknüpfungen
-  if(nasOrdner)document.getElementById('tNAS').value=nasOrdner;
-
-  // Außerhaus-Termin vorausfüllen wenn Ortstermin vorhanden
-  const ortsDatum=deDate(terminOrt);
-  if(ortsDatum){addAusserhausTermin(ortsDatum,'','','Ortstermin');}
-
-  // Zeiterfassung-Abschnitt auföffnen wenn nötig
-  updateGcalModalBtn();
 }
 
 function updateGcalModalBtn(){
