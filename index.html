@@ -1430,13 +1430,6 @@ function stopTimer(){
   scheduleSave();  // includes pushToSync()
   updateCardTimerBadge(stoppedId);
 }
-  }
-  clearInterval(activeTimerIntervalId);
-  const stoppedId=activeTimerTaskId;
-  activeTimerTaskId=null;activeTimerIntervalId=null;
-  autoSave();
-  updateCardTimerBadge(stoppedId);
-}
 function renderTimerSection(){
   const taskId=document.getElementById('taskId').value;
   const task=taskId?findTaskById(taskId):null;
