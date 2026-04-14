@@ -643,19 +643,22 @@ let taskAusserhausTermine = [];
 let taskZeitEntries = [];
 
 // ── KANBAN COLUMN RESIZE ──
-let resizingCol=null,resizeStartX=0,resizeStartWidth=0;
+let resizingCol=null,resizeStartX=0,resizeStartWidth=0,resizingColIdx=-1;
+const kanbanColWidths=JSON.parse(localStorage.getItem('kanbanColWidths')||'{}');
 
 document.addEventListener('mousedown',(e)=>{
-  if(e.target.closest('.kanban-col')){
-    const col=e.target.closest('.kanban-col');
-    const rect=col.getBoundingClientRect();
-    const isHandle=(e.clientX-rect.left)>(rect.width-10);
-    if(isHandle){
-      resizingCol=col;
-      resizeStartX=e.clientX;
-      resizeStartWidth=col.offsetWidth;
-      e.preventDefault();
-    }
+  const col=e.target.closest('.kanban-col');
+  if(!col)return;
+  const rect=col.getBoundingClientRect();
+  if((e.clientX-rect.left)>(rect.width-14)){
+    resizingCol=col;
+    resizeStartX=e.clientX;
+    resizeStartWidth=col.offsetWidth;
+    const allCols=[...col.parentElement.querySelectorAll('.kanban-col')];
+    resizingColIdx=allCols.indexOf(col);
+    document.body.style.cursor='col-resize';
+    document.body.style.userSelect='none';
+    e.preventDefault();
   }
 });
 
@@ -664,12 +667,27 @@ document.addEventListener('mousemove',(e)=>{
   const delta=e.clientX-resizeStartX;
   const newWidth=Math.max(150,resizeStartWidth+delta);
   resizingCol.style.flex='0 0 '+newWidth+'px';
+  if(resizingColIdx>=0) kanbanColWidths[resizingColIdx]=newWidth;
 });
 
-document.addEventListener('mouseup',()=>{resizingCol=null;});
+document.addEventListener('mouseup',()=>{
+  if(resizingCol){
+    localStorage.setItem('kanbanColWidths',JSON.stringify(kanbanColWidths));
+    document.body.style.cursor='';
+    document.body.style.userSelect='';
+  }
+  resizingCol=null;resizingColIdx=-1;
+});
+
+function applyKanbanColWidths(){
+  const cols=document.querySelectorAll('.kanban-col');
+  cols.forEach((col,i)=>{
+    if(kanbanColWidths[i]) col.style.flex='0 0 '+kanbanColWidths[i]+'px';
+  });
+}
 
 function initColResize(){
-  // Dummy function – resize is now handled globally
+  applyKanbanColWidths();
 }
 
 // ── AUTO-SAVE DEBOUNCE ──
@@ -1112,6 +1130,7 @@ function renderKanban(){
   });
   html+='</div>';
   document.getElementById('mainContent').innerHTML=html;
+  applyKanbanColWidths();
 }
 
 function renderList(){
@@ -1411,17 +1430,33 @@ function parseAuftragText(text){
     if(strasse)document.getElementById('tAdr').value=strasse;
     if(schadensbild)document.getElementById('tSch').value=schadensbild;
 
-    if(auftraggeber||get('AG_Kontakt_Name')||get('AG_Kontakt_Tel')||get('AG_Kontakt_Email'))
-      addKontaktPTP('ag',get('AG_Kontakt_Name')||'',get('AG_Kontakt_Tel')||'',get('AG_Kontakt_Email')||'');
-    if(eigentuemer||eigTel||get('Eigentuemer_Email'))
-      addKontaktPTP('eigentuemer',eigentuemer,eigTel,get('Eigentuemer_Email')||'');
-    if(mieter||mieterTel||get('Mieter_Email'))
-      addKontaktPTP('mieter',mieter,mieterTel,get('Mieter_Email')||'');
-    if(nasOrdner)document.getElementById('tNAS').value=nasOrdner;
+    try{
+      if(auftraggeber||get('AG_Kontakt_Name')||get('AG_Kontakt_Tel')||get('AG_Kontakt_Email'))
+        addKontaktPTP('ag',get('AG_Kontakt_Name')||'',get('AG_Kontakt_Tel')||'',get('AG_Kontakt_Email')||'');
+    }catch(e){console.error('Fehler beim AG-Kontakt:',e);}
 
-    const ortsDatum=deDate(terminOrt);
-    if(ortsDatum){addAusserhausTermin(ortsDatum,'','','Ortstermin');}
-    updateGcalModalBtn();
+    try{
+      if(eigentuemer||eigTel||get('Eigentuemer_Email'))
+        addKontaktPTP('eigentuemer',eigentuemer,eigTel,get('Eigentuemer_Email')||'');
+    }catch(e){console.error('Fehler beim Eigentümer-Kontakt:',e);}
+
+    try{
+      if(mieter||mieterTel||get('Mieter_Email'))
+        addKontaktPTP('mieter',mieter,mieterTel,get('Mieter_Email')||'');
+    }catch(e){console.error('Fehler beim Mieter-Kontakt:',e);}
+
+    try{
+      if(nasOrdner)document.getElementById('tNAS').value=nasOrdner;
+    }catch(e){console.error('Fehler beim NAS-Feld:',e);}
+
+    try{
+      const ortsDatum=deDate(terminOrt);
+      if(ortsDatum){addAusserhausTermin(ortsDatum,'','','Ortstermin');}
+    }catch(e){console.error('Fehler beim Ortstermin:',e);}
+
+    try{
+      updateGcalModalBtn();
+    }catch(e){console.error('Fehler bei updateGcalModalBtn:',e);}
   }catch(err){
     console.error('Fehler in parseAuftragText:',err);
     alert('Fehler beim Einlesen der Auftragsakte: '+err.message);
@@ -2026,16 +2061,17 @@ function pushToSync(){
   const termine=[];const zeiten=[];
   Object.entries(boards).forEach(([bn,tasks])=>{
     (tasks||[]).forEach(task=>{
-      const ks=(task.tags&&task.tags[0])||task.title.split(' – ')[0]||'';
+      if(!task||!task.title)return;
+      const ks=(task.tags&&task.tags[0])||(task.title?task.title.split('–')[0]:'')||'';
       (task.ausserhausTermine||[]).forEach((t,i)=>{
         if(!t.date&&!t.von)return;
-        termine.push({syncId:'ptp_'+task.id+'_t'+i,source:'ptp',kostenstelle:ks,auftragTitle:task.title,
+        termine.push({syncId:'ptp_'+task.id+'_t'+i,source:'ptp',kostenstelle:ks,auftragTitle:task.title||'',
           datum:t.date||'',von:t.von||'',bis:t.bis||'',beschreibung:t.beschreibung||''});
       });
       (task.zeitEntries||[]).forEach((z,i)=>{
         if(!z.date&&!z.von)return;
         const min=parseMinutes(z.von,z.bis);
-        zeiten.push({syncId:'ptp_'+task.id+'_z'+i,source:'ptp',kostenstelle:ks,auftragTitle:task.title,
+        zeiten.push({syncId:'ptp_'+task.id+'_z'+i,source:'ptp',kostenstelle:ks,auftragTitle:task.title||'',
           datum:z.date||'',von:z.von||'',bis:z.bis||'',beschreibung:z.beschreibung||'',minuten:min});
       });
     });
