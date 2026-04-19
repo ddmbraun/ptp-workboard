@@ -2042,7 +2042,8 @@ function openBaudokuApp(){
     kontakte:kontakte
   };
   localStorage.setItem('bau_ptp_import',JSON.stringify(payload));
-  const bauUrl=window.location.href.replace(/\/ptp\/index\.html.*$/,'/bau/index.html');
+  const isGithub=window.location.hostname.includes('github.io');
+  const bauUrl=isGithub?'https://ddmbraun.github.io/bau-doku/':'../bau/index.html';
   window.open(bauUrl,'_blank');
 }
 
