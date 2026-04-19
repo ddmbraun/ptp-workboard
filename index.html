@@ -440,6 +440,7 @@ input,select,textarea{font-family:inherit;}
       <div class="modal-field" style="flex:1"><label>Ampel</label>
         <select id="taskAmpelInput" onchange="scheduleTaskFieldSave()"><option value="grün">🟢 Grün</option><option value="orange">🟠 Orange</option><option value="rot">🔴 Rot</option></select>
       </div>
+      <div class="modal-field" style="flex:1"><label>Ausführungsdatum</label><input type="date" id="taskAusfInput" onchange="scheduleTaskFieldSave()"></div>
     </div>
     <div style="display:flex;gap:12px;">
       <div class="modal-field" style="flex:1"><label>Tags / Kostenstelle</label><input type="text" id="taskTagsInput" placeholder="z.B. 260036, Report" oninput="scheduleTaskFieldSave()"></div>
@@ -721,6 +722,7 @@ function saveTaskData(){
     due:document.getElementById('taskDueInput').value,
     status:document.getElementById('taskStatusInput').value,
     ampel:document.getElementById('taskAmpelInput').value,
+    ausführungsdatum:document.getElementById('taskAusfInput').value,
     tags:document.getElementById('taskTagsInput').value.split(',').map(s=>s.trim()).filter(Boolean),
     source:document.getElementById('taskSourceInput').value.trim(),
     hausverwaltung:document.getElementById('tHV').value.trim(),
@@ -1803,6 +1805,7 @@ function openNewTaskModal(){
   document.getElementById('taskDueInput').value='';
   document.getElementById('taskStatusInput').value=statuses[0]||'';
   document.getElementById('taskAmpelInput').value='grün';
+  document.getElementById('taskAusfInput').value='';
   document.getElementById('taskTagsInput').value='';
   document.getElementById('taskSourceInput').value='';
   ['tHV','tAdr','tSch','tGD','tNAS'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
@@ -1827,6 +1830,7 @@ function openEditTaskModal(id){
   document.getElementById('taskDueInput').value=task.due||'';
   document.getElementById('taskStatusInput').value=task.status;
   document.getElementById('taskAmpelInput').value=task.ampel;
+  document.getElementById('taskAusfInput').value=task.ausführungsdatum||'';
   document.getElementById('taskTagsInput').value=(task.tags||[]).join(', ');
   document.getElementById('taskSourceInput').value=task.source||'';
   document.getElementById('tHV').value=task.hausverwaltung||'';
@@ -2143,8 +2147,14 @@ function openSyncPanel(){
 function openBaudokuApp(){
   const ks=(document.getElementById('taskTagsInput')?.value||'').split(',')[0].trim();
   if(!ks){alert('Bitte eine Kostenstelle eintragen');return;}
-  const bauDocPath='../bau/index.html?ks='+encodeURIComponent(ks);
-  window.open(bauDocPath,'_blank');
+
+  // Konstruiere den richtigen Pfad basierend auf aktuellem Standort
+  let currentUrl=window.location.href;
+  // Ersetze '/ptp/index.html' mit '/bau/index.html'
+  let bauUrl=currentUrl.replace(/\/ptp\/index\.html.*$/, '/bau/index.html');
+  bauUrl+='?ks='+encodeURIComponent(ks);
+
+  window.open(bauUrl,'_blank');
 }
 </script>
 </body>
