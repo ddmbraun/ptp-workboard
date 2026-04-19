@@ -1090,6 +1090,7 @@ function taskCardHTML(task){
       <span class="ampel ampel-${task.ampel==='grün'?'green':task.ampel==='orange'?'orange':'red'}"></span>
       <span class="task-card-owner">${esc(task.owner)}</span>
       ${task.due?`<span class="task-card-due ${overdue?'overdue':''}">${formatDate(task.due)}</span>`:''}
+      ${task.ausführungsdatum?`<span class="task-card-due" style="color:#e67e22;font-weight:600;">📋 ${formatDate(task.ausführungsdatum)}</span>`:''}
       ${(task.tags||[]).map(t=>`<span class="task-tag">${esc(t)}</span>`).join('')}
     </div>
     ${(()=>{
@@ -2148,12 +2149,13 @@ function openBaudokuApp(){
   const ks=(document.getElementById('taskTagsInput')?.value||'').split(',')[0].trim();
   if(!ks){alert('Bitte eine Kostenstelle eintragen');return;}
 
-  // Konstruiere den richtigen Pfad basierend auf aktuellem Standort
+  // Konstruiere den richtigen Pfad - ersetze 'ptp' Ordner mit 'bau'
   let currentUrl=window.location.href;
-  // Ersetze '/ptp/index.html' mit '/bau/index.html'
-  let bauUrl=currentUrl.replace(/\/ptp\/index\.html.*$/, '/bau/index.html');
+  // Entferne alles nach 'ptp/' und ersetze 'ptp' durch 'bau'
+  let bauUrl=currentUrl.split('/ptp/')[0]+'/bau/index.html';
   bauUrl+='?ks='+encodeURIComponent(ks);
 
+  console.log('Öffne Baudoku:', bauUrl);
   window.open(bauUrl,'_blank');
 }
 </script>
