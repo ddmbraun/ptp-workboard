@@ -2188,20 +2188,7 @@ function openSyncPanel(){
   document.body.appendChild(overlay);
 }
 
-// Öffnet die Baudoku App mit der Kostenstelle
-function openBaudokuApp(){
-  const ks=(document.getElementById('taskTagsInput')?.value||'').split(',')[0].trim();
-  if(!ks){alert('Bitte eine Kostenstelle eintragen');return;}
 
-  // Konstruiere den richtigen Pfad - ersetze 'ptp' Ordner mit 'bau'
-  let currentUrl=window.location.href;
-  // Entferne alles nach 'ptp/' und ersetze 'ptp' durch 'bau'
-  let bauUrl=currentUrl.split('/ptp/')[0]+'/bau/index.html';
-  bauUrl+='?ks='+encodeURIComponent(ks);
-
-  console.log('Öffne Baudoku:', bauUrl);
-  window.open(bauUrl,'_blank');
-}
 </script>
 </body>
 </html>
