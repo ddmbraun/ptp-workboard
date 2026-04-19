@@ -2042,7 +2042,8 @@ function openBaudokuApp(){
     kontakte:kontakte
   };
   localStorage.setItem('bau_ptp_import',JSON.stringify(payload));
-  alert('✅ Auftrag bereit!\nÖffne jetzt die Bau-Doku – der Auftrag wird dort automatisch angeboten.');
+  const bauUrl=window.location.href.replace(/\/ptp\/index\.html.*$/,'/bau/index.html');
+  window.open(bauUrl,'_blank');
 }
 
 // ══════════════════════════════════════════════
