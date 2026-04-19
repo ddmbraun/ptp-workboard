@@ -444,6 +444,7 @@ input,select,textarea{font-family:inherit;}
     <div style="display:flex;gap:12px;">
       <div class="modal-field" style="flex:1"><label>Tags / Kostenstelle</label><input type="text" id="taskTagsInput" placeholder="z.B. 260036, Report" oninput="scheduleTaskFieldSave()"></div>
       <div class="modal-field" style="flex:1"><label>Quelle</label><input type="text" id="taskSourceInput" placeholder="z.B. E-Mail, Meeting" oninput="scheduleTaskFieldSave()"></div>
+      <button type="button" id="openBauBtn" class="topbar-btn btn-primary" style="align-self:flex-end;padding:8px 14px;border-radius:6px;font-size:12px;font-weight:600;" onclick="openBaudokuApp()" title="Zur Baudoku App mit dieser Kostenstelle">📋 Bau</button>
     </div>
 
     <!-- OBJEKT -->
@@ -2119,15 +2120,15 @@ function openSyncPanel(){
   if(bauTermine.length){
     html+='<h4 style="font-size:11px;text-transform:uppercase;color:var(--text2);margin:0 0 8px">Außerhaus-Termine ('+bauTermine.length+')</h4>';
     html+='<div style="overflow-x:auto;margin-bottom:16px"><table style="width:100%;border-collapse:collapse;font-size:12px">';
-    html+='<tr style="background:var(--bg2)"><th style="padding:5px 8px;text-align:left;color:var(--text2)">Datum</th><th style="color:var(--text2)">Von</th><th style="color:var(--text2)">Bis</th><th style="color:var(--text2)">Beschreibung</th><th style="color:var(--text2)">Auftrag</th></tr>';
-    bauTermine.forEach(t=>{html+='<tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 8px">'+(t.datum||'–')+'</td><td>'+(t.von||'–')+'</td><td>'+(t.bis||'–')+'</td><td>'+(t.beschreibung||'')+'</td><td style="color:var(--text2);font-size:11px">'+(t.auftragTitle||'')+'</td></tr>';});
+    html+='<tr style="background:var(--bg2)"><th style="padding:5px 8px;text-align:left;color:var(--text2)">Datum</th><th style="color:var(--text2)">Von</th><th style="color:var(--text2)">Bis</th><th style="color:var(--text2)">Beschreibung</th><th style="color:var(--text2)">Ausf.Datum</th><th style="color:var(--text2)">Auftrag</th></tr>';
+    bauTermine.forEach(t=>{html+='<tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 8px">'+(t.datum||'–')+'</td><td>'+(t.von||'–')+'</td><td>'+(t.bis||'–')+'</td><td>'+(t.beschreibung||'')+'</td><td style="color:var(--text2);font-size:11px">'+(t.ausführungsdatum||'–')+'</td><td style="color:var(--text2);font-size:11px">'+(t.auftragTitle||'')+'</td></tr>';});
     html+='</table></div>';
   }
   if(bauZeiten.length){
     html+='<h4 style="font-size:11px;text-transform:uppercase;color:var(--text2);margin:0 0 8px">Zeiterfassung ('+bauZeiten.length+')</h4>';
     html+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
-    html+='<tr style="background:var(--bg2)"><th style="padding:5px 8px;text-align:left;color:var(--text2)">Datum</th><th style="color:var(--text2)">Von</th><th style="color:var(--text2)">Bis</th><th style="color:var(--text2)">Min.</th><th style="color:var(--text2)">Beschreibung</th><th style="color:var(--text2)">Auftrag</th></tr>';
-    bauZeiten.forEach(z=>{html+='<tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 8px">'+(z.datum||'–')+'</td><td>'+(z.von||'–')+'</td><td>'+(z.bis||'–')+'</td><td>'+(z.minuten||0)+'</td><td>'+(z.beschreibung||'')+'</td><td style="color:var(--text2);font-size:11px">'+(z.auftragTitle||'')+'</td></tr>';});
+    html+='<tr style="background:var(--bg2)"><th style="padding:5px 8px;text-align:left;color:var(--text2)">Datum</th><th style="color:var(--text2)">Von</th><th style="color:var(--text2)">Bis</th><th style="color:var(--text2)">Min.</th><th style="color:var(--text2)">Beschreibung</th><th style="color:var(--text2)">Ausf.Datum</th><th style="color:var(--text2)">Auftrag</th></tr>';
+    bauZeiten.forEach(z=>{html+='<tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 8px">'+(z.datum||'–')+'</td><td>'+(z.von||'–')+'</td><td>'+(z.bis||'–')+'</td><td>'+(z.minuten||0)+'</td><td>'+(z.beschreibung||'')+'</td><td style="color:var(--text2);font-size:11px">'+(z.ausführungsdatum||'–')+'</td><td style="color:var(--text2);font-size:11px">'+(z.auftragTitle||'')+'</td></tr>';});
     html+='</table></div>';
   }
   if(!bauTermine.length&&!bauZeiten.length){html+='<p style="color:var(--text2);font-size:13px">Noch keine synchronisierten Einträge von der Bau Doku App.</p>';}
@@ -2136,6 +2137,14 @@ function openSyncPanel(){
   const overlay=document.createElement('div');
   overlay.innerHTML=html;
   document.body.appendChild(overlay);
+}
+
+// Öffnet die Baudoku App mit der Kostenstelle
+function openBaudokuApp(){
+  const ks=(document.getElementById('taskTagsInput')?.value||'').split(',')[0].trim();
+  if(!ks){alert('Bitte eine Kostenstelle eintragen');return;}
+  const bauDocPath='../bau/index.html?ks='+encodeURIComponent(ks);
+  window.open(bauDocPath,'_blank');
 }
 </script>
 </body>
