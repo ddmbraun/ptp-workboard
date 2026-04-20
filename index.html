@@ -241,7 +241,10 @@ input,select,textarea{font-family:inherit;}
 .foto-desktop-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
 .foto-desktop-thumb.fallback::before{content:'🖼️';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:32px;color:var(--text2);}
 .foto-desktop-thumb .foto-del{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.65);color:#fff;border:none;width:22px;height:22px;border-radius:11px;font-size:12px;cursor:pointer;z-index:2;}
+.foto-desktop-thumb .foto-edit{position:absolute;top:4px;right:30px;background:rgba(0,0,0,.65);color:#fff;border:none;width:22px;height:22px;border-radius:11px;font-size:11px;cursor:pointer;z-index:2;display:flex;align-items:center;justify-content:center;}
+.foto-desktop-thumb .foto-edit:hover{background:rgba(106,138,255,.85);}
 .foto-desktop-thumb .foto-name{position:absolute;left:0;right:0;bottom:0;font-size:10px;color:#fff;background:rgba(0,0,0,.55);padding:3px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.foto-desktop-thumb .foto-caption{position:absolute;left:0;right:0;bottom:0;font-size:11px;color:#fff;background:rgba(106,138,255,.78);padding:3px 6px;white-space:normal;overflow:hidden;text-overflow:ellipsis;line-height:1.25;max-height:2.5em;}
 
 /* TIMER */
 .timer-display{font-size:34px;font-weight:700;color:var(--accent2);font-variant-numeric:tabular-nums;letter-spacing:3px;text-align:center;padding:10px 0 8px;font-family:'Courier New',monospace;}
@@ -1971,14 +1974,21 @@ function renderFotoListDesktop(){
   if(!taskFotos||!taskFotos.length){el.innerHTML='';return;}
   const items=taskFotos.map((f,i)=>{
     const name=f.name||'';
+    const caption=f.caption||'';
     const id=f.driveId||'';
     const cached=id?_desktopFotoBlobCache.get(id):null;
     // driveIds sind immer [A-Za-z0-9_-], trotzdem defensiv escapen
     const safeId=String(id).replace(/[^A-Za-z0-9_\-]/g,'');
     const srcAttr=cached?'src="'+esc(cached)+'" ':(safeId?'data-foto-id="'+safeId+'" ':'');
-    return '<div class="foto-desktop-thumb" onclick="openFotoDesktop('+i+')" title="'+esc(name)+'">'
+    const tip=caption?(caption+' — '+name):name;
+    // Wenn eine Beschreibung existiert, ersetzt sie den Dateinamen unten
+    const bottomLabel=caption
+      ? '<div class="foto-caption" title="'+esc(caption)+'">'+esc(caption)+'</div>'
+      : '<div class="foto-name">'+esc(name)+'</div>';
+    return '<div class="foto-desktop-thumb" onclick="openFotoDesktop('+i+')" title="'+esc(tip)+'">'
       +'<img '+srcAttr+'alt="" loading="lazy" onerror="this.style.display=\'none\';this.parentElement.classList.add(\'fallback\')">'
-      +'<div class="foto-name">'+esc(name)+'</div>'
+      +bottomLabel
+      +'<button class="foto-edit" onclick="event.stopPropagation();editFotoCaptionDesktop('+i+')" title="Beschreibung hinzufügen / bearbeiten">📝</button>'
       +'<button class="foto-del" onclick="event.stopPropagation();removeFotoDesktop('+i+')" title="Verweis entfernen (Datei in Drive bleibt)">✕</button>'
       +'</div>';
   }).join('');
@@ -2013,6 +2023,16 @@ function removeFotoDesktop(i){
     : 'Foto-Eintrag entfernen?';
   if(!confirm(msg))return;
   taskFotos.splice(i,1);
+  renderFotoListDesktop();
+}
+// Beschreibung (Caption) zu einem Foto bearbeiten. Wird beim Modal-Save persistiert.
+function editFotoCaptionDesktop(i){
+  const f=taskFotos&&taskFotos[i];if(!f)return;
+  const current=f.caption||'';
+  const val=prompt('Beschreibung zum Foto "'+(f.name||'Foto')+'":\n(leer lassen, um die Beschreibung zu entfernen)',current);
+  if(val===null)return; // Abbrechen
+  const trimmed=String(val).trim();
+  taskFotos[i].caption=trimmed;
   renderFotoListDesktop();
 }
 function downloadAttach(i){
