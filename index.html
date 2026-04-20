@@ -6,6 +6,8 @@
 <title>PTP Workboard</title>
 <script src="https://accounts.google.com/gsi/client" defer onload="gdriveInit()"></script>
 <script src="https://cdn.jsdelivr.net/npm/piexifjs@1.0.6/piexif.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
 :root {
   --bg:#ffffff; --bg2:#f4f4f8; --bg3:#eaeaf0; --bg4:#dcdce8;
@@ -2175,15 +2177,26 @@ async function _driveCreateTextFile(name,content,parentId){
   });
   if(!r.ok)throw new Error('Datei anlegen: HTTP '+r.status);
 }
+async function _driveUploadPDF(name,arrayBuffer,parentId){
+  const meta={name,mimeType:'application/pdf',parents:[parentId]};
+  const form=new FormData();
+  form.append('metadata',new Blob([JSON.stringify(meta)],{type:'application/json'}));
+  form.append('file',new Blob([arrayBuffer],{type:'application/pdf'}));
+  const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+    method:'POST',headers:{Authorization:'Bearer '+gdriveToken},body:form
+  });
+  if(!r.ok)throw new Error('PDF hochladen: HTTP '+r.status);
+}
 async function createAbschlussakte(){
   const gdrive=document.getElementById('tGD').value.trim();
   const folderId=_extractFolderIdFromUrl(gdrive);
   if(!folderId){alert('Bitte zuerst einen Google Drive-Foto-Ordner im Task eintragen.');return;}
   if(!gdriveToken){alert('Nicht mit Google Drive verbunden.');return;}
+  if(!window.jspdf){alert('PDF-Bibliothek noch nicht geladen. Bitte kurz warten und erneut versuchen.');return;}
   const btn=document.getElementById('abschlussBtn');
-  btn.textContent='⏳ Erstelle…';btn.disabled=true;
+  btn.textContent='⏳ Erstelle PDF…';btn.disabled=true;
   try{
-    // Daten aus Modal lesen
+    // ── Daten aus Modal lesen ──
     const title=document.getElementById('taskTitleInput').value.trim()||'Auftrag';
     const adresse=document.getElementById('tAdr').value.trim();
     const hv=document.getElementById('tHV').value.trim();
@@ -2192,56 +2205,171 @@ async function createAbschlussakte(){
     const ausf=document.getElementById('taskAusfInput').value;
     const nas=document.getElementById('tNAS').value.trim();
     const desc=document.getElementById('taskDescInput').value.trim();
-    // Zeiterfassung
+    const now=new Date().toLocaleString('de-DE');
     const zeitMin=taskZeitEntries.reduce((s,z)=>{try{const[vh,vm]=z.von.split(':').map(Number);const[bh,bm]=z.bis.split(':').map(Number);const d=(bh*60+bm)-(vh*60+vm);return s+(d>0?d:0);}catch(e){return s;}},0);
     const zeitH=Math.floor(zeitMin/60),zeitM=zeitMin%60;
-    // Auftragsakte.txt zusammenbauen
-    const now=new Date().toLocaleString('de-DE');
-    let txt='';
-    txt+='ABSCHLUSSAKTE\n';
-    txt+='=============\n';
-    txt+='Erstellt: '+now+'\n\n';
-    txt+='AUFTRAG\n-------\n';
-    txt+='Titel:           '+title+'\n';
-    if(adresse)txt+='Adresse:         '+adresse+'\n';
-    if(hv)txt+='Hausverwaltung:  '+hv+'\n';
-    if(status)txt+='Status:          '+status+'\n';
-    if(ausf)txt+='Ausführungsdatum:'+ausf+'\n';
-    if(nas)txt+='NAS-Pfad:        '+nas+'\n';
-    if(gdrive)txt+='Drive-Ordner:    '+gdrive+'\n';
-    if(schaden){txt+='\nSCHADENSBILD\n------------\n'+schaden+'\n';}
-    if(desc){txt+='\nNOTIZ\n-----\n'+desc+'\n';}
-    // Kontakte
     const kontakte=getKontaktePTP();
+    // ── jsPDF aufbauen ──
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({unit:'mm',format:'a4'});
+    const marginL=12,marginR=12,pageW=210,pageH=297,contentW=pageW-marginL-marginR;
+    let y=15;
+    function chkPage(needed){if(y+needed>pageH-12){doc.addPage();y=15;}}
+    function addLine(text,fs,bold,rgb){
+      doc.setFontSize(fs);
+      doc.setFont('helvetica',bold?'bold':'normal');
+      if(rgb)doc.setTextColor(rgb[0],rgb[1],rgb[2]);else doc.setTextColor(30,30,30);
+      const lines=doc.splitTextToSize(String(text),contentW);
+      lines.forEach(l=>{chkPage(fs*0.45+1);doc.text(l,marginL,y);y+=fs*0.45;});
+      y+=1;
+    }
+    function addSection(label){
+      chkPage(12);
+      doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(90,80,180);
+      doc.text(label.toUpperCase(),marginL,y);
+      doc.setDrawColor(90,80,180);doc.setLineWidth(0.3);
+      doc.line(marginL,y+1,pageW-marginR,y+1);
+      y+=6;doc.setTextColor(30,30,30);
+    }
+    function addField(label,value){
+      if(!value)return;
+      doc.setFontSize(9.5);doc.setFont('helvetica','bold');doc.setTextColor(80,80,100);
+      doc.text(label+':',marginL,y);
+      doc.setFont('helvetica','normal');doc.setTextColor(30,30,30);
+      const lines=doc.splitTextToSize(String(value),contentW-32);
+      doc.text(lines,marginL+32,y);
+      y+=Math.max(lines.length*4.5,5);
+    }
+    // ── Deckblatt ──
+    doc.setFillColor(90,80,180);doc.rect(0,0,210,18,'F');
+    doc.setFontSize(15);doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);
+    doc.text('ABSCHLUSSAKTE',marginL,12);
+    doc.setFontSize(9);doc.setFont('helvetica','normal');
+    doc.text('Erstellt: '+now,pageW-marginR,12,{align:'right'});
+    doc.setTextColor(30,30,30);
+    y=28;
+    addLine(title,16,true,[30,30,100]);
+    y+=3;
+    // ── Auftragsdaten ──
+    addSection('Auftrag');
+    addField('Status',status);
+    addField('Adresse',adresse);
+    addField('Hausverwaltung',hv);
+    addField('Ausfuehrungsdatum',ausf);
+    addField('NAS-Pfad',nas);
+    addField('Drive-Ordner',gdrive);
+    if(schaden){y+=2;addSection('Schadensbild / Beschreibung');addLine(schaden,10);}
+    if(desc){y+=2;addSection('Notiz');addLine(desc,10);}
+    // ── Kontakte ──
     if(kontakte.length){
-      txt+='\nKONTAKTE\n--------\n';
-      kontakte.forEach(k=>{txt+=(k.rolle||'')+(k.name?' | '+k.name:'')+(k.tel?' | Tel: '+k.tel:'')+(k.email?' | '+k.email:'')+'\n';});
+      y+=2;addSection('Kontakte');
+      kontakte.forEach(k=>{
+        const line=(k.rolle||'')+(k.name?' | '+k.name:'')+(k.tel?' | '+k.tel:'')+(k.email?' | '+k.email:'');
+        addLine(line,10);
+      });
     }
-    // Zeiterfassung
+    // ── Zeiterfassung (Tabelle) ──
     if(taskZeitEntries.length){
-      txt+='\nZEITERFASSUNG\n-------------\n';
-      taskZeitEntries.forEach(z=>{txt+=(z.date||'')+'  '+( z.von||'')+'–'+(z.bis||'')+'  '+(z.beschreibung||'')+'\n';});
-      txt+='Gesamt: '+zeitH+'h '+zeitM+'min\n';
+      y+=2;addSection('Zeiterfassung (Stoppuhr)');
+      doc.autoTable({
+        startY:y,
+        margin:{left:marginL,right:marginR},
+        head:[['Datum','Von','Bis','Dauer','Beschreibung']],
+        body:taskZeitEntries.map(z=>{
+          let dur='';
+          try{const[vh,vm]=z.von.split(':').map(Number);const[bh,bm]=z.bis.split(':').map(Number);const d=(bh*60+bm)-(vh*60+vm);if(d>0)dur=Math.floor(d/60)+'h '+(d%60)+'min';}catch(e){}
+          return[z.date||'',z.von||'',z.bis||'',dur,z.beschreibung||''];
+        }),
+        foot:[['','','','Gesamt:',zeitH+'h '+zeitM+'min']],
+        styles:{fontSize:9,cellPadding:2.5,textColor:[30,30,30]},
+        headStyles:{fillColor:[90,80,180],textColor:[255,255,255],fontStyle:'bold',fontSize:9},
+        footStyles:{fillColor:[240,240,248],textColor:[30,30,30],fontStyle:'bold',fontSize:9},
+        alternateRowStyles:{fillColor:[248,248,252]},
+        columnStyles:{0:{cellWidth:24},1:{cellWidth:16},2:{cellWidth:16},3:{cellWidth:20},4:{cellWidth:'auto'}},
+      });
+      y=doc.lastAutoTable.finalY+6;
     }
-    // Termine
+    // ── Außer-Haus-Termine (Tabelle) ──
     if(taskAusserhausTermine.length){
-      txt+='\nAUSSER-HAUS-TERMINE\n-------------------\n';
-      taskAusserhausTermine.forEach(t=>{txt+=(t.date||'')+'  '+(t.von||'')+'–'+(t.bis||'')+'  '+(t.beschreibung||'')+'\n';});
+      y+=2;addSection('Ausser-Haus-Termine');
+      doc.autoTable({
+        startY:y,
+        margin:{left:marginL,right:marginR},
+        head:[['Datum','Von','Bis','Beschreibung']],
+        body:taskAusserhausTermine.map(t=>[t.date||'',t.von||'',t.bis||'',t.beschreibung||'']),
+        styles:{fontSize:9,cellPadding:2.5,textColor:[30,30,30]},
+        headStyles:{fillColor:[90,80,180],textColor:[255,255,255],fontStyle:'bold',fontSize:9},
+        alternateRowStyles:{fillColor:[248,248,252]},
+        columnStyles:{0:{cellWidth:24},1:{cellWidth:16},2:{cellWidth:16},3:{cellWidth:'auto'}},
+      });
+      y=doc.lastAutoTable.finalY+6;
     }
-    // Notizen
+    // ── Notizenverlauf ──
     if(taskNotizVerlauf.length){
-      txt+='\nNOTIZVERLAUF\n------------\n';
-      taskNotizVerlauf.forEach(n=>{txt+=(n.ts||'')+': '+(n.text||'')+'\n';});
+      y+=2;addSection('Notizen (chronologisch)');
+      taskNotizVerlauf.forEach(n=>{addLine((n.ts||'')+': '+(n.text||''),9.5);});
     }
-    // Fotos
+    // ── Fotos mit Beschreibung ──
     if(taskFotos.length){
-      txt+='\nFOTOS\n-----\n';
-      taskFotos.forEach((f,i)=>{txt+=(i+1)+'. '+(f.name||'Foto')+(f.caption?' — '+f.caption:'')+'\n';});
+      btn.textContent='⏳ Fotos laden…';
+      for(let i=0;i<taskFotos.length;i++){
+        const f=taskFotos[i];
+        doc.addPage();
+        // Kopfzeile
+        doc.setFillColor(240,240,248);doc.rect(0,0,210,14,'F');
+        doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(90,80,180);
+        doc.text('Foto '+(i+1)+' / '+taskFotos.length,marginL,9);
+        doc.setFont('helvetica','normal');doc.setTextColor(60,60,80);
+        if(f.name)doc.text(f.name,pageW-marginR,9,{align:'right'});
+        doc.setTextColor(30,30,30);
+        y=20;
+        // Bild laden
+        let imgOk=false;
+        if(f.driveId){
+          try{
+            const blobUrl=await _fetchDesktopFotoBlob(f.driveId);
+            if(blobUrl){
+              const blob=await fetch(blobUrl).then(r=>r.blob());
+              const dataUrl=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=e=>res(e.target.result);fr.onerror=rej;fr.readAsDataURL(blob);});
+              const imgType=dataUrl.startsWith('data:image/png')?'PNG':'JPEG';
+              // Bildgröße ermitteln für Seitenverhältnis
+              const tmpImg=new Image();
+              await new Promise(res=>{tmpImg.onload=res;tmpImg.onerror=res;tmpImg.src=dataUrl;});
+              const iw=tmpImg.naturalWidth||1,ih=tmpImg.naturalHeight||1;
+              const maxW=contentW,maxH=200;
+              const scale=Math.min(maxW/iw,maxH/ih);
+              const dw=iw*scale,dh=ih*scale;
+              const offX=marginL+(contentW-dw)/2;
+              doc.addImage(dataUrl,imgType,offX,y,dw,dh);
+              y+=dh+6;
+              imgOk=true;
+            }
+          }catch(err){console.warn('Foto '+i+' Fehler:',err);}
+        }
+        if(!imgOk){
+          doc.setFontSize(9);doc.setTextColor(180,180,180);
+          doc.text('(Foto konnte nicht geladen werden)',marginL,y+10);
+          doc.setTextColor(30,30,30);
+          y+=20;
+        }
+        // Beschreibung / Caption
+        doc.setDrawColor(180,180,200);doc.setLineWidth(0.2);doc.line(marginL,y,pageW-marginR,y);y+=5;
+        doc.setFontSize(9.5);doc.setFont('helvetica','bold');doc.setTextColor(90,80,180);
+        doc.text('Beschreibung:',marginL,y);y+=5;
+        doc.setFont('helvetica','normal');doc.setTextColor(30,30,30);
+        if(f.caption){
+          const capLines=doc.splitTextToSize(f.caption,contentW);
+          capLines.forEach(l=>{doc.text(l,marginL,y);y+=4.8;});
+        }else{
+          doc.setTextColor(160,160,160);doc.text('(keine Beschreibung)',marginL,y);
+        }
+      }
     }
-    // Unterordner "Abschlussakte" anlegen
+    // ── PDF hochladen ──
+    btn.textContent='⏳ Hochladen…';
+    const pdfBuf=doc.output('arraybuffer');
     const subId=await _driveCreateFolder('Abschlussakte',folderId);
-    // Auftragsakte.txt hochladen
-    await _driveCreateTextFile('Auftragsakte.txt',txt,subId);
+    await _driveUploadPDF('Auftragsakte.pdf',pdfBuf,subId);
     btn.textContent='✓ Abschlussakte erstellt';
     setTimeout(()=>{btn.textContent='📁 Abschlussakte';btn.disabled=false;},3000);
   }catch(e){
