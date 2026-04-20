@@ -1125,8 +1125,8 @@ function taskCardHTML(task){
       const hasTime=(task.timeEntries||[]).length>0||isTaskTimerRunning(task.id);
       const timeMs=hasTime?getTaskTotalMs(task):0;
       const ks=(task.tags&&task.tags[0])||'';
-      const bauTermCount=ks?(syncData.termine||[]).filter(t=>t.source==='bau'&&t.kostenstelle===ks).length:0;
-      const bauZeitCount=ks?(syncData.zeiterfassung||[]).filter(z=>z.source==='bau'&&z.kostenstelle===ks).length:0;
+      const bauTermCount=ks?(syncData.termine||[]).filter(t=>t.source==='bau'&&(t.kostenstelle||'').trim()===ks).length:0;
+      const bauZeitCount=ks?(syncData.zeiterfassung||[]).filter(z=>z.source==='bau'&&(z.kostenstelle||'').trim()===ks).length:0;
       const bauTotal=bauTermCount+bauZeitCount;
       return(hasLinks||hasAttach||hasTime||isAH||bauTotal>0)?`<div class="task-card-icons">
         ${hasLinks?`<span class="task-icon-badge">🔗 ${(task.links||[]).length}</span>`:''}
@@ -1272,7 +1272,7 @@ function renderAusserhausTermine(){
   const el=document.getElementById('ausserhausTermineList');
   if(!el)return;
   const ks=(document.getElementById('taskTagsInput')?.value||'').split(',')[0].trim();
-  const bauTermine=ks?(syncData.termine||[]).filter(t=>t.source==='bau'&&t.kostenstelle===ks):[];
+  const bauTermine=ks?(syncData.termine||[]).filter(t=>t.source==='bau'&&(t.kostenstelle||'').trim()===ks):[];
   let html='';
   if(!taskAusserhausTermine.length){
     html+='<div class="no-items-hint">Noch keine Termine — oben hinzufügen</div>';
@@ -1319,7 +1319,7 @@ function parseMinutes(von,bis){
 }
 function renderZeitGesamt(){
   const ks=(document.getElementById('taskTagsInput')?.value||'').split(',')[0].trim();
-  const bauZeiten=ks?(syncData.zeiterfassung||[]).filter(z=>z.source==='bau'&&z.kostenstelle===ks):[];
+  const bauZeiten=ks?(syncData.zeiterfassung||[]).filter(z=>z.source==='bau'&&(z.kostenstelle||'').trim()===ks):[];
   const totalPTP=taskZeitEntries.reduce((s,e)=>s+parseMinutes(e.von,e.bis),0);
   const hP=Math.floor(totalPTP/60),mP=totalPTP%60;
   const el=document.getElementById('zeitGesamtRow');
@@ -1340,7 +1340,7 @@ function renderZeiterfassung(){
   const el=document.getElementById('zeiterfassungList');
   if(!el)return;
   const ks=(document.getElementById('taskTagsInput')?.value||'').split(',')[0].trim();
-  const bauZeiten=ks?(syncData.zeiterfassung||[]).filter(z=>z.source==='bau'&&z.kostenstelle===ks):[];
+  const bauZeiten=ks?(syncData.zeiterfassung||[]).filter(z=>z.source==='bau'&&(z.kostenstelle||'').trim()===ks):[];
   let html='';
   if(!taskZeitEntries.length){
     html+='<div class="no-items-hint">Noch keine Eintr\u00e4ge — oben hinzufügen</div>';
@@ -2183,8 +2183,9 @@ async function syncCreate(){
 async function syncRead(initial=false){
   if(!syncFileId||!gdriveToken)return;
   try{
-    const r=await fetch('https://www.googleapis.com/drive/v3/files/'+syncFileId+'?alt=media',
-      {headers:{Authorization:'Bearer '+gdriveToken}});
+    // Cache-Buster + no-store verhindert, dass der Browser eine alte Kopie liefert
+    const r=await fetch('https://www.googleapis.com/drive/v3/files/'+syncFileId+'?alt=media&_='+Date.now(),
+      {headers:{Authorization:'Bearer '+gdriveToken,'Cache-Control':'no-cache','Pragma':'no-cache'},cache:'no-store'});
     if(!r.ok)return;
     _ptpLastSyncReadAt=Date.now();
     const d=await r.json();
@@ -2201,9 +2202,9 @@ async function syncRead(initial=false){
       try{
         const openTaskId=document.getElementById('taskId')&&document.getElementById('taskId').value;
         if(openTaskId){
-          // Nur Sync-Sections neu zeichnen (nicht das gesamte Formular zurücksetzen)
-          if(typeof renderPTPTermineSection==='function')renderPTPTermineSection(openTaskId);
-          if(typeof renderPTPZeitenSection==='function')renderPTPZeitenSection(openTaskId);
+          // Sync-Sections im offenen Modal neu zeichnen (ohne Formular zurückzusetzen)
+          if(typeof renderAusserhausTermine==='function')renderAusserhausTermine();
+          if(typeof renderZeiterfassung==='function')renderZeiterfassung();
           if(typeof renderTimerSection==='function')renderTimerSection();
         }
       }catch(e){}
@@ -2250,7 +2251,7 @@ function pushToSync(){
   Object.entries(boards).forEach(([bn,tasks])=>{
     (tasks||[]).forEach(task=>{
       if(!task||!task.title)return;
-      const ks=(task.tags&&task.tags[0])||(task.title?task.title.split('–')[0]:'')||'';
+      const ks=(((task.tags&&task.tags[0])||(task.title?task.title.split('–')[0]:'')||'')+'').trim();
       (task.ausserhausTermine||[]).forEach((t,i)=>{
         if(!t.date&&!t.von)return;
         termine.push({syncId:'ptp_'+task.id+'_t'+i,source:'ptp',kostenstelle:ks,auftragTitle:task.title||'',
