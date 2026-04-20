@@ -93,13 +93,13 @@ input,select,textarea{font-family:inherit;}
 .col-collapse-btn:hover{color:var(--accent);background:var(--bg3);}
 
 /* TASK CARD */
-.task-card{background:var(--bg3);border-radius:8px;padding:10px 12px;cursor:grab;transition:all .15s;border:1px solid transparent;position:relative;}
+.task-card{background:var(--bg3);border-radius:8px;padding:calc(10px * var(--card-scale, 1)) calc(12px * var(--card-scale, 1));cursor:grab;transition:all .15s;border:1px solid transparent;position:relative;}
 .task-card:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:0 4px 12px var(--shadow);}
 .task-card.dragging{opacity:0.5;}
-.task-card-title{font-size:13px;font-weight:500;margin-bottom:6px;line-height:1.3;}
+.task-card-title{font-size:calc(13px * var(--card-scale, 1));font-weight:500;margin-bottom:calc(6px * var(--card-scale, 1));line-height:1.3;}
 .task-card-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
-.task-card-owner{font-size:11px;color:var(--text2);background:var(--bg4);padding:1px 6px;border-radius:3px;}
-.task-card-due{font-size:11px;color:var(--text2);}
+.task-card-owner{font-size:calc(11px * var(--card-scale, 1));color:var(--text2);background:var(--bg4);padding:1px 6px;border-radius:3px;}
+.task-card-due{font-size:calc(11px * var(--card-scale, 1));color:var(--text2);}
 .task-card-due.overdue{color:var(--red);}
 .ampel{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 .ampel-green{background:var(--green);}
@@ -156,19 +156,25 @@ input,select,textarea{font-family:inherit;}
 /* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;}
 .modal-overlay.open{opacity:1;pointer-events:all;}
-.modal{position:relative;background:var(--bg2);border-radius:12px;padding:24px;width:540px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px var(--shadow);resize:horizontal;overflow:auto;user-select:none;}
+.modal{position:relative;background:var(--bg2);border-radius:12px;padding:calc(24px * var(--modal-scale, 1));width:540px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px var(--shadow);resize:horizontal;overflow:auto;user-select:none;}
 .modal::after{content:'';position:absolute;bottom:0;right:0;width:20px;height:20px;cursor:nwse-resize;background:linear-gradient(135deg, transparent 50%, var(--accent) 50%);border-radius:0 0 12px 0;pointer-events:auto;}
-.modal h2{font-size:18px;margin-bottom:16px;}
+.modal h2{font-size:calc(18px * var(--modal-scale, 1));margin-bottom:16px;}
+.modal-header-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;}
+.modal-header-row h2{margin-bottom:0;}
+.modal-size-group{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.modal-size-group label{font-size:11px;color:var(--text2);white-space:nowrap;margin:0;}
+.modal-size-group input[type=range]{width:90px;accent-color:var(--accent);}
+.modal-size-group .modal-size-val{font-size:11px;color:var(--text2);min-width:34px;text-align:right;}
 .modal-field{margin-bottom:12px;}
-.modal-field label{display:block;font-size:12px;color:var(--text2);margin-bottom:4px;font-weight:500;}
-.modal-field input,.modal-field select,.modal-field textarea{width:100%;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;outline:none;}
+.modal-field label{display:block;font-size:calc(12px * var(--modal-scale, 1));color:var(--text2);margin-bottom:4px;font-weight:500;}
+.modal-field input,.modal-field select,.modal-field textarea{width:100%;padding:calc(8px * var(--modal-scale, 1)) calc(10px * var(--modal-scale, 1));border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:calc(13px * var(--modal-scale, 1));outline:none;}
 .modal-field input:focus,.modal-field select:focus,.modal-field textarea:focus{border-color:var(--accent);}
-.modal-field textarea{resize:vertical;min-height:60px;}
+.modal-field textarea{resize:vertical;min-height:calc(60px * var(--modal-scale, 1));}
 .modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .modal-field.full{grid-column:1/-1;}
 .form-collapse{margin-top:14px;border-top:1px solid var(--border);}
 .form-collapse-header{display:flex;align-items:center;justify-content:space-between;padding:10px 0 8px;cursor:pointer;user-select:none;-webkit-user-select:none;}
-.form-collapse-title{font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;}
+.form-collapse-title{font-size:calc(11px * var(--modal-scale, 1));font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;}
 .form-collapse-arrow{color:var(--text2);font-size:13px;transition:transform .2s;}
 .form-collapse-body{display:none;padding-bottom:4px;}
 .form-collapse.open .form-collapse-arrow{transform:rotate(180deg);}
@@ -326,6 +332,21 @@ input,select,textarea{font-family:inherit;}
 ::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px;}
 ::-webkit-scrollbar-thumb:hover{background:var(--accent);}
 .overdue{color:var(--red)!important;}
+
+/* ── NOTIZ-CHRONIK ── */
+.notiz-entry{display:flex;gap:10px;align-items:flex-start;background:var(--bg2);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:6px;padding:8px 10px;margin-bottom:6px;}
+.notiz-entry-body{flex:1;min-width:0;}
+.notiz-ts{color:var(--text2);font-size:11px;font-weight:500;margin-bottom:3px;letter-spacing:.2px;}
+.notiz-text{color:var(--text);font-size:14px;line-height:1.45;white-space:pre-wrap;word-wrap:break-word;}
+.notiz-del{flex-shrink:0;background:transparent;border:1px solid var(--border);color:var(--text2);width:26px;height:26px;border-radius:4px;font-size:13px;cursor:pointer;}
+.notiz-del:hover{border-color:var(--red);color:var(--red);}
+.notiz-empty{color:var(--text2);font-size:12px;font-style:italic;padding:4px 2px;}
+
+/* ── CARD-GRÖßE (Schieberegler-Variable) ── */
+.card-size-group{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.card-size-group label{font-size:11px;color:var(--text2);white-space:nowrap;}
+.card-size-group input[type=range]{width:90px;accent-color:var(--accent);}
+.card-size-group .card-size-val{font-size:11px;color:var(--text2);min-width:28px;text-align:right;}
 </style>
 </head>
 <body>
@@ -343,6 +364,11 @@ input,select,textarea{font-family:inherit;}
     <span class="search-hint">/</span>
   </div>
   <div class="topbar-right">
+    <div class="card-size-group" title="Kartengröße im Board">
+      <label for="cardSizeSlider">🔍</label>
+      <input id="cardSizeSlider" type="range" min="80" max="160" step="5" value="100" oninput="setCardSize(this.value)">
+      <span class="card-size-val" id="cardSizeVal">100%</span>
+    </div>
     <button class="btn-auftrag" onclick="openAuftragDatei()">📋 Auftrag anlegen</button>
     <button class="topbar-btn btn-primary" onclick="openNewTaskModal()">+ Neuer Task</button>
   </div>
@@ -427,8 +453,15 @@ input,select,textarea{font-family:inherit;}
 
 <!-- TASK MODAL -->
 <div class="modal-overlay" id="taskModal">
-  <div class="modal">
-    <h2 id="modalTitle">Neuer Task</h2>
+  <div class="modal" id="taskModalBox">
+    <div class="modal-header-row">
+      <h2 id="modalTitle">Neuer Task</h2>
+      <div class="modal-size-group" title="Schriftgröße im Formular anpassen">
+        <label>🔍</label>
+        <input id="modalSizeSlider" type="range" min="80" max="180" step="5" value="100" oninput="setModalSize(this.value)">
+        <span class="modal-size-val" id="modalSizeVal">100%</span>
+      </div>
+    </div>
     <input type="hidden" id="taskId">
     <div class="modal-field"><label>Titel *</label><input type="text" id="taskTitleInput" placeholder="Task-Titel eingeben…" oninput="scheduleTaskFieldSave()"></div>
     <div style="display:flex;gap:12px;">
@@ -1436,13 +1469,13 @@ function renderTaskNotizen(){
   const el=document.getElementById('taskNotizList');
   if(!el)return;
   if(!taskNotizVerlauf.length){
-    el.innerHTML='<div class="no-items-hint" style="padding:4px 2px;font-size:12px;color:#888;">Noch keine chronologischen Einträge</div>';
+    el.innerHTML='<div class="notiz-empty">Noch keine chronologischen Einträge</div>';
     return;
   }
   el.innerHTML=taskNotizVerlauf.map((n,i)=>
-    '<div class="notiz-entry" style="background:#2a2a3a;border-left:3px solid #e67e22;padding:6px 10px;border-radius:4px;font-size:13px;display:flex;gap:8px;align-items:flex-start;">'
-    +'<div style="flex:1;min-width:0;"><div style="color:#aaa;font-size:11px;margin-bottom:2px;">'+esc(n.ts||'')+'</div><div style="white-space:pre-wrap;word-wrap:break-word;">'+esc(n.text||'')+'</div></div>'
-    +'<button type="button" class="termin-row-btn del" onclick="removeTaskNotiz('+i+')" title="Eintrag löschen" style="flex-shrink:0;">✕</button>'
+    '<div class="notiz-entry">'
+    +'<div class="notiz-entry-body"><div class="notiz-ts">'+esc(n.ts||'')+'</div><div class="notiz-text">'+esc(n.text||'')+'</div></div>'
+    +'<button type="button" class="notiz-del" onclick="removeTaskNotiz('+i+')" title="Eintrag löschen">✕</button>'
     +'</div>'
   ).join('');
 }
@@ -2018,7 +2051,13 @@ function updateKontaktePTPTitle(){
   if(el)el.innerHTML='👥 Ansprechpartner'+(count?' <span style="color:var(--accent2);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">('+count+')</span>':'');
 }
 // ── FORM COLLAPSE ──
+// Debounce gegen Doppelklick — sonst öffnet und schließt sich die Sektion sofort wieder.
+const _formSectionLastToggle={};
 function toggleFormSection(id){
+  const now=Date.now();
+  const last=_formSectionLastToggle[id]||0;
+  if(now-last<350){_formSectionLastToggle[id]=now;return;} // zweiten Klick binnen 350 ms ignorieren
+  _formSectionLastToggle[id]=now;
   const el=document.getElementById(id);
   if(el)el.classList.toggle('open');
 }
@@ -2049,6 +2088,8 @@ function openModal(){
   document.getElementById('taskModal').classList.add('open');
   // Alle Sektionen beim Öffnen schließen
   collapseAllTaskSections();
+  // Gespeicherte Modal-Größe anwenden
+  if(typeof applyStoredModalSize==='function')applyStoredModalSize();
 }
 function closeModal(){
   saveTaskData(); // Auto-Speichern beim Schließen (kein Effekt wenn kein Titel)
@@ -2595,6 +2636,36 @@ function openSyncPanel(){
   document.body.appendChild(overlay);
 }
 
+// ── KARTENGRÖSSE (Schieberegler) ──
+function setCardSize(pct){
+  const v=Math.max(60,Math.min(200,parseInt(pct,10)||100));
+  document.documentElement.style.setProperty('--card-scale',(v/100).toFixed(2));
+  const lbl=document.getElementById('cardSizeVal');if(lbl)lbl.textContent=v+'%';
+  try{localStorage.setItem('ptp_card_size',String(v));}catch(e){}
+}
+(function initCardSize(){
+  try{
+    const s=parseInt(localStorage.getItem('ptp_card_size')||'100',10);
+    const inp=document.getElementById('cardSizeSlider');
+    if(inp){inp.value=String(s);setCardSize(s);}
+  }catch(e){}
+})();
+
+// ── MODAL-GRÖSSE (Schieberegler im Task-Modal) ──
+function setModalSize(pct){
+  const v=Math.max(70,Math.min(200,parseInt(pct,10)||100));
+  const box=document.getElementById('taskModalBox');
+  if(box)box.style.setProperty('--modal-scale',(v/100).toFixed(2));
+  const lbl=document.getElementById('modalSizeVal');if(lbl)lbl.textContent=v+'%';
+  const sl=document.getElementById('modalSizeSlider');if(sl&&String(sl.value)!==String(v))sl.value=String(v);
+  try{localStorage.setItem('ptp_modal_size',String(v));}catch(e){}
+}
+function applyStoredModalSize(){
+  try{
+    const s=parseInt(localStorage.getItem('ptp_modal_size')||'100',10);
+    setModalSize(s);
+  }catch(e){}
+}
 
 </script>
 </body>
