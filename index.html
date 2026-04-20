@@ -748,9 +748,35 @@ function saveTaskData(){
   return true;
 }
 
-// ── TIMER STATE (Legacy, kept for data compatibility) ──
+// ── TIMER STATE (persistent via localStorage['ptp_timer']) ──
 let activeTimerTaskId = null;
 let activeTimerIntervalId = null;
+(function(){
+  try{
+    const raw=localStorage.getItem('ptp_timer');
+    if(raw){const t=JSON.parse(raw);if(t&&t.taskId){activeTimerTaskId=t.taskId;}}
+  }catch(e){}
+})();
+function persistTimerState(){
+  try{
+    if(activeTimerTaskId){localStorage.setItem('ptp_timer',JSON.stringify({taskId:activeTimerTaskId,startMs:Date.now()}));}
+    else{localStorage.removeItem('ptp_timer');}
+  }catch(e){}
+}
+function resumeRunningTimer(){
+  // Läuft ein Timer aus vorheriger Session? Wir erkennen ihn am offenen timeEntries-Eintrag (end:null)
+  if(!activeTimerTaskId)return;
+  const task=findTaskById(activeTimerTaskId);
+  if(!task||!(task.timeEntries||[]).some(e=>!e.end)){
+    // Eintrag weg oder bereits geschlossen -> Timer-Status aufräumen
+    activeTimerTaskId=null;persistTimerState();return;
+  }
+  if(activeTimerIntervalId)clearInterval(activeTimerIntervalId);
+  const tid=activeTimerTaskId;
+  activeTimerIntervalId=setInterval(()=>{
+    try{renderTimerDisplay();updateCardTimerBadge(tid);}catch(e){}
+  },1000);
+}
 
 const COL_COLORS = ['#4a4a6a','#3a5a8a','#5a3a8a','#8a6a3a','#3a6a4a','#6a3a5a','#3a5a6a','#6a4a3a'];
 function colColor(i){return COL_COLORS[i%COL_COLORS.length];}
@@ -1002,6 +1028,8 @@ function loadFromObject(data){
   for(const[k,v]of Object.entries(data)){if(k!=='_statuses')boards[k]=v;}
   const keys=Object.keys(boards);
   currentBoard=keys.length?keys[0]:'';
+  // laufenden Timer aus Vorgänger-Session fortsetzen, sobald die Tasks geladen sind
+  try{resumeRunningTimer();}catch(e){}
 }
 function buildSaveObject(){return{_statuses:statuses,...boards};}
 async function autoSave(){
@@ -1590,7 +1618,17 @@ function toggleTimer(){
   const taskId=document.getElementById('taskId').value;
   if(!taskId){alert('Bitte Task zuerst speichern.');return;}
   if(isTaskTimerRunning(taskId)){stopTimer();}
-  else{if(activeTimerTaskId)stopTimer();startTimer(taskId);}
+  else{
+    // Prüfen, ob auf einem anderen Gerät bereits ein Timer läuft
+    const at=syncData&&syncData.activeTimer;
+    if(at&&at.deviceId&&at.deviceId!==DEVICE_ID){
+      const mins=Math.round((Date.now()-(at.startMs||Date.now()))/60000);
+      const msg='⚠ Auf einem anderen Gerät läuft bereits ein Timer:\n'
+        +(at.auftragTitle||at.taskId||'')+' (seit '+mins+' min)\n\nTrotzdem hier starten?';
+      if(!confirm(msg))return;
+    }
+    if(activeTimerTaskId)stopTimer();startTimer(taskId);
+  }
   renderTimerSection();render();
 }
 function startTimer(taskId){
@@ -1598,7 +1636,18 @@ function startTimer(taskId){
   if(!task.timeEntries)task.timeEntries=[];
   task.timeEntries.push({start:Date.now(),end:null});
   activeTimerTaskId=taskId;
+  persistTimerState();
   activeTimerIntervalId=setInterval(()=>{renderTimerDisplay();updateCardTimerBadge(taskId);},1000);
+  // ActiveTimer in Sync publizieren, damit andere Geräte es sehen
+  try{
+    if(syncFileId&&gdriveToken){
+      const ks=(task.tags&&task.tags[0])||(task.title?task.title.split('–')[0]:'')||'';
+      syncData.activeTimer={deviceId:DEVICE_ID,source:'ptp',taskId,kostenstelle:ks,auftragTitle:task.title||'',startMs:Date.now()};
+      syncData.lastUpdated=new Date().toISOString();syncData.updatedBy='ptp';
+      syncWrite();
+      try{localStorage.setItem('ptp_sync_ping',String(Date.now()));}catch(e){}
+    }
+  }catch(e){}
   autoSave();
 }
 function stopTimer(){
@@ -1624,6 +1673,13 @@ function stopTimer(){
   clearInterval(activeTimerIntervalId);
   const stoppedId=activeTimerTaskId;
   activeTimerTaskId=null;activeTimerIntervalId=null;
+  persistTimerState();
+  // ActiveTimer in Sync löschen, wenn er von uns kam
+  try{
+    if(syncData&&syncData.activeTimer&&syncData.activeTimer.deviceId===DEVICE_ID){
+      syncData.activeTimer=null;
+    }
+  }catch(e){}
   scheduleSave();  // includes pushToSync()
   updateCardTimerBadge(stoppedId);
 }
@@ -2053,9 +2109,11 @@ function openBaudokuApp(){
 const SYNC_FILE_NAME='ptp_bau_sync.json';
 const SYNC_SOURCE='ptp';
 let syncFileId=null;
-let syncData={version:1,lastUpdated:'',updatedBy:'',termine:[],zeiterfassung:[]};
+let syncData={version:1,lastUpdated:'',updatedBy:'',termine:[],zeiterfassung:[],activeTimer:null};
 let lastSyncTimestamp='';
 let syncPollingId=null;
+// stabile Geräte-ID
+const DEVICE_ID=(function(){let d=localStorage.getItem('device_id');if(!d){d='dev_'+Math.random().toString(36).slice(2,10)+'_'+Date.now();localStorage.setItem('device_id',d);}return d;})();
 
 async function syncInit(){
   if(!gdriveToken)return;
@@ -2066,7 +2124,51 @@ async function syncInit(){
     if(d.files&&d.files.length>0){syncFileId=d.files[0].id;await syncRead(true);}
     else{await syncCreate();}
     startSyncPolling();updateSyncUI();
+    try{maybeDailySyncBackup();}catch(e){}
   }catch(e){console.warn('Sync init:',e);}
+}
+// ── Tägliches Backup der Sync-Datei in Google Drive ──
+async function maybeDailySyncBackup(){
+  if(!syncFileId||!gdriveToken)return;
+  const today=new Date().toISOString().split('T')[0];
+  const last=localStorage.getItem('sync_backup_last')||'';
+  if(last===today)return; // heute bereits erledigt
+  try{
+    const r=await fetch('https://www.googleapis.com/drive/v3/files/'+syncFileId+'?alt=media',
+      {headers:{Authorization:'Bearer '+gdriveToken}});
+    if(!r.ok)return;
+    const body=await r.text();
+    const name='ptp_bau_sync_'+today+'.json';
+    // prüfen ob heute schon Backup da ist
+    const q="name%3D'"+name+"'%20and%20trashed%3Dfalse";
+    const chk=await fetch('https://www.googleapis.com/drive/v3/files?q='+q+'&fields=files(id)',
+      {headers:{Authorization:'Bearer '+gdriveToken}});
+    const chkJ=await chk.json();
+    if(chkJ.files&&chkJ.files.length>0){localStorage.setItem('sync_backup_last',today);return;}
+    const b='bu_'+Date.now();
+    const mp='--'+b+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'
+      +JSON.stringify({name,mimeType:'application/json'})
+      +'\r\n--'+b+'\r\nContent-Type: application/json\r\n\r\n'+body+'\r\n--'+b+'--';
+    await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+      {method:'POST',headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'multipart/related; boundary='+b},body:mp});
+    localStorage.setItem('sync_backup_last',today);
+    // Backups älter als 30 Tage aufräumen
+    try{
+      const listResp=await fetch("https://www.googleapis.com/drive/v3/files?q=name%20contains%20'ptp_bau_sync_'%20and%20trashed%3Dfalse&fields=files(id,name,createdTime)&orderBy=createdTime",
+        {headers:{Authorization:'Bearer '+gdriveToken}});
+      const listJ=await listResp.json();
+      const cutoff=Date.now()-30*24*3600*1000;
+      for(const f of (listJ.files||[])){
+        if(f.name&&f.name.startsWith('ptp_bau_sync_')&&f.name.endsWith('.json')){
+          const ct=new Date(f.createdTime||0).getTime();
+          if(ct&&ct<cutoff){
+            fetch('https://www.googleapis.com/drive/v3/files/'+f.id,
+              {method:'DELETE',headers:{Authorization:'Bearer '+gdriveToken}}).catch(()=>{});
+          }
+        }
+      }
+    }catch(e){}
+  }catch(e){console.warn('Backup:',e);}
 }
 async function syncCreate(){
   const empty={version:1,lastUpdated:new Date().toISOString(),updatedBy:SYNC_SOURCE,termine:[],zeiterfassung:[]};
@@ -2084,6 +2186,7 @@ async function syncRead(initial=false){
     const r=await fetch('https://www.googleapis.com/drive/v3/files/'+syncFileId+'?alt=media',
       {headers:{Authorization:'Bearer '+gdriveToken}});
     if(!r.ok)return;
+    _ptpLastSyncReadAt=Date.now();
     const d=await r.json();
     if(d.lastUpdated&&d.lastUpdated!==lastSyncTimestamp){
       const isFromOther=d.updatedBy&&d.updatedBy!==SYNC_SOURCE;
@@ -2093,6 +2196,17 @@ async function syncRead(initial=false){
         updateSyncUI();
         if(cnt>0)showSyncToast(cnt);
       } else if(initial){updateSyncUI();}
+      // offene Board-Ansicht + offenes Task-Modal neu zeichnen
+      try{render();}catch(e){}
+      try{
+        const openTaskId=document.getElementById('taskId')&&document.getElementById('taskId').value;
+        if(openTaskId){
+          // Nur Sync-Sections neu zeichnen (nicht das gesamte Formular zurücksetzen)
+          if(typeof renderPTPTermineSection==='function')renderPTPTermineSection(openTaskId);
+          if(typeof renderPTPZeitenSection==='function')renderPTPZeitenSection(openTaskId);
+          if(typeof renderTimerSection==='function')renderTimerSection();
+        }
+      }catch(e){}
     }
   }catch(e){console.warn('syncRead:',e);}
 }
@@ -2106,8 +2220,30 @@ async function syncWrite(){
 }
 function startSyncPolling(){
   if(syncPollingId)clearInterval(syncPollingId);
-  syncPollingId=setInterval(()=>syncRead(),30000);
+  syncPollingId=setInterval(()=>syncRead(),10000);
+  // Cross-Tab Sync: Wenn ein anderer Tab ins localStorage schreibt, sofort lesen
+  if(!window._ptpStorageHooked){
+    window.addEventListener('storage',e=>{
+      if(e.key==='ptp_sync_ping'||e.key==='bau_sync_ping'){syncRead();}
+    });
+    window._ptpStorageHooked=true;
+  }
+  // Bei Sichtbarkeitswechsel sofort aktualisieren
+  if(!window._ptpVisHooked){
+    document.addEventListener('visibilitychange',()=>{
+      if(document.visibilityState==='visible')syncRead();
+    });
+    window._ptpVisHooked=true;
+  }
+  if(!window._ptpNetHooked){
+    window.addEventListener('online',()=>{updateSyncUI();syncRead();});
+    window.addEventListener('offline',()=>updateSyncUI());
+    setInterval(()=>{try{updateSyncUI();}catch(e){}},5000);
+    window._ptpNetHooked=true;
+  }
 }
+function _syncHashTermin(t){return [t.kostenstelle||'',t.datum||'',t.von||'',t.bis||'',(t.beschreibung||'').trim().toLowerCase()].join('|');}
+function _syncHashZeit(z){return [z.kostenstelle||'',z.datum||'',z.von||'',z.bis||'',(z.beschreibung||'').trim().toLowerCase()].join('|');}
 function pushToSync(){
   if(!syncFileId||!gdriveToken)return;
   const termine=[];const zeiten=[];
@@ -2128,12 +2264,43 @@ function pushToSync(){
       });
     });
   });
-  syncData.termine=[...(syncData.termine||[]).filter(t=>t.source!=='ptp'),...termine];
-  syncData.zeiterfassung=[...(syncData.zeiterfassung||[]).filter(z=>z.source!=='ptp'),...zeiten];
+  // Merge per syncId: eigene überschreiben, fremde behalten, Duplikate per Hash entfernen
+  const mySyncIds=new Set(termine.map(x=>x.syncId));
+  const myZSyncIds=new Set(zeiten.map(x=>x.syncId));
+  const otherT=(syncData.termine||[]).filter(x=>x&&x.syncId&&!mySyncIds.has(x.syncId));
+  const otherZ=(syncData.zeiterfassung||[]).filter(x=>x&&x.syncId&&!myZSyncIds.has(x.syncId));
+  const seenT=new Set();const seenZ=new Set();
+  const mergedT=[...otherT,...termine].filter(x=>{const h=_syncHashTermin(x);if(seenT.has(h))return false;seenT.add(h);return true;});
+  const mergedZ=[...otherZ,...zeiten].filter(x=>{const h=_syncHashZeit(x);if(seenZ.has(h))return false;seenZ.add(h);return true;});
+  syncData.termine=mergedT;
+  syncData.zeiterfassung=mergedZ;
   syncData.lastUpdated=new Date().toISOString();
   syncData.updatedBy='ptp';
   lastSyncTimestamp=syncData.lastUpdated;
   syncWrite();
+  // Andere offene Tabs sofort informieren
+  try{localStorage.setItem('ptp_sync_ping',String(Date.now()));}catch(e){}
+}
+let _ptpLastSyncReadAt=0;
+function _ptpSyncStateTooltip(){
+  let base='';
+  if(!gdriveToken)base='Nicht angemeldet';
+  else if(!syncFileId)base='Sync-Datei nicht verbunden';
+  else if(!navigator.onLine)base='Offline – Änderungen werden später übertragen';
+  else if(_ptpLastSyncReadAt){
+    const sec=Math.max(0,Math.round((Date.now()-_ptpLastSyncReadAt)/1000));
+    if(sec<15)base='Synchron vor '+sec+' s';
+    else if(sec<90)base='Zuletzt synchronisiert vor '+sec+' s';
+    else base='Zuletzt synchronisiert vor '+Math.round(sec/60)+' min';
+  } else base='Noch nicht synchronisiert';
+  try{
+    const at=syncData&&syncData.activeTimer;
+    if(at&&at.deviceId&&at.deviceId!==DEVICE_ID){
+      const mins=Math.round((Date.now()-(at.startMs||Date.now()))/60000);
+      base+='\n⏱ Fremder Timer läuft: '+(at.auftragTitle||'')+' ('+at.source+', seit '+mins+' min)';
+    }
+  }catch(e){}
+  return base;
 }
 function updateSyncUI(){
   const btn=document.getElementById('syncBtn');
@@ -2145,11 +2312,17 @@ function updateSyncUI(){
     btn.textContent='📡 Bau ('+total+')';
     btn.style.color='#e67e22';btn.style.borderColor='#e67e22';btn.style.background='rgba(230,126,34,.1)';
   }else{
-    btn.textContent='📡 Sync';
-    btn.style.color=syncFileId?'var(--green)':'var(--red)';
-    btn.style.borderColor=syncFileId?'var(--green)':'var(--red)';
-    btn.style.background='transparent';
+    if(!navigator.onLine){
+      btn.textContent='📡 Offline';
+      btn.style.color='var(--red)';btn.style.borderColor='var(--red)';btn.style.background='transparent';
+    }else{
+      btn.textContent='📡 Sync';
+      btn.style.color=syncFileId?'var(--green)':'var(--red)';
+      btn.style.borderColor=syncFileId?'var(--green)':'var(--red)';
+      btn.style.background='transparent';
+    }
   }
+  btn.title=_ptpSyncStateTooltip();
   render();
 }
 function showSyncToast(count){
