@@ -1252,9 +1252,10 @@ function toggleColCollapse(status){collapsedCols[status]=!collapsedCols[status];
 function addAusserhausTermin(date='',von='',bis='',beschreibung=''){
   taskAusserhausTermine.push({date,von,bis,beschreibung});
   renderAusserhausTermine();
+  scheduleTaskFieldSave();
 }
-function removeAusserhausTermin(i){taskAusserhausTermine.splice(i,1);renderAusserhausTermine();}
-function syncAusserhausTermin(i,field,val){if(taskAusserhausTermine[i])taskAusserhausTermine[i][field]=val;}
+function removeAusserhausTermin(i){taskAusserhausTermine.splice(i,1);renderAusserhausTermine();scheduleTaskFieldSave();}
+function syncAusserhausTermin(i,field,val){if(taskAusserhausTermine[i]){taskAusserhausTermine[i][field]=val;scheduleTaskFieldSave();}}
 function openGcalTermin(i){
   const t=taskAusserhausTermine[i];
   const title=encodeURIComponent(document.getElementById('taskTitleInput').value.trim()||'Außerhaus-Termin');
@@ -1305,9 +1306,10 @@ function renderAusserhausTermine(){
 function addZeitEntry(date='',von='',bis='',beschreibung=''){
   taskZeitEntries.push({date,von,bis,beschreibung});
   renderZeiterfassung();
+  scheduleTaskFieldSave();
 }
-function removeZeitEntry(i){taskZeitEntries.splice(i,1);renderZeiterfassung();}
-function syncZeitEntry(i,field,val){if(taskZeitEntries[i]){taskZeitEntries[i][field]=val;renderZeitGesamt();}}
+function removeZeitEntry(i){taskZeitEntries.splice(i,1);renderZeiterfassung();scheduleTaskFieldSave();}
+function syncZeitEntry(i,field,val){if(taskZeitEntries[i]){taskZeitEntries[i][field]=val;renderZeitGesamt();scheduleTaskFieldSave();}}
 function parseMinutes(von,bis){
   try{
     if(!von||!bis)return 0;
