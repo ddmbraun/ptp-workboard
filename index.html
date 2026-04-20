@@ -1809,7 +1809,7 @@ function readAuftragDatei(e){
     }
   };
   // Versuche zuerst UTF-8, dann Fallback auf windows-1252
-  reader.readAsText(file,'utf-8');
+  reader.readAsText(file,'windows-1252');
   e.target.value='';
 }
 function parseAuftragText(text){
