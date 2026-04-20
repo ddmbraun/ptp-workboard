@@ -997,6 +997,78 @@ async function gdriveSaveData() {
   if (!gdriveFileId || !gdriveToken || gdriveSaving) return;
   gdriveSaving = true;
   try {
+    // ── Konflikt-Check: hat das Handy (oder ein anderer Client) inzwischen geschrieben? ──
+    try{
+      const mr=await fetch('https://www.googleapis.com/drive/v3/files/'+gdriveFileId+'?fields=modifiedTime&_='+Date.now(),
+        {headers:{Authorization:'Bearer '+gdriveToken},cache:'no-store'});
+      if(mr.ok){
+        const meta=await mr.json();
+        if(workboardLastModified&&meta.modifiedTime&&meta.modifiedTime!==workboardLastModified){
+          // Remote ist neuer → laden und task-weise mergen (lokal gewinnt nur für offenes Modal + neu angelegte Tasks)
+          const fr=await fetch('https://www.googleapis.com/drive/v3/files/'+gdriveFileId+'?alt=media&_='+Date.now(),
+            {headers:{Authorization:'Bearer '+gdriveToken,'Cache-Control':'no-cache'},cache:'no-store'});
+          if(fr.ok){
+            const remote=await fr.json();
+            // ID der Task, die gerade im Edit-Modal offen ist (falls überhaupt)
+            const tidEl=document.getElementById('taskId');
+            const modalOpen=document.querySelector('.modal.open');
+            const modalTaskId=(modalOpen&&tidEl)?tidEl.value:'';
+            // Alle lokalen Task-IDs pro Board sammeln, damit wir "nur lokal vorhandene" erkennen
+            const localState=buildSaveObject();
+            const remoteIds=new Set();
+            for(const[k,v]of Object.entries(remote)){
+              if(k==='_statuses'||!Array.isArray(v))continue;
+              for(const t of v){if(t&&t.id)remoteIds.add(t.id);}
+            }
+            // Aus Remote eine merge-Basis bauen
+            const merged={_statuses:Array.isArray(remote._statuses)?remote._statuses:(localState._statuses||[])};
+            for(const[k,v]of Object.entries(remote)){
+              if(k==='_statuses'||!Array.isArray(v))continue;
+              merged[k]=v.slice();
+            }
+            // 1) Modal-Task: lokale Version schlägt Remote
+            if(modalTaskId){
+              for(const[k,v]of Object.entries(localState)){
+                if(k==='_statuses'||!Array.isArray(v))continue;
+                const lt=v.find(t=>t&&t.id===modalTaskId);
+                if(lt){
+                  // In Remote suchen & ersetzen
+                  let placed=false;
+                  for(const rk of Object.keys(merged)){
+                    if(rk==='_statuses'||!Array.isArray(merged[rk]))continue;
+                    const idx=merged[rk].findIndex(t=>t&&t.id===modalTaskId);
+                    if(idx>=0){merged[rk][idx]=lt;placed=true;break;}
+                  }
+                  if(!placed){if(!merged[k])merged[k]=[];merged[k].push(lt);}
+                  break;
+                }
+              }
+            }
+            // 2) Lokal neu angelegte Tasks (noch nicht in Remote) → übernehmen
+            for(const[k,v]of Object.entries(localState)){
+              if(k==='_statuses'||!Array.isArray(v))continue;
+              for(const lt of v){
+                if(!lt||!lt.id)continue;
+                if(!remoteIds.has(lt.id)){
+                  if(!merged[k])merged[k]=[];
+                  // nur einfügen falls noch nicht drin (z.B. durch Modal-Regel)
+                  let exists=false;
+                  for(const rk of Object.keys(merged)){
+                    if(rk==='_statuses'||!Array.isArray(merged[rk]))continue;
+                    if(merged[rk].some(t=>t&&t.id===lt.id)){exists=true;break;}
+                  }
+                  if(!exists)merged[k].push(lt);
+                }
+              }
+            }
+            // Merged-State zurück ins Frontend laden, damit UI und folgende Saves konsistent sind
+            loadFromObject(merged);
+            render();
+          }
+        }
+      }
+    }catch(e){/* Konflikt-Check best-effort */}
+
     const content = JSON.stringify(buildSaveObject(), null, 2);
     const r = await fetch(
       'https://www.googleapis.com/upload/drive/v3/files/' + gdriveFileId + '?uploadType=media&fields=modifiedTime',
