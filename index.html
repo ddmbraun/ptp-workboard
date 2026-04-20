@@ -1123,6 +1123,7 @@ async function gdriveSaveData() {
                   mergedTask.zeitEntries=_mergeListByKey(remoteTask&&remoteTask.zeitEntries,lt.zeitEntries,e=>((e.date||'')+'|'+(e.von||'')+'|'+(e.bis||'')+'|'+(e.beschreibung||'')));
                   mergedTask.ausserhausTermine=_mergeListByKey(remoteTask&&remoteTask.ausserhausTermine,lt.ausserhausTermine,e=>((e.date||'')+'|'+(e.von||'')+'|'+(e.bis||'')+'|'+(e.beschreibung||'')));
                   mergedTask.fotos=_mergeListByKey(remoteTask&&remoteTask.fotos,lt.fotos,f=>(f.id||f.driveId||f.path||f.name||''));
+                  mergedTask.attachments=_mergeListByKey(remoteTask&&remoteTask.attachments,lt.attachments,f=>((f.name||'')+'|'+(f.size||0)));
                   if(remoteTask){merged[remoteBoardKey][remoteIdx]=mergedTask;}
                   else{if(!merged[k])merged[k]=[];merged[k].push(mergedTask);}
                   break;
