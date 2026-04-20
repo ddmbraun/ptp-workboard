@@ -26,6 +26,10 @@ input,select,textarea{font-family:inherit;}
 .board-tab{padding:6px 14px;border-radius:6px;background:transparent;color:var(--text2);font-size:13px;font-weight:500;transition:all .15s;white-space:nowrap;flex-shrink:0;}
 .board-tab:hover{background:var(--bg3);}
 .board-tab.active{background:var(--accent);color:#fff;}
+.board-tab.dragging{opacity:0.4;}
+.board-tab.drag-over-tab{outline:2px dashed var(--accent);outline-offset:-2px;}
+.board-tab[draggable="true"]{cursor:grab;}
+.board-tab[draggable="true"]:active{cursor:grabbing;}
 .board-add-btn{width:28px;height:28px;border-radius:6px;background:var(--bg3);color:var(--text2);font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;}
 .board-add-btn:hover{background:var(--accent);color:#fff;}
 .topbar-center{flex-shrink:0;width:320px;margin:0 16px;position:relative;}
@@ -287,9 +291,10 @@ input,select,textarea{font-family:inherit;}
 /* PROJECT MANAGER */
 .proj-manager{background:var(--bg2);border-radius:12px;padding:24px;width:440px;max-width:90vw;box-shadow:0 20px 60px var(--shadow);}
 .proj-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;max-height:300px;overflow-y:auto;}
-.proj-row{display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:8px;padding:8px 10px;border:1px solid var(--border);}
-.proj-row input{flex:1;background:var(--bg4);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 9px;font-size:13px;outline:none;}
-.proj-row input:focus{border-color:var(--accent);}
+.proj-row{display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:8px;padding:8px 10px;border:1px solid var(--border);transition:border-color .1s,background .1s;}
+.proj-row input[type=text]{flex:1;background:var(--bg4);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 9px;font-size:13px;outline:none;}
+.proj-row input[type=text]:focus{border-color:var(--accent);}
+.proj-row.drag-over{border-color:var(--accent);background:var(--bg4);}
 .proj-icon{font-size:14px;flex-shrink:0;}
 .proj-count{font-size:11px;color:var(--text2);min-width:50px;text-align:right;}
 .proj-add-row{display:flex;gap:8px;margin-bottom:4px;}
@@ -534,6 +539,7 @@ input,select,textarea{font-family:inherit;}
         <div class="termin-head"><span>Datum</span><span>Von</span><span>Bis</span><span>Beschreibung</span><span></span><span></span></div>
         <div id="ausserhausTermineList"></div>
         <button class="add-row-btn" onclick="addAusserhausTermin()">+ Termin hinzufügen</button>
+        <div class="termin-gesamt" id="termineGesamtRow">Gesamt: 0 min</div>
       </div>
     </div>
 
@@ -1463,9 +1469,31 @@ function updateStatusSelect(){
 
 // ── BOARD TABS ──
 function renderBoardTabs(){
-  document.getElementById('boardTabs').innerHTML=Object.keys(boards).map(b=>
-    `<button class="board-tab ${b===currentBoard?'active':''}" onclick="switchBoard('${esc(b)}')">${esc(b)}</button>`
+  document.getElementById('boardTabs').innerHTML=Object.keys(boards).map((b,i)=>
+    `<button class="board-tab ${b===currentBoard?'active':''}" draggable="true" data-board="${esc(b)}" data-idx="${i}"
+       ondragstart="onBoardTabDragStart(event)" ondragend="onBoardTabDragEnd(event)"
+       ondragover="onBoardTabDragOver(event)" ondrop="onBoardTabDrop(event)"
+       onclick="switchBoard('${esc(b)}')">${esc(b)}</button>`
   ).join('');
+}
+// Drag-Reorder für Projekt-Tabs oben
+let _boardDragKey=null;
+function onBoardTabDragStart(e){_boardDragKey=e.target.dataset.board;e.target.classList.add('dragging');e.dataTransfer.effectAllowed='move';}
+function onBoardTabDragEnd(e){e.target.classList.remove('dragging');_boardDragKey=null;document.querySelectorAll('.board-tab').forEach(t=>t.classList.remove('drag-over-tab'));}
+function onBoardTabDragOver(e){e.preventDefault();e.dataTransfer.dropEffect='move';document.querySelectorAll('.board-tab').forEach(t=>{if(t!==e.currentTarget)t.classList.remove('drag-over-tab');});e.currentTarget.classList.add('drag-over-tab');}
+function onBoardTabDrop(e){
+  e.preventDefault();e.currentTarget.classList.remove('drag-over-tab');
+  const toKey=e.currentTarget.dataset.board;
+  if(!_boardDragKey||!toKey||_boardDragKey===toKey)return;
+  const keys=Object.keys(boards);
+  const fromIdx=keys.indexOf(_boardDragKey),toIdx=keys.indexOf(toKey);
+  if(fromIdx<0||toIdx<0)return;
+  const newKeys=keys.slice();
+  newKeys.splice(fromIdx,1);newKeys.splice(toIdx,0,_boardDragKey);
+  const newBoards={};newKeys.forEach(k=>newBoards[k]=boards[k]);
+  boards=newBoards;
+  _boardDragKey=null;
+  renderBoardTabs();scheduleSave();
 }
 function switchBoard(name){currentBoard=name;render();}
 function switchView(view){currentView=view;document.querySelectorAll('.view-tab').forEach(t=>t.classList.toggle('active',t.dataset.view===view));render();}
@@ -1478,7 +1506,7 @@ function addAusserhausTermin(date='',von='',bis='',beschreibung=''){
   scheduleTaskFieldSave();
 }
 function removeAusserhausTermin(i){taskAusserhausTermine.splice(i,1);renderAusserhausTermine();scheduleTaskFieldSave();}
-function syncAusserhausTermin(i,field,val){if(taskAusserhausTermine[i]){taskAusserhausTermine[i][field]=val;scheduleTaskFieldSave();}}
+function syncAusserhausTermin(i,field,val){if(taskAusserhausTermine[i]){taskAusserhausTermine[i][field]=val;if(field==='von'||field==='bis')renderTermineGesamt();scheduleTaskFieldSave();}}
 function openGcalTermin(i){
   const t=taskAusserhausTermine[i];
   const title=encodeURIComponent(document.getElementById('taskTitleInput').value.trim()||'Außerhaus-Termin');
@@ -1562,6 +1590,25 @@ function renderAusserhausTermine(){
     </div>`).join('');
   }
   el.innerHTML=html;
+  renderTermineGesamt();
+}
+function renderTermineGesamt(){
+  const el=document.getElementById('termineGesamtRow');if(!el)return;
+  const ks=_modalKostenstelle();
+  const bauTermine=ks?(syncData.termine||[]).filter(t=>t.source==='bau'&&(t.kostenstelle||'').trim()===ks):[];
+  const totalPTP=(taskAusserhausTermine||[]).reduce((s,e)=>s+parseMinutes(e.von,e.bis),0);
+  const hP=Math.floor(totalPTP/60),mP=totalPTP%60;
+  if(bauTermine.length){
+    const totalBau=bauTermine.reduce((s,z)=>s+parseMinutes(z.von,z.bis),0);
+    const hB=Math.floor(totalBau/60),mB=totalBau%60;
+    const totalAll=totalPTP+totalBau;
+    const hA=Math.floor(totalAll/60),mA=totalAll%60;
+    el.innerHTML='PTP: '+(hP>0?hP+'h ':'')+mP+' min'
+      +' &nbsp;|&nbsp; <span class="zeit-gesamt-bau">Bau: '+(hB>0?hB+'h ':'')+mB+' min</span>'
+      +' &nbsp;|&nbsp; <strong>Gesamt: '+(hA>0?hA+'h ':'')+mA+' min</strong>';
+  }else{
+    el.textContent='Gesamt: '+(hP>0?hP+'h ':'')+mP+' min';
+  }
 }
 
 // ── ZEITERFASSUNG (manuell) ──
@@ -2278,7 +2325,10 @@ function openProjManager(){
 function closeProjManager(){document.getElementById('projModal').classList.remove('open');}
 function renderProjList(){
   document.getElementById('projList').innerHTML=editProjects.map((p,i)=>`
-    <div class="proj-row">
+    <div class="proj-row" draggable="true" data-idx="${i}"
+         ondragstart="onProjDragStart(event,${i})" ondragend="onProjDragEnd(event)"
+         ondragover="onProjDragOver(event)" ondragleave="onProjDragLeave(event)" ondrop="onProjDrop(event,${i})">
+      <span class="proj-drag" title="Ziehen zum Umsortieren" style="cursor:grab;user-select:none;color:var(--text2);padding:0 4px;">⋮⋮</span>
       <span class="proj-icon">📁</span>
       <input type="text" value="${esc(p.name)}" id="projinput-${i}" placeholder="Projektname">
       <span class="proj-count">${p.count} Task${p.count!==1?'s':''}</span>
@@ -2288,6 +2338,22 @@ function renderProjList(){
       </label>
       <button class="col-icon-btn" onclick="removeProject(${i})" ${editProjects.length<=1?'disabled':''} style="color:var(--red)" title="Projekt löschen">✕</button>
     </div>`).join('');
+}
+// Drag-Drop zum Umsortieren der Projekte
+let _projDragIdx=null;
+function onProjDragStart(e,i){_projDragIdx=i;syncProjInputs();e.dataTransfer.effectAllowed='move';e.currentTarget.style.opacity='0.4';}
+function onProjDragEnd(e){e.currentTarget.style.opacity='1';_projDragIdx=null;document.querySelectorAll('.proj-row').forEach(r=>r.classList.remove('drag-over'));}
+function onProjDragOver(e){e.preventDefault();e.currentTarget.classList.add('drag-over');e.dataTransfer.dropEffect='move';}
+function onProjDragLeave(e){e.currentTarget.classList.remove('drag-over');}
+function onProjDrop(e,toIdx){
+  e.preventDefault();e.currentTarget.classList.remove('drag-over');
+  if(_projDragIdx===null||_projDragIdx===toIdx)return;
+  const from=_projDragIdx;
+  const item=editProjects[from];
+  editProjects.splice(from,1);
+  editProjects.splice(toIdx,0,item);
+  _projDragIdx=null;
+  renderProjList();
 }
 function syncProjInputs(){editProjects=editProjects.map((p,i)=>{
   const el=document.getElementById('projinput-'+i);
