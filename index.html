@@ -653,6 +653,7 @@ input,select,textarea{font-family:inherit;}
     <div class="modal-actions">
       <button class="topbar-btn btn-danger" id="deleteTaskBtn" onclick="deleteTask()" style="display:none;margin-right:auto;">Löschen</button>
       <button class="gcal-btn-modal" id="gcalModalBtn" onclick="openGoogleCalendarFromModal()" style="display:none;margin-right:auto;">📅 In Kalender eintragen</button>
+      <button class="topbar-btn" id="abschlussBtn" onclick="createAbschlussakte()" style="display:none;margin-right:auto;background:var(--bg3);border:1px solid var(--border)">📁 Abschlussakte</button>
       <button class="topbar-btn btn-secondary" onclick="saveTaskAndBack()">← Zurück</button>
       <button class="topbar-btn btn-primary" onclick="saveTask()">Speichern</button>
     </div>
@@ -2148,6 +2149,106 @@ async function saveFotoCaptionFromLightbox(){
     catch(e){console.warn('EXIF-Desktop:',e);}
   }
 }
+// ── ABSCHLUSSAKTE ──
+function _extractFolderIdFromUrl(url){
+  if(!url)return null;
+  const m=String(url).match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if(m)return m[1];
+  const m2=String(url).trim().match(/^([a-zA-Z0-9_-]{20,})$/);
+  return m2?m2[1]:null;
+}
+async function _driveCreateFolder(name,parentId){
+  const r=await fetch('https://www.googleapis.com/drive/v3/files',{
+    method:'POST',headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'application/json'},
+    body:JSON.stringify({name,mimeType:'application/vnd.google-apps.folder',parents:[parentId]})
+  });
+  if(!r.ok)throw new Error('Ordner anlegen: HTTP '+r.status);
+  return(await r.json()).id;
+}
+async function _driveCreateTextFile(name,content,parentId){
+  const meta={name,mimeType:'text/plain',parents:[parentId]};
+  const form=new FormData();
+  form.append('metadata',new Blob([JSON.stringify(meta)],{type:'application/json'}));
+  form.append('file',new Blob([content],{type:'text/plain;charset=utf-8'}));
+  const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+    method:'POST',headers:{Authorization:'Bearer '+gdriveToken},body:form
+  });
+  if(!r.ok)throw new Error('Datei anlegen: HTTP '+r.status);
+}
+async function createAbschlussakte(){
+  const gdrive=document.getElementById('tGD').value.trim();
+  const folderId=_extractFolderIdFromUrl(gdrive);
+  if(!folderId){alert('Bitte zuerst einen Google Drive-Foto-Ordner im Task eintragen.');return;}
+  if(!gdriveToken){alert('Nicht mit Google Drive verbunden.');return;}
+  const btn=document.getElementById('abschlussBtn');
+  btn.textContent='⏳ Erstelle…';btn.disabled=true;
+  try{
+    // Daten aus Modal lesen
+    const title=document.getElementById('taskTitleInput').value.trim()||'Auftrag';
+    const adresse=document.getElementById('tAdr').value.trim();
+    const hv=document.getElementById('tHV').value.trim();
+    const schaden=document.getElementById('tSch').value.trim();
+    const status=document.getElementById('taskStatusInput').value;
+    const ausf=document.getElementById('taskAusfInput').value;
+    const nas=document.getElementById('tNAS').value.trim();
+    const desc=document.getElementById('taskDescInput').value.trim();
+    // Zeiterfassung
+    const zeitMin=taskZeitEntries.reduce((s,z)=>{try{const[vh,vm]=z.von.split(':').map(Number);const[bh,bm]=z.bis.split(':').map(Number);const d=(bh*60+bm)-(vh*60+vm);return s+(d>0?d:0);}catch(e){return s;}},0);
+    const zeitH=Math.floor(zeitMin/60),zeitM=zeitMin%60;
+    // Auftragsakte.txt zusammenbauen
+    const now=new Date().toLocaleString('de-DE');
+    let txt='';
+    txt+='ABSCHLUSSAKTE\n';
+    txt+='=============\n';
+    txt+='Erstellt: '+now+'\n\n';
+    txt+='AUFTRAG\n-------\n';
+    txt+='Titel:           '+title+'\n';
+    if(adresse)txt+='Adresse:         '+adresse+'\n';
+    if(hv)txt+='Hausverwaltung:  '+hv+'\n';
+    if(status)txt+='Status:          '+status+'\n';
+    if(ausf)txt+='Ausführungsdatum:'+ausf+'\n';
+    if(nas)txt+='NAS-Pfad:        '+nas+'\n';
+    if(gdrive)txt+='Drive-Ordner:    '+gdrive+'\n';
+    if(schaden){txt+='\nSCHADENSBILD\n------------\n'+schaden+'\n';}
+    if(desc){txt+='\nNOTIZ\n-----\n'+desc+'\n';}
+    // Kontakte
+    const kontakte=getKontaktePTP();
+    if(kontakte.length){
+      txt+='\nKONTAKTE\n--------\n';
+      kontakte.forEach(k=>{txt+=(k.rolle||'')+(k.name?' | '+k.name:'')+(k.tel?' | Tel: '+k.tel:'')+(k.email?' | '+k.email:'')+'\n';});
+    }
+    // Zeiterfassung
+    if(taskZeitEntries.length){
+      txt+='\nZEITERFASSUNG\n-------------\n';
+      taskZeitEntries.forEach(z=>{txt+=(z.date||'')+'  '+( z.von||'')+'–'+(z.bis||'')+'  '+(z.beschreibung||'')+'\n';});
+      txt+='Gesamt: '+zeitH+'h '+zeitM+'min\n';
+    }
+    // Termine
+    if(taskAusserhausTermine.length){
+      txt+='\nAUSSER-HAUS-TERMINE\n-------------------\n';
+      taskAusserhausTermine.forEach(t=>{txt+=(t.date||'')+'  '+(t.von||'')+'–'+(t.bis||'')+'  '+(t.beschreibung||'')+'\n';});
+    }
+    // Notizen
+    if(taskNotizVerlauf.length){
+      txt+='\nNOTIZVERLAUF\n------------\n';
+      taskNotizVerlauf.forEach(n=>{txt+=(n.ts||'')+': '+(n.text||'')+'\n';});
+    }
+    // Fotos
+    if(taskFotos.length){
+      txt+='\nFOTOS\n-----\n';
+      taskFotos.forEach((f,i)=>{txt+=(i+1)+'. '+(f.name||'Foto')+(f.caption?' — '+f.caption:'')+'\n';});
+    }
+    // Unterordner "Abschlussakte" anlegen
+    const subId=await _driveCreateFolder('Abschlussakte',folderId);
+    // Auftragsakte.txt hochladen
+    await _driveCreateTextFile('Auftragsakte.txt',txt,subId);
+    btn.textContent='✓ Abschlussakte erstellt';
+    setTimeout(()=>{btn.textContent='📁 Abschlussakte';btn.disabled=false;},3000);
+  }catch(e){
+    alert('Fehler: '+e.message);
+    btn.textContent='📁 Abschlussakte';btn.disabled=false;
+  }
+}
 function removeFotoDesktop(i){
   const f=taskFotos&&taskFotos[i];if(!f)return;
   const hasDrive=!!f.driveId;
@@ -2462,6 +2563,7 @@ function openNewTaskModal(){
   const kc=document.getElementById('tKontakteContainer');if(kc)kc.innerHTML='';
   updateKontaktePTPTitle();
   document.getElementById('deleteTaskBtn').style.display='none';
+  document.getElementById('abschlussBtn').style.display='none';
   taskLinks=[];taskAttachments=[];taskAusserhausTermine=[];taskZeitEntries=[];taskNotizVerlauf=[];taskFotos=[];
   renderLinksList();renderAttachList();renderFotoListDesktop();
   renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();
@@ -2501,6 +2603,7 @@ function openEditTaskModal(id){
   document.getElementById('tGD').value=task.gdrive||'';
   document.getElementById('tNAS').value=task.nas||'';
   document.getElementById('deleteTaskBtn').style.display='';
+  document.getElementById('abschlussBtn').style.display='';
   taskLinks=JSON.parse(JSON.stringify(task.links||[]));
   taskAttachments=JSON.parse(JSON.stringify(task.attachments||[]));
   taskAusserhausTermine=JSON.parse(JSON.stringify(task.ausserhausTermine||[]));
