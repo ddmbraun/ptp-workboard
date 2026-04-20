@@ -233,6 +233,15 @@ input,select,textarea{font-family:inherit;}
 .attach-remove:hover{color:var(--red);}
 .attach-drop-zone{border:1.5px dashed var(--border);border-radius:6px;padding:12px;text-align:center;font-size:12px;color:var(--text2);cursor:pointer;transition:all .15s;}
 .attach-drop-zone:hover,.attach-drop-zone.dragover{border-color:var(--accent);background:rgba(108,99,255,0.06);color:var(--text);}
+/* Foto-Galerie (Drive-Uploads vom Handy) */
+.foto-desktop-wrap{margin-bottom:10px;}
+.foto-desktop-wrap-label{font-size:11px;color:var(--text2);margin-bottom:4px;display:flex;align-items:center;gap:6px;}
+.foto-desktop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;}
+.foto-desktop-thumb{position:relative;aspect-ratio:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;overflow:hidden;cursor:pointer;}
+.foto-desktop-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.foto-desktop-thumb.fallback::before{content:'🖼️';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:32px;color:var(--text2);}
+.foto-desktop-thumb .foto-del{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.65);color:#fff;border:none;width:22px;height:22px;border-radius:11px;font-size:12px;cursor:pointer;z-index:2;}
+.foto-desktop-thumb .foto-name{position:absolute;left:0;right:0;bottom:0;font-size:10px;color:#fff;background:rgba(0,0,0,.55);padding:3px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
 /* TIMER */
 .timer-display{font-size:34px;font-weight:700;color:var(--accent2);font-variant-numeric:tabular-nums;letter-spacing:3px;text-align:center;padding:10px 0 8px;font-family:'Courier New',monospace;}
@@ -592,10 +601,11 @@ input,select,textarea{font-family:inherit;}
     <!-- DATEIHAENGE -->
     <div class="form-collapse" id="tAnhangSect">
       <div class="form-collapse-header" onclick="toggleFormSection('tAnhangSect')">
-        <span class="form-collapse-title">📎 Dateianhänge</span>
+        <span class="form-collapse-title">📎 Dateianhänge &amp; Fotos</span>
         <span class="form-collapse-arrow">▾</span>
       </div>
       <div class="form-collapse-body">
+        <div id="fotoListDesktop"></div>
         <div id="attachList"></div>
         <div class="attach-drop-zone" id="dropZone" onclick="triggerFileInput()">
           Datei hier hineinziehen oder klicken zum Auswählen
@@ -698,6 +708,7 @@ let editStatuses = [];
 let editProjects = [];
 let taskLinks = [];
 let taskAttachments = [];
+let taskFotos = [];
 
 let fileHandle = null;
 const hasFileAPI = 'showOpenFilePicker' in window;
@@ -800,7 +811,7 @@ function saveTaskData(){
     ausserhausTermine:taskAusserhausTermine,
     zeitEntries:taskZeitEntries,
     notizVerlauf:taskNotizVerlauf,
-    fotos:existingTask?.fotos||[]
+    fotos:taskFotos
   };
   if(id){
     const idx=boards[currentBoard].findIndex(t=>t.id===id);
@@ -1160,11 +1171,13 @@ async function gdriveSaveData() {
                 try{taskNotizVerlauf=JSON.parse(JSON.stringify(refreshed.notizVerlauf||[]));}catch(e){}
                 try{taskLinks=JSON.parse(JSON.stringify(refreshed.links||[]));}catch(e){}
                 try{taskAttachments=JSON.parse(JSON.stringify(refreshed.attachments||[]));}catch(e){}
+                try{taskFotos=JSON.parse(JSON.stringify(refreshed.fotos||[]));}catch(e){}
                 try{if(typeof renderZeiterfassung==='function')renderZeiterfassung();}catch(e){}
                 try{if(typeof renderAusserhausTermine==='function')renderAusserhausTermine();}catch(e){}
                 try{if(typeof renderTaskNotizen==='function')renderTaskNotizen();}catch(e){}
                 try{if(typeof renderLinksList==='function')renderLinksList();}catch(e){}
                 try{if(typeof renderAttachList==='function')renderAttachList();}catch(e){}
+                try{if(typeof renderFotoListDesktop==='function')renderFotoListDesktop();}catch(e){}
                 try{if(typeof renderTimerSection==='function')renderTimerSection();}catch(e){}
               }
             }
@@ -1341,6 +1354,7 @@ function taskCardHTML(task){
   const overdue=isOverdue(task.due);
   const hasLinks=(task.links||[]).length>0;
   const hasAttach=(task.attachments||[]).length>0;
+  const hasFotos=(task.fotos||[]).length>0;
   const isAH=isAusserhaus(task);
   return`<div class="task-card" draggable="true" data-id="${task.id}"
     ondragstart="onDragStart(event)" ondragend="onDragEnd(event)" onclick="openEditTaskModal('${task.id}')">
@@ -1359,9 +1373,10 @@ function taskCardHTML(task){
       const bauTermCount=ks?(syncData.termine||[]).filter(t=>t.source==='bau'&&(t.kostenstelle||'').trim()===ks).length:0;
       const bauZeitCount=ks?(syncData.zeiterfassung||[]).filter(z=>z.source==='bau'&&(z.kostenstelle||'').trim()===ks).length:0;
       const bauTotal=bauTermCount+bauZeitCount;
-      return(hasLinks||hasAttach||hasTime||isAH||bauTotal>0)?`<div class="task-card-icons">
+      return(hasLinks||hasAttach||hasFotos||hasTime||isAH||bauTotal>0)?`<div class="task-card-icons">
         ${hasLinks?`<span class="task-icon-badge">🔗 ${(task.links||[]).length}</span>`:''}
         ${hasAttach?`<span class="task-icon-badge">📎 ${(task.attachments||[]).length}</span>`:''}
+        ${hasFotos?`<span class="task-icon-badge" title="Fotos vom Handy">📷 ${(task.fotos||[]).length}</span>`:''}
         ${hasTime?`<span class="timer-badge${isTaskTimerRunning(task.id)?' running':''}">⏱ ${formatDuration(timeMs)}</span>`:''}
         ${isAH?`<button class="gcal-btn" onclick="openGoogleCalendar('${task.id}',event)" title="In Google Kalender eintragen">📅 Kalender</button>`:''}
         ${bauTotal>0?`<span class="task-icon-badge" style="color:#e67e22;background:rgba(230,126,34,.12);border:1px solid rgba(230,126,34,.3);cursor:pointer" onclick="event.stopPropagation();openSyncPanel()" title="Daten von Bau Doku">🔄 ${bauTotal} Bau</span>`:''}
@@ -1412,7 +1427,7 @@ function renderList(){
     <span style="width:12px"></span></div>`;
   for(const t of tasks){
     const overdue=isOverdue(t.due);
-    const badges=[(t.links||[]).length>0?`🔗${(t.links||[]).length}`:'',(t.attachments||[]).length>0?`📎${(t.attachments||[]).length}`:''].filter(Boolean).join(' ');
+    const badges=[(t.links||[]).length>0?`🔗${(t.links||[]).length}`:'',(t.attachments||[]).length>0?`📎${(t.attachments||[]).length}`:'',(t.fotos||[]).length>0?`📷${(t.fotos||[]).length}`:''].filter(Boolean).join(' ');
     html+=`<div class="list-item" onclick="openEditTaskModal('${t.id}')">
       <span class="ampel ampel-${t.ampel==='grün'?'green':t.ampel==='orange'?'orange':'red'}"></span>
       <span class="list-item-title">${esc(t.title)}${badges?` <span style="font-size:10px;color:var(--text2)">${badges}</span>`:''}</span>
@@ -1442,7 +1457,7 @@ function renderTable(){
   });
   for(const t of sorted){
     const overdue=isOverdue(t.due);
-    const lc=(t.links||[]).length,ac=(t.attachments||[]).length;
+    const lc=(t.links||[]).length,ac=(t.attachments||[]).length,fc=(t.fotos||[]).length;
     html+=`<tr onclick="openEditTaskModal('${t.id}')">
       <td>${esc(t.title)}</td>
       <td><span class="list-item-status">${esc(t.status)}</span></td>
@@ -1450,7 +1465,7 @@ function renderTable(){
       <td class="${overdue?'overdue':''}">${formatDate(t.due)}</td>
       <td><span class="ampel ampel-${t.ampel==='grün'?'green':t.ampel==='orange'?'orange':'red'}"></span></td>
       <td>${(t.tags||[]).map(tg=>`<span class="task-tag">${esc(tg)}</span>`).join(' ')}</td>
-      <td style="font-size:11px;color:var(--text2)">${lc?`🔗${lc} `:''}${ac?`📎${ac}`:''}</td>
+      <td style="font-size:11px;color:var(--text2)">${lc?`🔗${lc} `:''}${ac?`📎${ac} `:''}${fc?`📷${fc}`:''}</td>
     </tr>`;
   }
   html+='</tbody></table></div>';
@@ -1914,6 +1929,41 @@ function attachIcon(type){
   if(type.includes('zip')||type.includes('rar'))return'🗜️';
   return'📄';
 }
+// ── Foto-Galerie (Drive-Uploads vom Handy) ──
+function renderFotoListDesktop(){
+  const el=document.getElementById('fotoListDesktop');
+  if(!el)return;
+  if(!taskFotos||!taskFotos.length){el.innerHTML='';return;}
+  const items=taskFotos.map((f,i)=>{
+    const thumb=f.thumbnail||f.thumb||'';
+    const name=f.name||'';
+    const hasThumb=!!thumb;
+    return '<div class="foto-desktop-thumb'+(hasThumb?'':' fallback')+'" onclick="openFotoDesktop('+i+')" title="'+esc(name)+'">'
+      +(hasThumb?'<img src="'+esc(thumb)+'" alt="" loading="lazy" onerror="this.style.display=\'none\';this.parentElement.classList.add(\'fallback\')">':'')
+      +'<div class="foto-name">'+esc(name)+'</div>'
+      +'<button class="foto-del" onclick="event.stopPropagation();removeFotoDesktop('+i+')" title="Verweis entfernen (Datei in Drive bleibt)">✕</button>'
+      +'</div>';
+  }).join('');
+  el.innerHTML='<div class="foto-desktop-wrap">'
+    +'<div class="foto-desktop-wrap-label">📷 Fotos vom Handy (in Drive-Ordner) — '+taskFotos.length+' Stück</div>'
+    +'<div class="foto-desktop-grid">'+items+'</div>'
+    +'</div>';
+}
+function openFotoDesktop(i){
+  const f=taskFotos&&taskFotos[i];if(!f)return;
+  const url=f.url||(f.driveId?'https://drive.google.com/file/d/'+f.driveId+'/view':'');
+  if(url)window.open(url,'_blank');
+}
+function removeFotoDesktop(i){
+  const f=taskFotos&&taskFotos[i];if(!f)return;
+  const hasDrive=!!f.driveId;
+  const msg=hasDrive
+    ? 'Foto-Verweis entfernen?\n\nOK = nur den Verweis hier entfernen (Datei bleibt im Drive-Ordner)\nAbbrechen = nichts tun'
+    : 'Foto-Eintrag entfernen?';
+  if(!confirm(msg))return;
+  taskFotos.splice(i,1);
+  renderFotoListDesktop();
+}
 function downloadAttach(i){
   const a=taskAttachments[i];
   const el=document.createElement('a');
@@ -2205,8 +2255,8 @@ function openNewTaskModal(){
   const kc=document.getElementById('tKontakteContainer');if(kc)kc.innerHTML='';
   updateKontaktePTPTitle();
   document.getElementById('deleteTaskBtn').style.display='none';
-  taskLinks=[];taskAttachments=[];taskAusserhausTermine=[];taskZeitEntries=[];taskNotizVerlauf=[];
-  renderLinksList();renderAttachList();
+  taskLinks=[];taskAttachments=[];taskAusserhausTermine=[];taskZeitEntries=[];taskNotizVerlauf=[];taskFotos=[];
+  renderLinksList();renderAttachList();renderFotoListDesktop();
   renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();
   const _ni=document.getElementById('newTaskNotizInput');if(_ni)_ni.value='';
   openModal();
@@ -2249,7 +2299,8 @@ function openEditTaskModal(id){
   taskAusserhausTermine=JSON.parse(JSON.stringify(task.ausserhausTermine||[]));
   taskZeitEntries=JSON.parse(JSON.stringify(task.zeitEntries||[]));
   taskNotizVerlauf=JSON.parse(JSON.stringify(task.notizVerlauf||[]));
-  renderLinksList();renderAttachList();
+  taskFotos=JSON.parse(JSON.stringify(task.fotos||[]));
+  renderLinksList();renderAttachList();renderFotoListDesktop();
   renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();
   const _ni=document.getElementById('newTaskNotizInput');if(_ni)_ni.value='';
   openModal();
