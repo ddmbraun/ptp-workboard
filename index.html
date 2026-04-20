@@ -232,6 +232,11 @@ input,select,textarea{font-family:inherit;}
 /* TIMER */
 .timer-display{font-size:34px;font-weight:700;color:var(--accent2);font-variant-numeric:tabular-nums;letter-spacing:3px;text-align:center;padding:10px 0 8px;font-family:'Courier New',monospace;}
 .timer-display.running{color:var(--green);animation:timerPulse 1s ease-in-out infinite;}
+.modal-timer-bar{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);margin-bottom:12px;}
+.modal-timer-bar .timer-display{font-size:22px;letter-spacing:2px;padding:0;flex:1;text-align:left;}
+.modal-timer-bar .timer-toggle-btn{padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;background:rgba(46,204,113,.15);color:var(--green);border:1.5px solid var(--green);white-space:nowrap;}
+.modal-timer-bar .timer-toggle-btn.stop{background:rgba(231,76,60,.15);color:var(--red);border-color:var(--red);}
+.modal-timer-bar .timer-toggle-btn:hover{filter:brightness(1.15);}
 @keyframes timerPulse{0%,100%{opacity:1;}50%{opacity:.75;}}
 .timer-start-btn{width:100%;padding:10px 0;border-radius:8px;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .15s;background:rgba(46,204,113,.15);color:var(--green);border:1.5px solid var(--green);}
 .timer-start-btn:hover{background:rgba(46,204,113,.28);}
@@ -452,7 +457,7 @@ input,select,textarea{font-family:inherit;}
 </div>
 
 <!-- TASK MODAL -->
-<div class="modal-overlay" id="taskModal">
+<div class="modal-overlay" id="taskModal" onclick="if(event.target===this)closeModal();">
   <div class="modal" id="taskModalBox">
     <div class="modal-header-row">
       <h2 id="modalTitle">Neuer Task</h2>
@@ -463,6 +468,11 @@ input,select,textarea{font-family:inherit;}
       </div>
     </div>
     <input type="hidden" id="taskId">
+    <!-- Timer-Bar oben: Stoppuhr direkt zugänglich ohne Sektion aufzuklappen -->
+    <div class="modal-timer-bar" id="modalTimerBar">
+      <div id="timerDisplayTop" class="timer-display">00:00:00</div>
+      <button id="timerBtnTop" type="button" class="timer-toggle-btn" onclick="toggleTimer()">▶ Start</button>
+    </div>
     <div class="modal-field"><label>Titel *</label><input type="text" id="taskTitleInput" placeholder="Task-Titel eingeben…" oninput="scheduleTaskFieldSave()"></div>
     <div style="display:flex;gap:12px;">
       <div class="modal-field" style="flex:1"><label>Bearbeiter</label><input type="text" id="taskOwnerInput" placeholder="Name" oninput="scheduleTaskFieldSave()"></div>
@@ -968,7 +978,7 @@ async function pollWorkboardFile(){
   const ae=document.activeElement;
   if(ae&&['INPUT','TEXTAREA','SELECT'].includes(ae.tagName))return;
   // Nicht neuladen, während ein Modal offen ist (Task bearbeiten, Spalten-Editor, etc.)
-  if(document.querySelector('.modal.open'))return;
+  if(document.querySelector('.modal-overlay.open'))return;
   try{
     const mr=await fetch('https://www.googleapis.com/drive/v3/files/'+gdriveFileId+'?fields=modifiedTime&_='+Date.now(),
       {headers:{Authorization:'Bearer '+gdriveToken},cache:'no-store'});
@@ -1072,7 +1082,7 @@ async function gdriveSaveData() {
             const remote=await fr.json();
             // ID der Task, die gerade im Edit-Modal offen ist (falls überhaupt)
             const tidEl=document.getElementById('taskId');
-            const modalOpen=document.querySelector('.modal.open');
+            const modalOpen=document.querySelector('.modal-overlay.open')||document.querySelector('#taskModal.open');
             const modalTaskId=(modalOpen&&tidEl)?tidEl.value:'';
             // Alle lokalen Task-IDs pro Board sammeln, damit wir "nur lokal vorhandene" erkennen
             const localState=buildSaveObject();
@@ -1132,6 +1142,24 @@ async function gdriveSaveData() {
             // Merged-State zurück ins Frontend laden, damit UI und folgende Saves konsistent sind
             loadFromObject(merged);
             render();
+            // Wenn Modal offen ist: lokale Snapshots aktualisieren, sonst überschreibt der
+            // nächste Auto-Save die gerade neu gemergten Einträge (z.B. Handy-Zeiterfassung) wieder.
+            if(modalTaskId){
+              const refreshed=findTaskById(modalTaskId);
+              if(refreshed){
+                try{taskAusserhausTermine=JSON.parse(JSON.stringify(refreshed.ausserhausTermine||[]));}catch(e){}
+                try{taskZeitEntries=JSON.parse(JSON.stringify(refreshed.zeitEntries||[]));}catch(e){}
+                try{taskNotizVerlauf=JSON.parse(JSON.stringify(refreshed.notizVerlauf||[]));}catch(e){}
+                try{taskLinks=JSON.parse(JSON.stringify(refreshed.links||[]));}catch(e){}
+                try{taskAttachments=JSON.parse(JSON.stringify(refreshed.attachments||[]));}catch(e){}
+                try{if(typeof renderZeiterfassung==='function')renderZeiterfassung();}catch(e){}
+                try{if(typeof renderAusserhausTermine==='function')renderAusserhausTermine();}catch(e){}
+                try{if(typeof renderTaskNotizen==='function')renderTaskNotizen();}catch(e){}
+                try{if(typeof renderLinksList==='function')renderLinksList();}catch(e){}
+                try{if(typeof renderAttachList==='function')renderAttachList();}catch(e){}
+                try{if(typeof renderTimerSection==='function')renderTimerSection();}catch(e){}
+              }
+            }
           }
         }
       }
@@ -1922,23 +1950,33 @@ function stopTimer(){
 function renderTimerSection(){
   const taskId=document.getElementById('taskId').value;
   const task=taskId?findTaskById(taskId):null;
+  const running=isTaskTimerRunning(taskId);
   renderTimerDisplay();
   const btn=document.getElementById('timerBtn');
   if(btn){
-    if(isTaskTimerRunning(taskId)){btn.className='timer-stop-btn';btn.innerHTML='⏹ Aufzeichnung beenden';}
+    if(running){btn.className='timer-stop-btn';btn.innerHTML='⏹ Aufzeichnung beenden';}
     else{btn.className='timer-start-btn';btn.innerHTML='▶ Aufzeichnung starten';}
     btn.disabled=!taskId;
+  }
+  // Top-Timer-Bar (immer sichtbar oben im Modal)
+  const btnTop=document.getElementById('timerBtnTop');
+  if(btnTop){
+    if(running){btnTop.className='timer-toggle-btn stop';btnTop.innerHTML='⏹ Stopp';}
+    else{btnTop.className='timer-toggle-btn';btnTop.innerHTML='▶ Start';}
+    btnTop.disabled=!taskId;
   }
   renderTimerEntries(task);
 }
 function renderTimerDisplay(){
   const taskId=document.getElementById('taskId').value;
   const task=taskId?findTaskById(taskId):null;
-  const el=document.getElementById('timerDisplay');
-  if(!el)return;
   const ms=task?getTaskTotalMs(task):0;
-  el.textContent=formatDuration(ms);
-  el.className='timer-display'+(isTaskTimerRunning(taskId)?' running':'');
+  const text=formatDuration(ms);
+  const running=isTaskTimerRunning(taskId);
+  const el=document.getElementById('timerDisplay');
+  if(el){el.textContent=text;el.className='timer-display'+(running?' running':'');}
+  const elTop=document.getElementById('timerDisplayTop');
+  if(elTop){elTop.textContent=text;elTop.className='timer-display'+(running?' running':'');}
 }
 function renderTimerEntries(task){
   const el=document.getElementById('timerEntries');
