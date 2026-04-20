@@ -1930,16 +1930,54 @@ function attachIcon(type){
   return'📄';
 }
 // ── Foto-Galerie (Drive-Uploads vom Handy) ──
+// Cache für authentifiziert geladene Blob-URLs (driveId -> ObjectURL)
+const _desktopFotoBlobCache = new Map();
+const _desktopFotoBlobInflight = new Map();
+async function _fetchDesktopFotoBlob(driveId){
+  if(!driveId)return null;
+  if(_desktopFotoBlobCache.has(driveId))return _desktopFotoBlobCache.get(driveId);
+  if(_desktopFotoBlobInflight.has(driveId))return _desktopFotoBlobInflight.get(driveId);
+  const p=(async()=>{
+    if(!gdriveToken){throw new Error('Kein Token – bitte anmelden');}
+    const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(driveId)+'?alt=media',
+      {headers:{Authorization:'Bearer '+gdriveToken}});
+    if(!r.ok){throw new Error('HTTP '+r.status);}
+    const blob=await r.blob();
+    const url=URL.createObjectURL(blob);
+    _desktopFotoBlobCache.set(driveId,url);
+    return url;
+  })();
+  _desktopFotoBlobInflight.set(driveId,p);
+  try{const url=await p;return url;}
+  catch(e){console.warn('Desktop-Thumb-Fetch fehlgeschlagen für',driveId,e);return null;}
+  finally{_desktopFotoBlobInflight.delete(driveId);}
+}
+async function loadDesktopFotoThumb(imgEl,driveId){
+  if(!imgEl||!driveId)return;
+  const url=await _fetchDesktopFotoBlob(driveId);
+  if(url){imgEl.src=url;}
+  else{imgEl.style.display='none';const p=imgEl.parentElement;if(p)p.classList.add('fallback');}
+}
+function hydrateDesktopFotoThumbs(){
+  document.querySelectorAll('#fotoListDesktop img[data-foto-id]').forEach(img=>{
+    if(img.dataset.hydrated==='1')return;
+    const id=img.getAttribute('data-foto-id');
+    if(id){img.dataset.hydrated='1';loadDesktopFotoThumb(img,id);}
+  });
+}
 function renderFotoListDesktop(){
   const el=document.getElementById('fotoListDesktop');
   if(!el)return;
   if(!taskFotos||!taskFotos.length){el.innerHTML='';return;}
   const items=taskFotos.map((f,i)=>{
-    const thumb=f.thumbnail||f.thumb||'';
     const name=f.name||'';
-    const hasThumb=!!thumb;
-    return '<div class="foto-desktop-thumb'+(hasThumb?'':' fallback')+'" onclick="openFotoDesktop('+i+')" title="'+esc(name)+'">'
-      +(hasThumb?'<img src="'+esc(thumb)+'" alt="" loading="lazy" onerror="this.style.display=\'none\';this.parentElement.classList.add(\'fallback\')">':'')
+    const id=f.driveId||'';
+    const cached=id?_desktopFotoBlobCache.get(id):null;
+    // driveIds sind immer [A-Za-z0-9_-], trotzdem defensiv escapen
+    const safeId=String(id).replace(/[^A-Za-z0-9_\-]/g,'');
+    const srcAttr=cached?'src="'+esc(cached)+'" ':(safeId?'data-foto-id="'+safeId+'" ':'');
+    return '<div class="foto-desktop-thumb" onclick="openFotoDesktop('+i+')" title="'+esc(name)+'">'
+      +'<img '+srcAttr+'alt="" loading="lazy" onerror="this.style.display=\'none\';this.parentElement.classList.add(\'fallback\')">'
       +'<div class="foto-name">'+esc(name)+'</div>'
       +'<button class="foto-del" onclick="event.stopPropagation();removeFotoDesktop('+i+')" title="Verweis entfernen (Datei in Drive bleibt)">✕</button>'
       +'</div>';
@@ -1948,11 +1986,24 @@ function renderFotoListDesktop(){
     +'<div class="foto-desktop-wrap-label">📷 Fotos vom Handy (in Drive-Ordner) — '+taskFotos.length+' Stück</div>'
     +'<div class="foto-desktop-grid">'+items+'</div>'
     +'</div>';
+  // Authentifizierte Thumbnails nachladen
+  try{hydrateDesktopFotoThumbs();}catch(e){console.warn('hydrateDesktopFotoThumbs:',e);}
 }
-function openFotoDesktop(i){
+async function openFotoDesktop(i){
   const f=taskFotos&&taskFotos[i];if(!f)return;
-  const url=f.url||(f.driveId?'https://drive.google.com/file/d/'+f.driveId+'/view':'');
-  if(url)window.open(url,'_blank');
+  // Primär: In-Browser als Blob (authentifiziert). Fallback: Drive-Viewer im neuen Tab.
+  if(f.driveId){
+    const url=await _fetchDesktopFotoBlob(f.driveId);
+    if(url){
+      const w=window.open('','_blank');
+      if(w){
+        w.document.write('<title>'+esc(f.name||'Foto')+'</title><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="'+esc(url)+'" style="max-width:100%;max-height:100vh;object-fit:contain"></body>');
+      }
+      return;
+    }
+  }
+  const fallback=f.url||(f.driveId?'https://drive.google.com/file/d/'+f.driveId+'/view':'');
+  if(fallback)window.open(fallback,'_blank');
 }
 function removeFotoDesktop(i){
   const f=taskFotos&&taskFotos[i];if(!f)return;
