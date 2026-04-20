@@ -2033,10 +2033,10 @@ function attachIcon(type){
 // ── EMAIL DROP-ZONE ──
 (function initEmailDropZone(){
   document.addEventListener('DOMContentLoaded', _bindEmailZone);
-  if(document.readyState \!== 'loading') _bindEmailZone();
+  if(document.readyState !== 'loading') _bindEmailZone();
   function _bindEmailZone(){
     const zone = document.getElementById('emailDropZone');
-    if(\!zone || zone._emailBound) return;
+    if(!zone || zone._emailBound) return;
     zone._emailBound = true;
     zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
     zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
@@ -2052,13 +2052,13 @@ function attachIcon(type){
 
 async function handleEmailDrop(dt, zone) {
   const targetUrl = (document.getElementById('tEmailOrdner')||{}).value || '';
-  if(\!targetUrl.trim()) {
-    _emailZoneMsg(zone,'error','❌ Bitte zuerst den E-Mail-Ablageordner (Google Drive URL) eintragen\!');
+  if(!targetUrl.trim()) {
+    _emailZoneMsg(zone,'error','❌ Bitte zuerst den E-Mail-Ablageordner (Google Drive URL) eintragen!');
     return;
   }
   const folderId = _extractFolderId(targetUrl);
-  if(\!folderId) { _emailZoneMsg(zone,'error','❌ Ungültige Google Drive Ordner-URL.'); return; }
-  if(\!gdriveToken) { _emailZoneMsg(zone,'error','❌ Bitte zuerst mit Google Drive verbinden (☁️ oben).'); return; }
+  if(!folderId) { _emailZoneMsg(zone,'error','❌ Ungültige Google Drive Ordner-URL.'); return; }
+  if(!gdriveToken) { _emailZoneMsg(zone,'error','❌ Bitte zuerst mit Google Drive verbinden (☁️ oben).'); return; }
   _emailZoneMsg(zone,'','⏳ Verarbeite E-Mail…');
   try {
     let info = null;
@@ -2066,24 +2066,24 @@ async function handleEmailDrop(dt, zone) {
       const f = [...dt.files].find(f => f.name.toLowerCase().endsWith('.msg'));
       if(f) info = { subject: f.name.replace(/\.msg$/i,''), sender:'', date: new Date(), bodyText:'' };
     }
-    if(\!info) {
+    if(!info) {
       const html = dt.getData('text/html');
       if(html && html.length > 20) info = _parseOutlookHtml(html);
     }
-    if(\!info) {
+    if(!info) {
       const txt = dt.getData('text/plain');
       if(txt && txt.trim()) {
         const subj = txt.split('\n')[0].replace(/^(Betreff|Subject):\s*/i,'').trim() || 'E-Mail';
         info = { subject: subj, sender:'', date: new Date(), bodyText: txt };
       }
     }
-    if(\!info) throw new Error('Keine E-Mail-Daten erkannt. Bitte direkt aus Outlook ziehen.');
+    if(!info) throw new Error('Keine E-Mail-Daten erkannt. Bitte direkt aus Outlook ziehen.');
     const pdf = await _buildEmailPdf(info);
-    const d = info.date instanceof Date && \!isNaN(info.date) ? info.date : new Date();
+    const d = info.date instanceof Date && !isNaN(info.date) ? info.date : new Date();
     const stamp = d.getFullYear()+'.'+_p2(d.getMonth()+1)+'.'+_p2(d.getDate());
     const fname = stamp+'_'+_cleanName(info.subject)+'.pdf';
     await _uploadPdfToDrive(pdf, fname, folderId);
-    _emailZoneMsg(zone,'success','✅ '+fname+' gespeichert\!');
+    _emailZoneMsg(zone,'success','✅ '+fname+' gespeichert!');
     setTimeout(()=>_emailZoneMsg(zone,'','📧 E-Mail aus Outlook hier hineinziehen → wird als PDF in Google Drive gespeichert'),5000);
   } catch(err) {
     console.error('E-Mail Drop:',err);
@@ -2093,7 +2093,7 @@ async function handleEmailDrop(dt, zone) {
 }
 
 function _emailZoneMsg(zone, cls, msg) {
-  if(\!zone) return;
+  if(!zone) return;
   zone.className = 'email-drop-zone'+(cls?' '+cls:'');
   zone.innerHTML = msg;
 }
@@ -2104,13 +2104,13 @@ function _parseOutlookHtml(html) {
   let subject = doc.title||'', sender='', date=new Date(), bodyText=text;
   const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
   for(const line of lines.slice(0,20)) {
-    if(\!subject && /^(Betreff|Subject):/i.test(line)) subject=line.replace(/^[^:]+:\s*/,'').trim();
-    if(\!sender   && /^(Von|From):/i.test(line))      sender =line.replace(/^[^:]+:\s*/,'').trim();
+    if(!subject && /^(Betreff|Subject):/i.test(line)) subject=line.replace(/^[^:]+:\s*/,'').trim();
+    if(!sender   && /^(Von|From):/i.test(line))      sender =line.replace(/^[^:]+:\s*/,'').trim();
     if(/^(Datum|Gesendet|Date|Sent):/i.test(line)) {
-      try { const d=new Date(line.replace(/^[^:]+:\s*/,'')); if(\!isNaN(d)) date=d; } catch(e){}
+      try { const d=new Date(line.replace(/^[^:]+:\s*/,'')); if(!isNaN(d)) date=d; } catch(e){}
     }
   }
-  if(\!subject) subject='E-Mail vom '+date.toLocaleDateString('de-DE');
+  if(!subject) subject='E-Mail vom '+date.toLocaleDateString('de-DE');
   return { subject, sender, date, bodyText: text };
 }
 
@@ -2138,7 +2138,7 @@ async function _buildEmailPdf(info) {
   doc.setFont('helvetica','normal');
   doc.setTextColor(90,90,120);
   if(info.sender) { doc.text('Von:    '+info.sender, M, y); y+=6; }
-  const dStr=(info.date instanceof Date&&\!isNaN(info.date))
+  const dStr=(info.date instanceof Date&&!isNaN(info.date))
     ? info.date.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
   if(dStr) { doc.text('Datum: '+dStr, M, y); y+=6; }
   y+=3;
@@ -2172,12 +2172,12 @@ async function _uploadPdfToDrive(arrayBuffer, fileName, folderId) {
     headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'multipart/related; boundary='+boundary},
     body
   });
-  if(\!r.ok){const t=await r.text();throw new Error('Drive Upload '+r.status+': '+t.substring(0,120));}
+  if(!r.ok){const t=await r.text();throw new Error('Drive Upload '+r.status+': '+t.substring(0,120));}
   return r.json();
 }
 
 function _extractFolderId(url) {
-  if(\!url) return null;
+  if(!url) return null;
   const m=url.match(/\/folders\/([a-zA-Z0-9_-]+)/)||url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
   return m?m[1]:null;
 }
