@@ -638,6 +638,7 @@ input,select,textarea{font-family:inherit;}
 let boards = {};
 let statuses = ['Backlog','Diese Woche','Heute','Waiting','Done'];
 let currentBoard = '';
+let mobileBoards = []; // Whitelist für PTP Mobile — leer = alle Boards aufs Handy
 let currentView = 'kanban';
 let filters = {owner:null,ampel:null,tag:null};
 let searchQuery = '';
@@ -1007,6 +1008,19 @@ async function gdriveCreateFile() {
   }
 }
 
+// ── Merge-Helper: chronologische Listen beim Pre-Save-Merge zusammenführen ──
+function _mergeListByKey(remoteList,localList,keyFn){
+  const a=Array.isArray(remoteList)?remoteList:[];
+  const b=Array.isArray(localList)?localList:[];
+  const out=[];const seen=new Set();
+  for(const it of a){const k=keyFn(it||{});if(k&&!seen.has(k)){seen.add(k);out.push(it);}else if(!k){out.push(it);}}
+  for(const it of b){const k=keyFn(it||{});if(k&&!seen.has(k)){seen.add(k);out.push(it);}else if(!k){out.push(it);}}
+  return out;
+}
+function _mergeNotizen(remoteList,localList){
+  // Union per ts+text, Reihenfolge: Remote-Zeitordnung, dann neue lokale ans Ende
+  return _mergeListByKey(remoteList,localList,n=>((n.ts||'')+'|'+(n.text||'')));
+}
 async function gdriveSaveData() {
   if (!gdriveFileId || !gdriveToken || gdriveSaving) return;
   gdriveSaving = true;
@@ -1040,20 +1054,27 @@ async function gdriveSaveData() {
               if(k==='_statuses'||!Array.isArray(v))continue;
               merged[k]=v.slice();
             }
-            // 1) Modal-Task: lokale Version schlägt Remote
+            // 1) Modal-Task: lokale Skalar-Felder gewinnen, aber chronologische Listen werden gemerged
             if(modalTaskId){
               for(const[k,v]of Object.entries(localState)){
                 if(k==='_statuses'||!Array.isArray(v))continue;
                 const lt=v.find(t=>t&&t.id===modalTaskId);
                 if(lt){
-                  // In Remote suchen & ersetzen
-                  let placed=false;
+                  // Remote-Version der Task finden
+                  let remoteTask=null,remoteBoardKey=null,remoteIdx=-1;
                   for(const rk of Object.keys(merged)){
                     if(rk==='_statuses'||!Array.isArray(merged[rk]))continue;
                     const idx=merged[rk].findIndex(t=>t&&t.id===modalTaskId);
-                    if(idx>=0){merged[rk][idx]=lt;placed=true;break;}
+                    if(idx>=0){remoteTask=merged[rk][idx];remoteBoardKey=rk;remoteIdx=idx;break;}
                   }
-                  if(!placed){if(!merged[k])merged[k]=[];merged[k].push(lt);}
+                  // Merge: Lokale Skalar-Felder überschreiben; Listen werden per Inhalt gemerged
+                  const mergedTask={...(remoteTask||{}),...lt};
+                  mergedTask.notizVerlauf=_mergeNotizen(remoteTask&&remoteTask.notizVerlauf,lt.notizVerlauf);
+                  mergedTask.zeitEntries=_mergeListByKey(remoteTask&&remoteTask.zeitEntries,lt.zeitEntries,e=>((e.date||'')+'|'+(e.von||'')+'|'+(e.bis||'')+'|'+(e.beschreibung||'')));
+                  mergedTask.ausserhausTermine=_mergeListByKey(remoteTask&&remoteTask.ausserhausTermine,lt.ausserhausTermine,e=>((e.date||'')+'|'+(e.von||'')+'|'+(e.bis||'')+'|'+(e.beschreibung||'')));
+                  mergedTask.fotos=_mergeListByKey(remoteTask&&remoteTask.fotos,lt.fotos,f=>(f.id||f.driveId||f.path||f.name||''));
+                  if(remoteTask){merged[remoteBoardKey][remoteIdx]=mergedTask;}
+                  else{if(!merged[k])merged[k]=[];merged[k].push(mergedTask);}
                   break;
                 }
               }
@@ -1155,14 +1176,24 @@ function skipFileSelection(){
 function closeStartModal(){document.getElementById('startModal').classList.remove('open');}
 function loadFromObject(data){
   if(data._statuses&&Array.isArray(data._statuses))statuses=data._statuses;
+  mobileBoards=Array.isArray(data._mobileBoards)?data._mobileBoards.slice():[];
   boards={};
-  for(const[k,v]of Object.entries(data)){if(k!=='_statuses')boards[k]=v;}
+  // Nur "echte" Boards: keine _-Keys, Wert muss Array sein
+  for(const[k,v]of Object.entries(data)){
+    if(k.startsWith('_'))continue;
+    if(Array.isArray(v))boards[k]=v;
+  }
   const keys=Object.keys(boards);
-  currentBoard=keys.length?keys[0]:'';
+  if(!currentBoard||!boards[currentBoard])currentBoard=keys.length?keys[0]:'';
   // laufenden Timer aus Vorgänger-Session fortsetzen, sobald die Tasks geladen sind
   try{resumeRunningTimer();}catch(e){}
 }
-function buildSaveObject(){return{_statuses:statuses,...boards};}
+function buildSaveObject(){
+  const out={_statuses:statuses};
+  if(Array.isArray(mobileBoards)&&mobileBoards.length)out._mobileBoards=mobileBoards.slice();
+  for(const[k,v]of Object.entries(boards))out[k]=v;
+  return out;
+}
 async function autoSave(){
   // Prefer Google Drive if connected
   if(gdriveFileId){ await gdriveSaveData(); return; }
@@ -2010,15 +2041,18 @@ function tNasKopieren(){
   });
 }
 // ── TASK MODAL ──
+const TASK_SECTION_IDS=['tObjektSect','tAnsprchSect','tTermineSect','tZeitSect','tVerkSect','tAnhangSect','tNotizenSect'];
+function collapseAllTaskSections(){
+  TASK_SECTION_IDS.forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('open');});
+}
 function openModal(){
   document.getElementById('taskModal').classList.add('open');
   // Alle Sektionen beim Öffnen schließen
-  ['tObjektSect','tAnsprchSect','tTermineSect','tZeitSect','tVerkSect','tAnhangSect','tNotizenSect'].forEach(id=>{
-    const el=document.getElementById(id);if(el)el.classList.remove('open');
-  });
+  collapseAllTaskSections();
 }
 function closeModal(){
   saveTaskData(); // Auto-Speichern beim Schließen (kein Effekt wenn kein Titel)
+  collapseAllTaskSections();
   document.getElementById('taskModal').classList.remove('open');
 }
 function saveTaskAndBack(){
@@ -2094,7 +2128,10 @@ function openEditTaskModal(id){
 function saveTask(){
   const title=document.getElementById('taskTitleInput').value.trim();
   if(!title){document.getElementById('taskTitleInput').focus();return;}
-  if(saveTaskData()) document.getElementById('taskModal').classList.remove('open');
+  if(saveTaskData()){
+    collapseAllTaskSections();
+    document.getElementById('taskModal').classList.remove('open');
+  }
 }
 
 function deleteTask(){
@@ -2149,7 +2186,12 @@ function saveColumns(){
 
 // ── PROJECT MANAGER ──
 function openProjManager(){
-  editProjects=Object.keys(boards).map(k=>({key:k,name:k,count:boards[k].length}));
+  const hasWhitelist=Array.isArray(mobileBoards)&&mobileBoards.length>0;
+  editProjects=Object.keys(boards).map(k=>({
+    key:k,name:k,count:boards[k].length,
+    // keine Whitelist definiert → Default = alle auf Handy sichtbar (alle angekreuzt)
+    mobile: hasWhitelist ? mobileBoards.includes(k) : true
+  }));
   renderProjList();
   document.getElementById('projAddInput').value='';
   document.getElementById('projModal').classList.add('open');
@@ -2161,10 +2203,22 @@ function renderProjList(){
       <span class="proj-icon">📁</span>
       <input type="text" value="${esc(p.name)}" id="projinput-${i}" placeholder="Projektname">
       <span class="proj-count">${p.count} Task${p.count!==1?'s':''}</span>
+      <label class="proj-mobile" title="Auf PTP Mobile anzeigen" style="display:flex;align-items:center;gap:4px;margin:0 6px;font-size:12px;color:var(--text2);cursor:pointer;user-select:none;">
+        <input type="checkbox" id="projmob-${i}" ${p.mobile?'checked':''} onchange="toggleProjMobile(${i})" style="margin:0;cursor:pointer;">
+        📱 Mobile
+      </label>
       <button class="col-icon-btn" onclick="removeProject(${i})" ${editProjects.length<=1?'disabled':''} style="color:var(--red)" title="Projekt löschen">✕</button>
     </div>`).join('');
 }
-function syncProjInputs(){editProjects=editProjects.map((p,i)=>{const el=document.getElementById('projinput-'+i);return{...p,name:el?el.value.trim()||p.name:p.name};});}
+function syncProjInputs(){editProjects=editProjects.map((p,i)=>{
+  const el=document.getElementById('projinput-'+i);
+  const mob=document.getElementById('projmob-'+i);
+  return{...p,name:el?el.value.trim()||p.name:p.name, mobile: mob?mob.checked:!!p.mobile};
+});}
+function toggleProjMobile(i){
+  syncProjInputs();
+  // keine Neuzeichnung nötig — Checkbox reflektiert Zustand bereits
+}
 function removeProject(i){
   syncProjInputs();if(editProjects.length<=1)return;
   const p=editProjects[i];
@@ -2176,7 +2230,7 @@ function addProject(){
   syncProjInputs();const inp=document.getElementById('projAddInput');const n=inp.value.trim();
   if(!n){inp.focus();return;}
   if(editProjects.some(p=>p.name===n)){alert('Projektname bereits vergeben.');return;}
-  editProjects.push({key:'__new__'+Date.now(),name:n,count:0,isNew:true});
+  editProjects.push({key:'__new__'+Date.now(),name:n,count:0,isNew:true,mobile:false});
   inp.value='';renderProjList();
 }
 function saveProjects(){
@@ -2191,6 +2245,10 @@ function saveProjects(){
     else newBoards[p.name]=boards[p.key]||[];
   });
   boards=newBoards;
+  // Mobile-Whitelist zusammensetzen: nur angekreuzte Boards, in Reihenfolge des Projekt-Managers
+  const selected=editProjects.filter(p=>p.mobile).map(p=>p.name);
+  // Wenn alle angekreuzt sind → Whitelist leer lassen (Default = alle sichtbar, kein Flag in der JSON)
+  mobileBoards = (selected.length && selected.length < editProjects.length) ? selected : [];
   if(!boards[currentBoard])currentBoard=Object.keys(boards)[0]||'';
   closeProjManager();render();autoSave();
 }
