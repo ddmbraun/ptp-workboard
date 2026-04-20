@@ -561,7 +561,18 @@ input,select,textarea{font-family:inherit;}
         <span class="form-collapse-arrow">▾</span>
       </div>
       <div class="form-collapse-body">
-        <div class="modal-field"><textarea id="taskDescInput" placeholder="Interne Notizen…" rows="3"></textarea></div>
+        <div class="modal-field">
+          <label style="font-size:12px;color:var(--text-dim,#888);display:block;margin-bottom:4px;">Dauerhafte Notiz</label>
+          <textarea id="taskDescInput" placeholder="Interne Notizen…" rows="3"></textarea>
+        </div>
+        <div class="modal-field">
+          <label style="font-size:12px;color:var(--text-dim,#888);display:block;margin-bottom:4px;">Chronologische Einträge</label>
+          <div id="taskNotizList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px;"></div>
+          <div style="display:flex;gap:6px;">
+            <input type="text" id="newTaskNotizInput" placeholder="Kurze Notiz mit Zeitstempel…" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();addTaskNotiz();}">
+            <button type="button" class="topbar-btn btn-primary" onclick="addTaskNotiz()" style="padding:6px 14px;">+</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -644,6 +655,7 @@ let collapsedCols = {};
 // ── MODAL DATA STATE ──
 let taskAusserhausTermine = [];
 let taskZeitEntries = [];
+let taskNotizVerlauf = [];
 
 // ── KANBAN COLUMN RESIZE ──
 let resizingCol=null,resizeStartX=0,resizeStartWidth=0,resizingColIdx=-1;
@@ -735,7 +747,9 @@ function saveTaskData(){
     attachments:taskAttachments,
     timeEntries:existingTask?.timeEntries||[],
     ausserhausTermine:taskAusserhausTermine,
-    zeitEntries:taskZeitEntries
+    zeitEntries:taskZeitEntries,
+    notizVerlauf:taskNotizVerlauf,
+    fotos:existingTask?.fotos||[]
   };
   if(id){
     const idx=boards[currentBoard].findIndex(t=>t.id===id);
@@ -1386,6 +1400,37 @@ function openGcalTermin(i){
   }
   window.open('https://calendar.google.com/calendar/render?action=TEMPLATE&text='+title+'&dates='+dates+'&details='+desc,'_blank');
 }
+// ── NOTIZ-CHRONIK (synchron mit PTP Mobile) ──
+function renderTaskNotizen(){
+  const el=document.getElementById('taskNotizList');
+  if(!el)return;
+  if(!taskNotizVerlauf.length){
+    el.innerHTML='<div class="no-items-hint" style="padding:4px 2px;font-size:12px;color:#888;">Noch keine chronologischen Einträge</div>';
+    return;
+  }
+  el.innerHTML=taskNotizVerlauf.map((n,i)=>
+    '<div class="notiz-entry" style="background:#2a2a3a;border-left:3px solid #e67e22;padding:6px 10px;border-radius:4px;font-size:13px;display:flex;gap:8px;align-items:flex-start;">'
+    +'<div style="flex:1;min-width:0;"><div style="color:#aaa;font-size:11px;margin-bottom:2px;">'+esc(n.ts||'')+'</div><div style="white-space:pre-wrap;word-wrap:break-word;">'+esc(n.text||'')+'</div></div>'
+    +'<button type="button" class="termin-row-btn del" onclick="removeTaskNotiz('+i+')" title="Eintrag löschen" style="flex-shrink:0;">✕</button>'
+    +'</div>'
+  ).join('');
+}
+function addTaskNotiz(){
+  const inp=document.getElementById('newTaskNotizInput');
+  if(!inp)return;
+  const text=(inp.value||'').trim();
+  if(!text){inp.focus();return;}
+  const ts=new Date().toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  taskNotizVerlauf.push({ts,text});
+  inp.value='';
+  renderTaskNotizen();
+  scheduleTaskFieldSave();
+}
+function removeTaskNotiz(i){
+  taskNotizVerlauf.splice(i,1);
+  renderTaskNotizen();
+  scheduleTaskFieldSave();
+}
 function _modalKostenstelle(){
   // Gleiche Logik wie pushToSync(): zuerst Tags, dann Titel-Präfix vor "–" oder "-"
   const tag=((document.getElementById('taskTagsInput')?.value||'').split(',')[0]||'').trim();
@@ -1996,9 +2041,10 @@ function openNewTaskModal(){
   const kc=document.getElementById('tKontakteContainer');if(kc)kc.innerHTML='';
   updateKontaktePTPTitle();
   document.getElementById('deleteTaskBtn').style.display='none';
-  taskLinks=[];taskAttachments=[];taskAusserhausTermine=[];taskZeitEntries=[];
+  taskLinks=[];taskAttachments=[];taskAusserhausTermine=[];taskZeitEntries=[];taskNotizVerlauf=[];
   renderLinksList();renderAttachList();
-  renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();
+  renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();
+  const _ni=document.getElementById('newTaskNotizInput');if(_ni)_ni.value='';
   openModal();
   setTimeout(()=>document.getElementById('taskTitleInput').focus(),100);
 }
@@ -2038,8 +2084,10 @@ function openEditTaskModal(id){
   taskAttachments=JSON.parse(JSON.stringify(task.attachments||[]));
   taskAusserhausTermine=JSON.parse(JSON.stringify(task.ausserhausTermine||[]));
   taskZeitEntries=JSON.parse(JSON.stringify(task.zeitEntries||[]));
+  taskNotizVerlauf=JSON.parse(JSON.stringify(task.notizVerlauf||[]));
   renderLinksList();renderAttachList();
-  renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();
+  renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();
+  const _ni=document.getElementById('newTaskNotizInput');if(_ni)_ni.value='';
   openModal();
 }
 
