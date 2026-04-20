@@ -866,6 +866,8 @@ function formatBytes(b){if(b<1024)return b+'B';if(b<1048576)return (b/1024).toFi
 // ── GOOGLE DRIVE INTEGRATION ──
 const GDRIVE_CLIENT_ID = '56419258975-2ri3eujer9p6saph1mesa5hihlcae1pl.apps.googleusercontent.com';
 const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const WORKSPACE_FOLDER_NAME = 'PTP-BAU Daten';
+let workspaceFolderId = localStorage.getItem('workspace_folder_id') || null;
 
 let gdriveToken = null;
 let gdriveFileId = null;
@@ -883,7 +885,30 @@ function gdriveInit() {
   });
 }
 
-function gdriveTokenCallback(resp) {
+async function ensureWorkspaceFolder() {
+  if (workspaceFolderId) return workspaceFolderId;
+  const q = encodeURIComponent("name='" + WORKSPACE_FOLDER_NAME + "' and mimeType='application/vnd.google-apps.folder' and trashed=false");
+  const r = await fetch('https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=files(id,name)&orderBy=createdTime',
+    { headers: { Authorization: 'Bearer ' + gdriveToken } });
+  if (!r.ok) throw new Error('Ordner-Suche: HTTP ' + r.status);
+  const d = await r.json();
+  if (d.files && d.files.length > 0) {
+    workspaceFolderId = d.files[0].id;
+  } else {
+    const cr = await fetch('https://www.googleapis.com/drive/v3/files', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + gdriveToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: WORKSPACE_FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' })
+    });
+    if (!cr.ok) throw new Error('Ordner-Erstellung: HTTP ' + cr.status);
+    const f = await cr.json();
+    workspaceFolderId = f.id;
+  }
+  localStorage.setItem('workspace_folder_id', workspaceFolderId);
+  return workspaceFolderId;
+}
+
+async function gdriveTokenCallback(resp) {
   if (resp.error) {
     alert('Google Drive Anmeldefehler: ' + resp.error);
     return;
@@ -891,6 +916,7 @@ function gdriveTokenCallback(resp) {
   gdriveToken = resp.access_token;
   const action = gdrivePendingAction;
   gdrivePendingAction = null;
+  try { await ensureWorkspaceFolder(); } catch(e) { console.warn('Workspace-Ordner:', e); }
   if (action === 'load') gdrivePickAndLoad();
   else if (action === 'new') gdriveCreateFile();
   else if (action === 'save') gdriveSaveData();
@@ -936,13 +962,24 @@ function gdriveConnectFromBar() {
 async function gdrivePickAndLoad() {
   try {
     updateFileStatus('none', '☁️ Suche in Google Drive…', '');
+    // Im Arbeitsordner suchen (mit Fallback auf Drive-Root für Migration)
+    let q = "name='workboard.json' and mimeType='application/json' and trashed=false";
+    if (workspaceFolderId) q += " and '" + workspaceFolderId + "' in parents";
     const r = await fetch(
-      "https://www.googleapis.com/drive/v3/files?q=name%3D'workboard.json'%20and%20mimeType%3D'application%2Fjson'%20and%20trashed%3Dfalse&fields=files(id%2Cname%2CmodifiedTime)&orderBy=modifiedTime%20desc",
+      'https://www.googleapis.com/drive/v3/files?q=' + encodeURIComponent(q) + '&fields=files(id%2Cname%2CmodifiedTime)&orderBy=modifiedTime%20desc',
       { headers: { Authorization: 'Bearer ' + gdriveToken } }
     );
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const data = await r.json();
-    const files = data.files || [];
+    let files = data.files || [];
+    // Fallback: Datei noch im Drive-Root (vor Migration)
+    if (files.length === 0 && workspaceFolderId) {
+      const r2 = await fetch(
+        'https://www.googleapis.com/drive/v3/files?q=' + encodeURIComponent("name='workboard.json' and mimeType='application/json' and trashed=false") + '&fields=files(id%2Cname%2CmodifiedTime)&orderBy=modifiedTime%20desc',
+        { headers: { Authorization: 'Bearer ' + gdriveToken } }
+      );
+      if (r2.ok) { const d2 = await r2.json(); files = d2.files || []; }
+    }
 
     if (files.length === 0) {
       if (confirm('Keine workboard.json in Google Drive gefunden.\nJetzt eine neue Datei erstellen?')) {
@@ -988,6 +1025,24 @@ async function gdriveLoadFile(fileId, fileName) {
   updateDriveBtnBar();
   render();
   startWorkboardPolling();
+  // Migration: Datei in Arbeitsordner verschieben, falls noch im Drive-Root
+  if (workspaceFolderId) migrateFileToWorkspaceFolder(fileId).catch(() => {});
+}
+
+async function migrateFileToWorkspaceFolder(fileId) {
+  if (!workspaceFolderId || !fileId || !gdriveToken) return;
+  const mr = await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '?fields=parents',
+    { headers: { Authorization: 'Bearer ' + gdriveToken } });
+  if (!mr.ok) return;
+  const meta = await mr.json();
+  const parents = meta.parents || [];
+  if (parents.includes(workspaceFolderId)) return; // bereits im Arbeitsordner
+  const removeParents = parents.join(',');
+  await fetch('https://www.googleapis.com/drive/v3/files/' + fileId
+    + '?addParents=' + encodeURIComponent(workspaceFolderId)
+    + (removeParents ? '&removeParents=' + encodeURIComponent(removeParents) : '')
+    + '&fields=id',
+    { method: 'PATCH', headers: { Authorization: 'Bearer ' + gdriveToken } });
 }
 
 // ── WORKBOARD-POLLING (fremde Änderungen übernehmen, z.B. vom Handy) ──
@@ -1038,7 +1093,9 @@ async function gdriveCreateFile() {
     render();
     const content = JSON.stringify(buildSaveObject(), null, 2);
     const boundary = 'drive_boundary_ptp_' + Date.now();
-    const meta = JSON.stringify({ name: 'workboard.json', mimeType: 'application/json' });
+    const metaObj = { name: 'workboard.json', mimeType: 'application/json' };
+    if (workspaceFolderId) metaObj.parents = [workspaceFolderId];
+    const meta = JSON.stringify(metaObj);
     const body = '--' + boundary + '\r\n' +
       'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
       meta + '\r\n' +
@@ -2678,7 +2735,9 @@ async function syncCreate(){
   const empty={version:1,lastUpdated:new Date().toISOString(),updatedBy:SYNC_SOURCE,termine:[],zeiterfassung:[]};
   const content=JSON.stringify(empty,null,2);
   const b='sb_'+Date.now();
-  const body='--'+b+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify({name:SYNC_FILE_NAME,mimeType:'application/json'})+'\r\n--'+b+'\r\nContent-Type: application/json\r\n\r\n'+content+'\r\n--'+b+'--';
+  const syncMeta={name:SYNC_FILE_NAME,mimeType:'application/json'};
+  if(workspaceFolderId)syncMeta.parents=[workspaceFolderId];
+  const body='--'+b+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(syncMeta)+'\r\n--'+b+'\r\nContent-Type: application/json\r\n\r\n'+content+'\r\n--'+b+'--';
   const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
     {method:'POST',headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'multipart/related; boundary='+b},body});
   const f=await r.json();
