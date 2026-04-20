@@ -908,6 +908,49 @@ async function gdriveLoadFile(fileId, fileName) {
   updateFileStatus('ok', '☁️ ' + fileName, '✓ Von Google Drive geladen');
   updateDriveBtnBar();
   render();
+  startWorkboardPolling();
+}
+
+// ── WORKBOARD-POLLING (fremde Änderungen übernehmen, z.B. vom Handy) ──
+let workboardLastModified=null;
+let workboardPollTimer=null;
+async function pollWorkboardFile(){
+  if(!gdriveFileId||!gdriveToken)return;
+  // Nicht neuladen, während der User gerade tippt
+  const ae=document.activeElement;
+  if(ae&&['INPUT','TEXTAREA','SELECT'].includes(ae.tagName))return;
+  // Nicht neuladen, während ein Modal offen ist (Task bearbeiten, Spalten-Editor, etc.)
+  if(document.querySelector('.modal.open'))return;
+  try{
+    const mr=await fetch('https://www.googleapis.com/drive/v3/files/'+gdriveFileId+'?fields=modifiedTime&_='+Date.now(),
+      {headers:{Authorization:'Bearer '+gdriveToken},cache:'no-store'});
+    if(!mr.ok)return;
+    const meta=await mr.json();
+    if(!workboardLastModified){workboardLastModified=meta.modifiedTime;return;}
+    if(meta.modifiedTime===workboardLastModified)return;
+    // Datei hat sich geändert — neu laden
+    const r=await fetch('https://www.googleapis.com/drive/v3/files/'+gdriveFileId+'?alt=media&_='+Date.now(),
+      {headers:{Authorization:'Bearer '+gdriveToken,'Cache-Control':'no-cache'},cache:'no-store'});
+    if(!r.ok)return;
+    const data=await r.json();
+    loadFromObject(data);
+    render();
+    workboardLastModified=meta.modifiedTime;
+    try{
+      const ind=document.getElementById('fileStatus');
+      if(ind)ind.textContent='↻ Aktualisiert vom Handy '+new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+    }catch(e){}
+  }catch(e){}
+}
+function startWorkboardPolling(){
+  if(workboardPollTimer)clearInterval(workboardPollTimer);
+  // Direkt einmal ausführen, damit wir den initialen modifiedTime haben
+  pollWorkboardFile();
+  workboardPollTimer=setInterval(pollWorkboardFile,30000);
+  if(!window._ptpWorkboardVisHooked){
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')pollWorkboardFile();});
+    window._ptpWorkboardVisHooked=true;
+  }
 }
 
 async function gdriveCreateFile() {
@@ -956,7 +999,7 @@ async function gdriveSaveData() {
   try {
     const content = JSON.stringify(buildSaveObject(), null, 2);
     const r = await fetch(
-      'https://www.googleapis.com/upload/drive/v3/files/' + gdriveFileId + '?uploadType=media',
+      'https://www.googleapis.com/upload/drive/v3/files/' + gdriveFileId + '?uploadType=media&fields=modifiedTime',
       {
         method: 'PATCH',
         headers: {
@@ -967,6 +1010,8 @@ async function gdriveSaveData() {
       }
     );
     if (r.ok) {
+      // Nach eigenem Speichern den neuen modifiedTime übernehmen, damit der Poller nicht selbst triggert
+      try{const meta=await r.json();if(meta&&meta.modifiedTime)workboardLastModified=meta.modifiedTime;}catch(e){}
       updateFileStatus('ok', '☁️ ' + gdriveFileName,
         '✓ Gespeichert ' + new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}));
     } else {
