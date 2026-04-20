@@ -1269,10 +1269,18 @@ function openGcalTermin(i){
   }
   window.open('https://calendar.google.com/calendar/render?action=TEMPLATE&text='+title+'&dates='+dates+'&details='+desc,'_blank');
 }
+function _modalKostenstelle(){
+  // Gleiche Logik wie pushToSync(): zuerst Tags, dann Titel-Präfix vor "–" oder "-"
+  const tag=((document.getElementById('taskTagsInput')?.value||'').split(',')[0]||'').trim();
+  if(tag)return tag;
+  const title=(document.getElementById('taskTitleInput')?.value||'');
+  const part=title.split(/[–-]/)[0]||'';
+  return part.trim();
+}
 function renderAusserhausTermine(){
   const el=document.getElementById('ausserhausTermineList');
   if(!el)return;
-  const ks=(document.getElementById('taskTagsInput')?.value||'').split(',')[0].trim();
+  const ks=_modalKostenstelle();
   const bauTermine=ks?(syncData.termine||[]).filter(t=>t.source==='bau'&&(t.kostenstelle||'').trim()===ks):[];
   let html='';
   if(!taskAusserhausTermine.length){
@@ -1320,7 +1328,7 @@ function parseMinutes(von,bis){
   }catch(e){return 0;}
 }
 function renderZeitGesamt(){
-  const ks=(document.getElementById('taskTagsInput')?.value||'').split(',')[0].trim();
+  const ks=_modalKostenstelle();
   const bauZeiten=ks?(syncData.zeiterfassung||[]).filter(z=>z.source==='bau'&&(z.kostenstelle||'').trim()===ks):[];
   const totalPTP=taskZeitEntries.reduce((s,e)=>s+parseMinutes(e.von,e.bis),0);
   const hP=Math.floor(totalPTP/60),mP=totalPTP%60;
@@ -1341,7 +1349,7 @@ function renderZeitGesamt(){
 function renderZeiterfassung(){
   const el=document.getElementById('zeiterfassungList');
   if(!el)return;
-  const ks=(document.getElementById('taskTagsInput')?.value||'').split(',')[0].trim();
+  const ks=_modalKostenstelle();
   const bauZeiten=ks?(syncData.zeiterfassung||[]).filter(z=>z.source==='bau'&&(z.kostenstelle||'').trim()===ks):[];
   let html='';
   if(!taskZeitEntries.length){
@@ -1643,7 +1651,7 @@ function startTimer(taskId){
   // ActiveTimer in Sync publizieren, damit andere Geräte es sehen
   try{
     if(syncFileId&&gdriveToken){
-      const ks=(task.tags&&task.tags[0])||(task.title?task.title.split('–')[0]:'')||'';
+      const ks=((task.tags&&task.tags[0])||(task.title?task.title.split(/[–-]/)[0]:'')||'').trim();
       syncData.activeTimer={deviceId:DEVICE_ID,source:'ptp',taskId,kostenstelle:ks,auftragTitle:task.title||'',startMs:Date.now()};
       syncData.lastUpdated=new Date().toISOString();syncData.updatedBy='ptp';
       syncWrite();
@@ -2253,7 +2261,7 @@ function pushToSync(){
   Object.entries(boards).forEach(([bn,tasks])=>{
     (tasks||[]).forEach(task=>{
       if(!task||!task.title)return;
-      const ks=(((task.tags&&task.tags[0])||(task.title?task.title.split('–')[0]:'')||'')+'').trim();
+      const ks=(((task.tags&&task.tags[0])||(task.title?task.title.split(/[–-]/)[0]:'')||'')+'').trim();
       (task.ausserhausTermine||[]).forEach((t,i)=>{
         if(!t.date&&!t.von)return;
         termine.push({syncId:'ptp_'+task.id+'_t'+i,source:'ptp',kostenstelle:ks,auftragTitle:task.title||'',
