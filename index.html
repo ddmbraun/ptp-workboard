@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PTP Workboard</title>
 <script src="https://accounts.google.com/gsi/client" defer onload="gdriveInit()"></script>
+<script src="https://cdn.jsdelivr.net/npm/piexifjs@1.0.6/piexif.js"></script>
 <style>
 :root {
   --bg:#ffffff; --bg2:#f4f4f8; --bg3:#eaeaf0; --bg4:#dcdce8;
@@ -273,13 +274,23 @@ input,select,textarea{font-family:inherit;}
 /* PREVIEW */
 .attach-thumb{display:block;max-height:80px;max-width:100%;border-radius:5px;cursor:zoom-in;object-fit:contain;background:var(--bg4);border:1px solid var(--border);margin-top:6px;transition:opacity .15s;}
 .attach-thumb:hover{opacity:.8;}
-.preview-lightbox{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:3000;display:none;align-items:center;justify-content:center;cursor:zoom-out;}
+.preview-lightbox{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:3000;display:none;align-items:center;justify-content:center;cursor:zoom-out;flex-direction:column;gap:12px;}
 .preview-lightbox.open{display:flex;}
-.preview-lightbox img{max-width:90vw;max-height:88vh;border-radius:10px;box-shadow:0 24px 80px rgba(0,0,0,.6);cursor:default;}
+.preview-lightbox img{max-width:90vw;max-height:78vh;border-radius:10px;box-shadow:0 24px 80px rgba(0,0,0,.6);cursor:default;}
 .preview-lightbox iframe{width:86vw;height:86vh;border:none;border-radius:10px;background:#fff;cursor:default;}
 .preview-close{position:fixed;top:16px;right:20px;color:#fff;font-size:22px;cursor:pointer;z-index:3001;background:rgba(0,0,0,.55);width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:background .15s;}
 .preview-close:hover{background:var(--red);}
-.preview-label{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);color:#fff;font-size:12px;background:rgba(0,0,0,.55);padding:4px 14px;border-radius:20px;pointer-events:none;z-index:3001;max-width:80vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.preview-label{color:#fff;font-size:12px;background:rgba(0,0,0,.55);padding:4px 14px;border-radius:20px;z-index:3001;max-width:80vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* Caption-Bar im Foto-Lightbox */
+.foto-lb-capbar{display:none;width:min(600px,90vw);background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:12px;z-index:3001;cursor:default;}
+.foto-lb-capbar.visible{display:block;}
+.foto-lb-capbar label{display:block;font-size:11px;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+.foto-lb-capbar input{width:100%;background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;outline:none;}
+.foto-lb-capbar input:focus{border-color:var(--accent);}
+.foto-lb-capbar-btns{display:flex;gap:8px;margin-top:8px;}
+.foto-lb-capbar-btns button{flex:1;padding:8px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:none;}
+.foto-lb-save{background:var(--accent);color:#fff;}
+.foto-lb-cancel{background:rgba(255,255,255,.12);color:#fff;}
 
 /* COLUMN MANAGER */
 .col-manager{background:var(--bg2);border-radius:12px;padding:24px;width:440px;max-width:90vw;box-shadow:0 20px 60px var(--shadow);}
@@ -687,6 +698,14 @@ input,select,textarea{font-family:inherit;}
   <div class="preview-close" onclick="closePreview()">✕</div>
   <div id="previewContent" onclick="event.stopPropagation()"></div>
   <div class="preview-label" id="previewLabel"></div>
+  <div class="foto-lb-capbar" id="fotoLbCapBar" onclick="event.stopPropagation()">
+    <label>Beschreibung (wird als EXIF im Foto gespeichert)</label>
+    <input type="text" id="fotoLbCapInput" placeholder="Kurze Beschreibung zum Foto…">
+    <div class="foto-lb-capbar-btns">
+      <button class="foto-lb-cancel" onclick="closePreview()">Abbrechen</button>
+      <button class="foto-lb-save" onclick="saveFotoCaptionFromLightbox()">💾 Speichern</button>
+    </div>
+  </div>
 </div>
 
 <!-- QUICK ADD -->
@@ -2060,21 +2079,74 @@ function renderFotoListDesktop(){
   // Authentifizierte Thumbnails nachladen
   try{hydrateDesktopFotoThumbs();}catch(e){console.warn('hydrateDesktopFotoThumbs:',e);}
 }
+let _currentFotoLbIdx=-1;
 async function openFotoDesktop(i){
   const f=taskFotos&&taskFotos[i];if(!f)return;
-  // Primär: In-Browser als Blob (authentifiziert). Fallback: Drive-Viewer im neuen Tab.
+  _currentFotoLbIdx=i;
+  const lb=document.getElementById('previewLightbox');
+  const cnt=document.getElementById('previewContent');
+  const lbl=document.getElementById('previewLabel');
+  const capBar=document.getElementById('fotoLbCapBar');
+  const capInput=document.getElementById('fotoLbCapInput');
+  // Caption-Bar einblenden und befüllen
+  capInput.value=f.caption||'';
+  capBar.classList.add('visible');
+  lbl.textContent=f.name||'Foto';
+  cnt.innerHTML='<div style="color:#fff;font-size:13px;padding:20px">Lade Foto…</div>';
+  lb.classList.add('open');
+  // Foto laden
   if(f.driveId){
     const url=await _fetchDesktopFotoBlob(f.driveId);
-    if(url){
-      const w=window.open('','_blank');
-      if(w){
-        w.document.write('<title>'+esc(f.name||'Foto')+'</title><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="'+esc(url)+'" style="max-width:100%;max-height:100vh;object-fit:contain"></body>');
-      }
-      return;
-    }
+    if(url){cnt.innerHTML='<img src="'+esc(url)+'" alt="">';return;}
   }
+  // Fallback: Drive-Viewer
   const fallback=f.url||(f.driveId?'https://drive.google.com/file/d/'+f.driveId+'/view':'');
-  if(fallback)window.open(fallback,'_blank');
+  if(fallback){cnt.innerHTML='<iframe src="'+fallback+'"></iframe>';}
+  else{cnt.innerHTML='<div style="color:#fff;padding:20px">Vorschau nicht verfügbar</div>';}
+}
+// EXIF-Hilfsfunktionen für Desktop
+function embedExifCaption(dataUrl,caption){
+  try{
+    if(!window.piexif)return dataUrl;
+    let exifObj;
+    try{exifObj=piexif.load(dataUrl);}
+    catch(e){exifObj={'0th':{},'Exif':{},'GPS':{},'1st':{},'thumbnail':null};}
+    if(!exifObj['0th'])exifObj['0th']={};
+    exifObj['0th'][piexif.ImageIFD.ImageDescription]=caption;
+    const exifBytes=piexif.dump(exifObj);
+    return piexif.insert(exifBytes,dataUrl);
+  }catch(e){console.warn('EXIF:',e);return dataUrl;}
+}
+async function _embedExifInDriveDesktop(driveId,caption){
+  if(!driveId||!caption||!window.piexif)return;
+  const blobUrl=await _fetchDesktopFotoBlob(driveId);
+  if(!blobUrl)return;
+  const blob=await fetch(blobUrl).then(r=>r.blob());
+  const dataUrl=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=e=>res(e.target.result);fr.onerror=rej;fr.readAsDataURL(blob);});
+  if(!dataUrl.startsWith('data:image/jpeg')&&!dataUrl.startsWith('data:image/jpg'))return;
+  const newDataUrl=embedExifCaption(dataUrl,caption);
+  if(newDataUrl===dataUrl)return;
+  const b64=newDataUrl.split(',')[1];
+  const bin=atob(b64);const bytes=new Uint8Array(bin.length);
+  for(let j=0;j<bin.length;j++)bytes[j]=bin.charCodeAt(j);
+  const newBlob=new Blob([bytes],{type:'image/jpeg'});
+  await fetch('https://www.googleapis.com/upload/drive/v3/files/'+encodeURIComponent(driveId)+'?uploadType=media',
+    {method:'PATCH',headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'image/jpeg'},body:newBlob});
+  _desktopFotoBlobCache.delete(driveId);
+}
+async function saveFotoCaptionFromLightbox(){
+  if(_currentFotoLbIdx<0||!taskFotos||!taskFotos[_currentFotoLbIdx])return;
+  const f=taskFotos[_currentFotoLbIdx];
+  const val=(document.getElementById('fotoLbCapInput').value||'').trim();
+  f.caption=val;
+  closePreview();
+  renderFotoListDesktop();
+  scheduleTaskFieldSave();
+  // EXIF asynchron in Drive-Datei einbetten
+  if(val&&f.driveId&&(f.mimeType==='image/jpeg'||f.mimeType==='image/jpg')){
+    try{await _embedExifInDriveDesktop(f.driveId,val);}
+    catch(e){console.warn('EXIF-Desktop:',e);}
+  }
 }
 function removeFotoDesktop(i){
   const f=taskFotos&&taskFotos[i];if(!f)return;
@@ -2254,6 +2326,9 @@ function openPreview(i){
 function closePreview(){
   const lb=document.getElementById('previewLightbox');
   lb.classList.remove('open');
+  _currentFotoLbIdx=-1;
+  const capBar=document.getElementById('fotoLbCapBar');
+  if(capBar)capBar.classList.remove('visible');
   setTimeout(()=>{document.getElementById('previewContent').innerHTML='';},200);
 }
 
