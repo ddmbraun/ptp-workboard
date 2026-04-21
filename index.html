@@ -208,6 +208,8 @@ function tEmailOrdnerOeffnen(){var u=(document.getElementById('tEmailOrdner')||{
 
 </script>
 <script src="https://cdn.jsdelivr.net/npm/piexifjs@1.0.6/piexif.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css">
+<script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
@@ -499,6 +501,19 @@ input,select,textarea{font-family:inherit;}
 .foto-lb-capbar-btns button{flex:1;padding:8px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:none;}
 .foto-lb-save{background:var(--accent);color:#fff;}
 .foto-lb-cancel{background:rgba(255,255,255,.12);color:#fff;}
+/* ── 360° & Zeichen-Tool (Desktop) ── */
+#desktopPannellumContainer{display:none;width:86vw;height:78vh;border-radius:10px;overflow:hidden;}
+#desktopPannellumContainer.active{display:block;}
+#desktopDrawCanvas{display:none;position:fixed;cursor:crosshair;touch-action:none;z-index:3100;}
+#desktopDrawCanvas.active{display:block;}
+.desk-draw-bar{position:fixed;top:16px;left:50%;transform:translateX(-50%);display:none;gap:8px;align-items:center;background:rgba(0,0,0,.78);border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:8px 14px;z-index:3200;white-space:nowrap;}
+.desk-draw-bar.visible{display:flex;}
+.desk-draw-color{width:34px;height:34px;border:2px solid rgba(255,255,255,.5);border-radius:6px;cursor:pointer;padding:2px;background:none;}
+.desk-draw-size{width:80px;accent-color:var(--accent);}
+.desk-draw-btn{background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.3);color:#fff;padding:7px 12px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}
+.desk-draw-btn.on{background:rgba(106,138,255,.7);border-color:var(--accent);}
+.desk-draw-btn.save{background:rgba(39,174,96,.25);border-color:#27ae60;color:#4ade80;}
+.desk-draw-btn.discard{background:rgba(231,76,60,.2);border-color:var(--red);color:var(--red);}
 
 /* COLUMN MANAGER */
 .col-manager{background:var(--bg2);border-radius:12px;padding:24px;width:440px;max-width:90vw;box-shadow:0 20px 60px var(--shadow);}
@@ -926,6 +941,16 @@ input,select,textarea{font-family:inherit;}
 <div class="preview-lightbox" id="previewLightbox" onclick="closePreview()">
   <div class="preview-close" onclick="closePreview()">✕</div>
   <div id="previewContent" onclick="event.stopPropagation()"></div>
+  <div id="desktopPannellumContainer" onclick="event.stopPropagation()"></div>
+  <canvas id="desktopDrawCanvas"></canvas>
+  <!-- Zeichen-Toolbar -->
+  <div class="desk-draw-bar" id="deskDrawBar" onclick="event.stopPropagation()">
+    <input type="color" class="desk-draw-color" id="deskDrawColor" value="#ff0000" title="Farbe">
+    <input type="range" class="desk-draw-size" id="deskDrawSize" min="2" max="30" value="4" title="Stärke">
+    <button class="desk-draw-btn" id="deskEraserBtn" onclick="event.stopPropagation();deskToggleEraser(this)">⬜ Radierer</button>
+    <button class="desk-draw-btn save" onclick="event.stopPropagation();deskSaveDraw()">💾 Speichern</button>
+    <button class="desk-draw-btn discard" onclick="event.stopPropagation();deskDiscardDraw()">✕ Verwerfen</button>
+  </div>
   <div class="preview-label" id="previewLabel"></div>
   <div class="foto-lb-capbar" id="fotoLbCapBar" onclick="event.stopPropagation()">
     <label>Beschreibung (wird als EXIF im Foto gespeichert)</label>
@@ -933,6 +958,7 @@ input,select,textarea{font-family:inherit;}
     <div class="foto-lb-capbar-btns">
       <button class="foto-lb-cancel" onclick="closePreview()">Abbrechen</button>
       <button class="foto-lb-save" onclick="saveFotoCaptionFromLightbox()">💾 Speichern</button>
+      <button class="foto-lb-save" style="background:rgba(255,255,255,.15)" onclick="event.stopPropagation();deskStartDraw()">✏️ Malen</button>
     </div>
   </div>
 </div>
@@ -2322,29 +2348,123 @@ function renderFotoListDesktop(){
   try{hydrateDesktopFotoThumbs();}catch(e){console.warn('hydrateDesktopFotoThumbs:',e);}
 }
 let _currentFotoLbIdx=-1;
+let _deskPannellumViewer=null;
+let _deskDrawPointer=null,_deskDrawCtx=null,_deskDrawErasing=false;
 async function openFotoDesktop(i){
   const f=taskFotos&&taskFotos[i];if(!f)return;
+  _deskClosePannellum();deskDiscardDraw();
   _currentFotoLbIdx=i;
   const lb=document.getElementById('previewLightbox');
   const cnt=document.getElementById('previewContent');
   const lbl=document.getElementById('previewLabel');
   const capBar=document.getElementById('fotoLbCapBar');
   const capInput=document.getElementById('fotoLbCapInput');
-  // Caption-Bar einblenden und befüllen
   capInput.value=f.caption||'';
   capBar.classList.add('visible');
   lbl.textContent=f.name||'Foto';
   cnt.innerHTML='<div style="color:#fff;font-size:13px;padding:20px">Lade Foto…</div>';
   lb.classList.add('open');
-  // Foto laden
   if(f.driveId){
     const url=await _fetchDesktopFotoBlob(f.driveId);
-    if(url){cnt.innerHTML='<img src="'+esc(url)+'" alt="">';return;}
+    if(url){
+      // 360°-Erkennung
+      const testImg=new Image();
+      testImg.onload=()=>{
+        if(testImg.naturalWidth&&testImg.naturalHeight&&(testImg.naturalWidth/testImg.naturalHeight)>=1.8){
+          cnt.innerHTML='';cnt.style.display='none';
+          _deskInitPannellum(url);
+        }else{
+          cnt.style.display='';
+          cnt.innerHTML='<img src="'+esc(url)+'" alt="" id="deskLbImg">';
+        }
+      };
+      testImg.onerror=()=>{cnt.innerHTML='<img src="'+esc(url)+'" alt="" id="deskLbImg">';};
+      testImg.src=url;return;
+    }
   }
-  // Fallback: Drive-Viewer
   const fallback=f.url||(f.driveId?'https://drive.google.com/file/d/'+f.driveId+'/view':'');
   if(fallback){cnt.innerHTML='<iframe src="'+fallback+'"></iframe>';}
   else{cnt.innerHTML='<div style="color:#fff;padding:20px">Vorschau nicht verfügbar</div>';}
+}
+function _deskInitPannellum(blobUrl){
+  const c=document.getElementById('desktopPannellumContainer');
+  if(!c)return;
+  c.innerHTML='';c.classList.add('active');
+  if(window.pannellum){
+    _deskPannellumViewer=pannellum.viewer(c,{
+      type:'equirectangular',panorama:blobUrl,
+      autoLoad:true,showControls:true,compass:false,mouseZoom:true,
+    });
+  }
+}
+function _deskClosePannellum(){
+  if(_deskPannellumViewer){try{_deskPannellumViewer.destroy();}catch(e){}_deskPannellumViewer=null;}
+  const c=document.getElementById('desktopPannellumContainer');
+  if(c){c.classList.remove('active');c.innerHTML='';}
+  const cnt=document.getElementById('previewContent');
+  if(cnt)cnt.style.display='';
+}
+// ── Zeichen-Tool Desktop ──
+function deskStartDraw(){
+  const img=document.getElementById('deskLbImg');
+  if(!img){return;}
+  const canvas=document.getElementById('desktopDrawCanvas');
+  if(!canvas)return;
+  const rect=img.getBoundingClientRect();
+  canvas.width=rect.width;canvas.height=rect.height;
+  canvas.style.left=rect.left+'px';canvas.style.top=rect.top+'px';
+  canvas.style.width=rect.width+'px';canvas.style.height=rect.height+'px';
+  _deskDrawCtx=canvas.getContext('2d');
+  _deskDrawErasing=false;
+  canvas.classList.add('active');
+  document.getElementById('deskDrawBar').classList.add('visible');
+  canvas.addEventListener('pointerdown',_deskOnDown);
+  canvas.addEventListener('pointermove',_deskOnMove);
+  canvas.addEventListener('pointerup',_deskOnUp);
+  canvas.addEventListener('pointercancel',_deskOnUp);
+}
+function deskToggleEraser(btn){_deskDrawErasing=!_deskDrawErasing;btn.classList.toggle('on',_deskDrawErasing);}
+function _deskOnDown(e){e.preventDefault();document.getElementById('desktopDrawCanvas').setPointerCapture(e.pointerId);_deskDrawPointer={x:e.offsetX,y:e.offsetY};_deskDrawCtx.beginPath();_deskDrawCtx.moveTo(e.offsetX,e.offsetY);}
+function _deskOnMove(e){
+  if(!_deskDrawPointer)return;e.preventDefault();
+  const ctx=_deskDrawCtx;
+  const size=parseInt(document.getElementById('deskDrawSize')?.value||4);
+  if(_deskDrawErasing){ctx.globalCompositeOperation='destination-out';ctx.lineWidth=size*3;}
+  else{ctx.globalCompositeOperation='source-over';ctx.strokeStyle=document.getElementById('deskDrawColor')?.value||'#ff0000';ctx.lineWidth=size;}
+  ctx.lineCap='round';ctx.lineJoin='round';ctx.lineTo(e.offsetX,e.offsetY);ctx.stroke();ctx.beginPath();ctx.moveTo(e.offsetX,e.offsetY);
+}
+function _deskOnUp(){_deskDrawPointer=null;}
+function deskDiscardDraw(){
+  _deskDrawPointer=null;_deskDrawErasing=false;
+  const c=document.getElementById('desktopDrawCanvas');
+  if(c){c.classList.remove('active');c.removeEventListener('pointerdown',_deskOnDown);c.removeEventListener('pointermove',_deskOnMove);c.removeEventListener('pointerup',_deskOnUp);c.removeEventListener('pointercancel',_deskOnUp);const ctx=c.getContext('2d');if(ctx)ctx.clearRect(0,0,c.width,c.height);}
+  document.getElementById('deskDrawBar')?.classList.remove('visible');
+}
+async function deskSaveDraw(){
+  const img=document.getElementById('deskLbImg');
+  const canvas=document.getElementById('desktopDrawCanvas');
+  if(!img||!canvas){return;}
+  if(_currentFotoLbIdx<0||!taskFotos||!taskFotos[_currentFotoLbIdx]){showToast('Kein Foto gewählt','error');return;}
+  const f=taskFotos[_currentFotoLbIdx];
+  const mc=document.createElement('canvas');
+  mc.width=img.naturalWidth;mc.height=img.naturalHeight;
+  const mCtx=mc.getContext('2d');
+  mCtx.drawImage(img,0,0,mc.width,mc.height);
+  mCtx.drawImage(canvas,0,0,mc.width,mc.height);
+  const blob=await new Promise(r=>mc.toBlob(r,'image/jpeg',0.92));
+  if(!blob){showToast('Fehler beim Erstellen','error');return;}
+  const folderId=_extractFolderIdFromUrl(document.getElementById('tGD')?.value||'');
+  if(!folderId){showToast('Kein Drive-Ordner verknüpft','error');return;}
+  const base=(f.name||'foto.jpg').replace(/\.[^.]+$/,'');
+  const copyName=base+'_zeichnung.jpg';
+  const body=new FormData();
+  body.append('metadata',new Blob([JSON.stringify({name:copyName,parents:[folderId]})],{type:'application/json'}));
+  body.append('file',blob,'blob.jpg');
+  showToast('⬆ Zeichnung wird gespeichert…','info');
+  const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',headers:{Authorization:'Bearer '+gdriveToken},body});
+  if(r.ok)showToast('✓ Zeichnung in Drive gespeichert','success');
+  else showToast('Fehler beim Speichern','error');
+  deskDiscardDraw();
 }
 // EXIF-Hilfsfunktionen für Desktop
 function embedExifCaption(dataUrl,caption){
@@ -2792,12 +2912,13 @@ function openPreview(i){
   lb.classList.add('open');
 }
 function closePreview(){
+  _deskClosePannellum();deskDiscardDraw();
   const lb=document.getElementById('previewLightbox');
   lb.classList.remove('open');
   _currentFotoLbIdx=-1;
   const capBar=document.getElementById('fotoLbCapBar');
   if(capBar)capBar.classList.remove('visible');
-  setTimeout(()=>{document.getElementById('previewContent').innerHTML='';},200);
+  setTimeout(()=>{const c=document.getElementById('previewContent');if(c){c.innerHTML='';c.style.display='';}},200);
 }
 
 // Drop zone for attachments
