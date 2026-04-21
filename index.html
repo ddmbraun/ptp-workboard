@@ -951,8 +951,8 @@ input,select,textarea{font-family:inherit;}
 <!-- COLUMN MANAGER -->
 <div class="modal-overlay" id="colModal">
   <div class="col-manager">
-    <h2>&#9998; Spalten verwalten</h2>
-    <p class="col-manager-sub">Spalten umbenennen, hinzufügen oder umsortieren. Gilt für alle Boards.</p>
+    <h2 id="colModalTitle">&#9998; Spalten verwalten</h2>
+    <p class="col-manager-sub" id="colModalSub">Spalten nur für dieses Projekt. Andere Projekte bleiben unverändert.</p>
     <div class="col-list" id="colList"></div>
     <div class="col-add-row">
       <input class="col-add-input" id="colAddInput" placeholder="Neue Spalte benennen…" onkeydown="if(event.key==='Enter')addColumn()">
@@ -1042,7 +1042,8 @@ input,select,textarea{font-family:inherit;}
 <script>
 // ── STATE ──
 let boards = {};
-let statuses = ['Backlog','Diese Woche','Heute','Waiting','Done'];
+let statuses = ['Backlog','Diese Woche','Heute','Waiting','Done']; // globaler Fallback
+let boardStatuses = {}; // pro Board eigene Spalten: { 'Projektname': ['Spalte1',...] }
 let currentBoard = '';
 let mobileBoards = []; // Whitelist für PTP Mobile — leer = alle Boards aufs Handy
 let currentView = 'kanban';
@@ -1678,8 +1679,14 @@ function skipFileSelection(){
   seedData(); render();
 }
 function closeStartModal(){document.getElementById('startModal').classList.remove('open');}
+// Gibt die Spalten des aktuellen (oder angegebenen) Boards zurück
+function getBoardStatuses(board){
+  const b=board||currentBoard;
+  return(boardStatuses[b]&&boardStatuses[b].length)?boardStatuses[b]:statuses;
+}
 function loadFromObject(data){
   if(data._statuses&&Array.isArray(data._statuses))statuses=data._statuses;
+  boardStatuses=(data._boardStatuses&&typeof data._boardStatuses==='object')?{...data._boardStatuses}:{};
   mobileBoards=Array.isArray(data._mobileBoards)?data._mobileBoards.slice():[];
   boards={};
   // Nur "echte" Boards: keine _-Keys, Wert muss Array sein
@@ -1694,6 +1701,7 @@ function loadFromObject(data){
 }
 function buildSaveObject(){
   const out={_statuses:statuses};
+  if(Object.keys(boardStatuses).length)out._boardStatuses={...boardStatuses};
   if(Array.isArray(mobileBoards)&&mobileBoards.length)out._mobileBoards=mobileBoards.slice();
   for(const[k,v]of Object.entries(boards))out[k]=v;
   return out;
@@ -1747,6 +1755,9 @@ function seedData(){
     ]
   };
   currentBoard='Projekt Löwe';
+  // Jedem Demo-Board die Standard-Spalten zuweisen
+  boardStatuses={};
+  Object.keys(boards).forEach(k=>{ boardStatuses[k]=[...statuses]; });
 }
 
 // ── RENDER ──
@@ -1809,9 +1820,10 @@ function taskCardHTML(task){
 
 function renderKanban(){
   const tasks=getTasks();
-  // Globale Spalten + alle Statuses aus dem aktuellen Board (damit keine Tasks versteckt werden)
-  const boardStatuses=[...new Set((boards[currentBoard]||[]).map(t=>t.status).filter(Boolean))];
-  const displayStatuses=[...new Set([...statuses,...boardStatuses.filter(s=>!statuses.includes(s))])];
+  const curStatuses=getBoardStatuses();
+  // Auch Statuses anzeigen, die in den Tasks vorkommen aber nicht in den Spalten stehen
+  const taskOnlyStatuses=[...new Set((boards[currentBoard]||[]).map(t=>t.status).filter(s=>s&&!curStatuses.includes(s)))];
+  const displayStatuses=[...curStatuses,...taskOnlyStatuses];
   let html='<div class="kanban">';
   displayStatuses.forEach((s,i)=>{
     const col=tasks.filter(t=>t.status===s);
@@ -1905,8 +1917,9 @@ function render(){
 }
 function updateStatusSelect(){
   const sel=document.getElementById('taskStatusInput');const cur=sel.value;
-  sel.innerHTML=statuses.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('');
-  if(statuses.includes(cur))sel.value=cur;
+  const s=getBoardStatuses();
+  sel.innerHTML=s.map(st=>`<option value="${esc(st)}">${esc(st)}</option>`).join('');
+  if(s.includes(cur))sel.value=cur;
 }
 
 // ── BOARD TABS ──
@@ -3391,8 +3404,11 @@ function deleteTask(){
 
 // ── COLUMN MANAGER ──
 function openColManager(){
-  editStatuses=[...statuses];renderColList();
+  editStatuses=[...getBoardStatuses()];renderColList();
   document.getElementById('colAddInput').value='';
+  // Titel zeigt welches Projekt bearbeitet wird
+  const h=document.getElementById('colModalTitle');
+  if(h)h.textContent='✎ Spalten: '+currentBoard;
   document.getElementById('colModal').classList.add('open');
 }
 function closeColManager(){document.getElementById('colModal').classList.remove('open');}
@@ -3428,8 +3444,11 @@ function saveColumns(){
   syncColInputs();editStatuses=editStatuses.map(s=>s.trim()).filter(Boolean);
   if(!editStatuses.length){alert('Mindestens eine Spalte erforderlich.');return;}
   const first=editStatuses[0];
-  Object.values(boards).flat().forEach(t=>{if(!editStatuses.includes(t.status))t.status=first;});
-  statuses=[...editStatuses];closeColManager();render();autoSave();
+  // Nur Tasks des aktuellen Boards verschieben, wenn deren Status nicht mehr existiert
+  (boards[currentBoard]||[]).forEach(t=>{if(!editStatuses.includes(t.status))t.status=first;});
+  // Spalten nur für dieses Board speichern
+  boardStatuses[currentBoard]=[...editStatuses];
+  closeColManager();render();autoSave();
 }
 
 // ── PROJECT MANAGER ──
@@ -3506,12 +3525,23 @@ function saveProjects(){
   const names=editProjects.map(p=>p.name);
   if(new Set(names).size!==names.length){alert('Projektnamen müssen eindeutig sein.');return;}
   const newBoards={};
+  const newBoardStatuses={};
   editProjects.forEach(p=>{
-    if(p.isNew)newBoards[p.name]=[];
-    else if(p.key!==p.name){newBoards[p.name]=boards[p.key]||[];}
-    else newBoards[p.name]=boards[p.key]||[];
+    if(p.isNew){
+      newBoards[p.name]=[];
+      // Neues Projekt erbt Spalten des aktuellen Projekts
+      newBoardStatuses[p.name]=[...getBoardStatuses()];
+    } else if(p.key!==p.name){
+      // Umbenennung: Tasks + Spalten übertragen
+      newBoards[p.name]=boards[p.key]||[];
+      if(boardStatuses[p.key])newBoardStatuses[p.name]=[...boardStatuses[p.key]];
+    } else {
+      newBoards[p.name]=boards[p.key]||[];
+      if(boardStatuses[p.key])newBoardStatuses[p.name]=[...boardStatuses[p.key]];
+    }
   });
   boards=newBoards;
+  boardStatuses=newBoardStatuses;
   // Mobile-Whitelist zusammensetzen: nur angekreuzte Boards, in Reihenfolge des Projekt-Managers
   const selected=editProjects.filter(p=>p.mobile).map(p=>p.name);
   // Wenn alle angekreuzt sind → Whitelist leer lassen (Default = alle sichtbar, kein Flag in der JSON)
