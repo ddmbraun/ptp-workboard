@@ -1070,10 +1070,12 @@ let resizingCol=null,resizeStartX=0,resizeStartWidth=0,resizingColIdx=-1;
 const kanbanColWidths=JSON.parse(localStorage.getItem('kanbanColWidths')||'{}');
 
 document.addEventListener('mousedown',(e)=>{
+  // Nicht aktivieren wenn auf Task-Card oder im Modal geklickt wird
+  if(e.target.closest('.task-card,.modal-overlay'))return;
   const col=e.target.closest('.kanban-col');
   if(!col)return;
   const rect=col.getBoundingClientRect();
-  if((e.clientX-rect.left)>(rect.width-14)){
+  if((e.clientX-rect.left)>(rect.width-10)){
     resizingCol=col;
     resizeStartX=e.clientX;
     resizeStartWidth=col.offsetWidth;
@@ -1807,8 +1809,11 @@ function taskCardHTML(task){
 
 function renderKanban(){
   const tasks=getTasks();
+  // Globale Spalten + alle Statuses aus dem aktuellen Board (damit keine Tasks versteckt werden)
+  const boardStatuses=[...new Set((boards[currentBoard]||[]).map(t=>t.status).filter(Boolean))];
+  const displayStatuses=[...new Set([...statuses,...boardStatuses.filter(s=>!statuses.includes(s))])];
   let html='<div class="kanban">';
-  statuses.forEach((s,i)=>{
+  displayStatuses.forEach((s,i)=>{
     const col=tasks.filter(t=>t.status===s);
     const isCollapsed=!!collapsedCols[s];
     html+=`<div class="kanban-col${isCollapsed?' collapsed':''}" style="border-top:3px solid ${colColor(i)}">
@@ -1914,8 +1919,15 @@ function renderBoardTabs(){
        <span class="bd-arrow">▾</span>
      </button>
      <div class="board-dropdown-list">
-       ${keys.map(b=>`<button class="board-dropdown-item${b===currentBoard?' active':''}" onclick="switchBoard('${esc(b)}');closeBoardDropdown()">${esc(b)}</button>`).join('')}
+       ${keys.map(b=>`<button class="board-dropdown-item${b===currentBoard?' active':''}" data-board-name="${esc(b)}">${esc(b)}</button>`).join('')}
      </div>`;
+  // Klicks auf Board-Items per Event-Delegation – kein inline onclick, daher keine Probleme mit Sonderzeichen im Namen
+  sel.querySelector('.board-dropdown-list')?.addEventListener('click',function(e){
+    const item=e.target.closest('.board-dropdown-item');
+    if(!item)return;
+    const name=item.getAttribute('data-board-name');
+    if(name){switchBoard(name);closeBoardDropdown();}
+  });
 }
 function toggleBoardDropdown(e){
   if(e)e.stopPropagation();
