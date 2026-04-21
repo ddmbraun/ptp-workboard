@@ -448,6 +448,8 @@ input,select,textarea{font-family:inherit;}
 .foto-desktop-wrap{margin-bottom:10px;}
 .foto-desktop-wrap-label{font-size:11px;color:var(--text2);margin-bottom:4px;display:flex;align-items:center;gap:6px;}
 .foto-desktop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;}
+.foto-desktop-grid.expanded{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;}
+.foto-desktop-wrap.expanded{max-height:540px;overflow-y:auto;overflow-x:hidden;padding-right:4px;border:1px solid var(--border);border-radius:10px;padding:10px;background:var(--bg3);}
 .foto-desktop-thumb{position:relative;aspect-ratio:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;overflow:hidden;cursor:pointer;transition:transform .12s,box-shadow .12s;}
 .foto-desktop-thumb:hover{transform:scale(1.03);box-shadow:0 4px 18px rgba(0,0,0,.4);}
 .foto-desktop-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
@@ -884,7 +886,7 @@ input,select,textarea{font-family:inherit;}
       <div class="form-collapse-header" onclick="toggleFormSection('tAnhangSect')">
         <span class="form-collapse-title">📎 Dateianhänge &amp; Fotos</span>
         <span style="display:flex;align-items:center;gap:6px">
-          <button onclick="event.stopPropagation();openFotoGallery()" style="padding:3px 9px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:11px;cursor:pointer" title="Galerie vergrößern">📐 Galerie</button>
+          <button id="fotoExpandBtn" onclick="event.stopPropagation();toggleFotoExpand()" style="padding:3px 9px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:11px;cursor:pointer">⬇ Vergrößern</button>
           <span class="form-collapse-arrow">▾</span>
         </span>
       </div>
@@ -2390,12 +2392,12 @@ function renderFotoListDesktop(){
       +'<button class="btn-pdf-cancel" onclick="cancelFotoSelectMode()">Abbrechen</button>'
       +'</div>'
     :'';
-  el.innerHTML='<div class="foto-desktop-wrap">'
-    +'<div class="foto-desktop-wrap-label">📷 Fotos vom Handy ('+taskFotos.length+' Stück)'
+  el.innerHTML='<div class="foto-desktop-wrap'+(_fotoExpanded?' expanded':'')+'">'
+    +'<div class="foto-desktop-wrap-label" style="position:sticky;top:0;background:var(--bg3);z-index:1;padding-bottom:6px;">📷 Fotos vom Handy ('+taskFotos.length+' Stück)'
       +'<button onclick="startFotoSelectMode()" style="margin-left:10px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:11px;cursor:pointer">☑ Auswahl / PDF</button>'
     +'</div>'
     +pdfBar
-    +'<div class="foto-desktop-grid'+((_fotoSelectMode)?' foto-select-mode':'')+'">'+items+'</div>'
+    +'<div class="foto-desktop-grid'+(_fotoExpanded?' expanded':'')+(_fotoSelectMode?' foto-select-mode':'')+'">'+items+'</div>'
     +'</div>';
   try{hydrateDesktopFotoThumbs();}catch(e){console.warn('hydrateDesktopFotoThumbs:',e);}
 }
@@ -2408,6 +2410,18 @@ function _fotoThumbClick(i,e){
   }else{
     openFotoDesktop(i);
   }
+}
+let _fotoExpanded=false;
+function toggleFotoExpand(){
+  _fotoExpanded=!_fotoExpanded;
+  // Abschnitt aufklappen falls noch zu
+  const sect=document.getElementById('tAnhangSect');
+  if(_fotoExpanded&&sect&&!sect.classList.contains('open')){
+    sect.classList.add('open');
+  }
+  renderFotoListDesktop();
+  const btn=document.getElementById('fotoExpandBtn');
+  if(btn)btn.textContent=_fotoExpanded?'⬆ Einklappen':'⬇ Vergrößern';
 }
 function startFotoSelectMode(){_fotoSelectMode=true;_fotoSelected.clear();renderFotoListDesktop();}
 function cancelFotoSelectMode(){_fotoSelectMode=false;_fotoSelected.clear();renderFotoListDesktop();}
