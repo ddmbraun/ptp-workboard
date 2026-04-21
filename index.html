@@ -447,8 +447,9 @@ input,select,textarea{font-family:inherit;}
 /* Foto-Galerie (Drive-Uploads vom Handy) */
 .foto-desktop-wrap{margin-bottom:10px;}
 .foto-desktop-wrap-label{font-size:11px;color:var(--text2);margin-bottom:4px;display:flex;align-items:center;gap:6px;}
-.foto-desktop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;}
-.foto-desktop-thumb{position:relative;aspect-ratio:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;overflow:hidden;cursor:pointer;}
+.foto-desktop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;}
+.foto-desktop-thumb{position:relative;aspect-ratio:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;overflow:hidden;cursor:pointer;transition:transform .12s,box-shadow .12s;}
+.foto-desktop-thumb:hover{transform:scale(1.03);box-shadow:0 4px 18px rgba(0,0,0,.4);}
 .foto-desktop-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
 .foto-desktop-thumb.fallback::before{content:'🖼️';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:32px;color:var(--text2);}
 .foto-desktop-thumb .foto-del{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.65);color:#fff;border:none;width:22px;height:22px;border-radius:11px;font-size:12px;cursor:pointer;z-index:2;}
@@ -456,6 +457,15 @@ input,select,textarea{font-family:inherit;}
 .foto-desktop-thumb .foto-edit:hover{background:rgba(106,138,255,.85);}
 .foto-desktop-thumb .foto-name{position:absolute;left:0;right:0;bottom:0;font-size:10px;color:#fff;background:rgba(0,0,0,.55);padding:3px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .foto-desktop-thumb .foto-caption{position:absolute;left:0;right:0;bottom:0;font-size:11px;color:#fff;background:rgba(106,138,255,.78);padding:3px 6px;white-space:normal;overflow:hidden;text-overflow:ellipsis;line-height:1.25;max-height:2.5em;}
+/* Auswahlmodus */
+.foto-desktop-thumb.selected{border:3px solid var(--accent);box-shadow:0 0 0 2px var(--accent);}
+.foto-desktop-thumb .foto-check{position:absolute;top:6px;left:6px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.6);border:2px solid rgba(255,255,255,.7);display:none;align-items:center;justify-content:center;font-size:13px;z-index:3;}
+.foto-select-mode .foto-check{display:flex;}
+.foto-pdf-bar{display:none;align-items:center;gap:8px;margin-top:8px;padding:8px 10px;background:var(--bg3);border-radius:8px;border:1px solid var(--accent);}
+.foto-pdf-bar.visible{display:flex;}
+.foto-pdf-bar button{padding:7px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:none;}
+.btn-pdf-create{background:var(--accent);color:#fff;}
+.btn-pdf-cancel{background:rgba(255,255,255,.1);color:var(--text);}
 
 /* TIMER */
 .timer-display{font-size:34px;font-weight:700;color:var(--accent2);font-variant-numeric:tabular-nums;letter-spacing:3px;text-align:center;padding:10px 0 8px;font-family:'Courier New',monospace;}
@@ -501,6 +511,20 @@ input,select,textarea{font-family:inherit;}
 .foto-lb-capbar-btns button{flex:1;padding:8px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:none;}
 .foto-lb-save{background:var(--accent);color:#fff;}
 .foto-lb-cancel{background:rgba(255,255,255,.12);color:#fff;}
+/* ── Foto-Galerie Overlay ── */
+.foto-gallery-overlay{position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:2800;display:none;flex-direction:column;}
+.foto-gallery-overlay.open{display:flex;}
+.foto-gallery-header{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid rgba(255,255,255,.12);flex-shrink:0;}
+.foto-gallery-header h3{flex:1;color:#fff;font-size:16px;margin:0;}
+.foto-gallery-header button{padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;}
+.foto-gallery-body{flex:1;overflow-y:auto;padding:16px;}
+.foto-gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;}
+.foto-gallery-thumb{position:relative;aspect-ratio:1;background:#1a1a2e;border:2px solid transparent;border-radius:10px;overflow:hidden;cursor:pointer;transition:border-color .15s,transform .12s;}
+.foto-gallery-thumb:hover{transform:scale(1.02);}
+.foto-gallery-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.foto-gallery-thumb.selected{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent);}
+.foto-gallery-thumb .gal-check{position:absolute;top:7px;left:7px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.65);border:2px solid rgba(255,255,255,.6);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;}
+.foto-gallery-thumb .gal-name{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);color:#fff;font-size:11px;padding:4px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 /* ── 360° & Zeichen-Tool (Desktop) ── */
 #desktopPannellumContainer{display:none;width:86vw;height:78vh;border-radius:10px;overflow:hidden;}
 #desktopPannellumContainer.active{display:block;}
@@ -859,7 +883,10 @@ input,select,textarea{font-family:inherit;}
     <div class="form-collapse" id="tAnhangSect">
       <div class="form-collapse-header" onclick="toggleFormSection('tAnhangSect')">
         <span class="form-collapse-title">📎 Dateianhänge &amp; Fotos</span>
-        <span class="form-collapse-arrow">▾</span>
+        <span style="display:flex;align-items:center;gap:6px">
+          <button onclick="event.stopPropagation();openFotoGallery()" style="padding:3px 9px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:11px;cursor:pointer" title="Galerie vergrößern">📐 Galerie</button>
+          <span class="form-collapse-arrow">▾</span>
+        </span>
       </div>
       <div class="form-collapse-body">
         <div id="fotoListDesktop"></div>
@@ -960,6 +987,18 @@ input,select,textarea{font-family:inherit;}
       <button class="foto-lb-save" onclick="saveFotoCaptionFromLightbox()">💾 Speichern</button>
       <button class="foto-lb-save" style="background:rgba(255,255,255,.15)" onclick="event.stopPropagation();deskStartDraw()">✏️ Malen</button>
     </div>
+  </div>
+</div>
+
+<!-- FOTO GALERIE OVERLAY -->
+<div class="foto-gallery-overlay" id="fotoGalleryOverlay">
+  <div class="foto-gallery-header">
+    <h3>📷 Foto-Galerie</h3>
+    <button id="galPdfBtn" style="background:var(--accent);color:#fff;display:none" onclick="createPdfFromSelected()">📄 PDF erstellen</button>
+    <button style="background:rgba(255,255,255,.1);color:#fff" onclick="closeFotoGallery()">✕ Schließen</button>
+  </div>
+  <div class="foto-gallery-body">
+    <div class="foto-gallery-grid" id="fotoGalleryGrid"></div>
   </div>
 </div>
 
@@ -2316,36 +2355,147 @@ function hydrateDesktopFotoThumbs(){
     if(id){img.dataset.hydrated='1';loadDesktopFotoThumb(img,id);}
   });
 }
+let _fotoSelectMode=false;
+let _fotoSelected=new Set();
 function renderFotoListDesktop(){
   const el=document.getElementById('fotoListDesktop');
   if(!el)return;
-  if(!taskFotos||!taskFotos.length){el.innerHTML='';return;}
+  if(!taskFotos||!taskFotos.length){el.innerHTML='';_fotoSelectMode=false;_fotoSelected.clear();return;}
   const items=taskFotos.map((f,i)=>{
     const name=f.name||'';
     const caption=f.caption||'';
     const id=f.driveId||'';
     const cached=id?_desktopFotoBlobCache.get(id):null;
-    // driveIds sind immer [A-Za-z0-9_-], trotzdem defensiv escapen
     const safeId=String(id).replace(/[^A-Za-z0-9_\-]/g,'');
     const srcAttr=cached?'src="'+esc(cached)+'" ':(safeId?'data-foto-id="'+safeId+'" ':'');
     const tip=caption?(caption+' — '+name):name;
-    // Wenn eine Beschreibung existiert, ersetzt sie den Dateinamen unten
     const bottomLabel=caption
-      ? '<div class="foto-caption" title="'+esc(caption)+'">'+esc(caption)+'</div>'
-      : '<div class="foto-name">'+esc(name)+'</div>';
-    return '<div class="foto-desktop-thumb" onclick="openFotoDesktop('+i+')" title="'+esc(tip)+'">'
+      ?'<div class="foto-caption" title="'+esc(caption)+'">'+esc(caption)+'</div>'
+      :'<div class="foto-name">'+esc(name)+'</div>';
+    const selClass=_fotoSelected.has(i)?' selected':'';
+    const checkMark=_fotoSelected.has(i)?'✓':'';
+    return '<div class="foto-desktop-thumb'+selClass+'" onclick="_fotoThumbClick('+i+',event)" title="'+esc(tip)+'">'
+      +'<div class="foto-check">'+checkMark+'</div>'
       +'<img '+srcAttr+'alt="" loading="lazy" onerror="this.style.display=\'none\';this.parentElement.classList.add(\'fallback\')">'
       +bottomLabel
-      +'<button class="foto-edit" onclick="event.stopPropagation();editFotoCaptionDesktop('+i+')" title="Beschreibung hinzufügen / bearbeiten">📝</button>'
-      +'<button class="foto-del" onclick="event.stopPropagation();removeFotoDesktop('+i+')" title="Verweis entfernen (Datei in Drive bleibt)">✕</button>'
+      +'<button class="foto-edit" onclick="event.stopPropagation();editFotoCaptionDesktop('+i+')" title="Beschreibung bearbeiten">📝</button>'
+      +'<button class="foto-del" onclick="event.stopPropagation();removeFotoDesktop('+i+')" title="Entfernen">✕</button>'
       +'</div>';
   }).join('');
+  const selCount=_fotoSelected.size;
+  const pdfBar=_fotoSelectMode
+    ?'<div class="foto-pdf-bar visible" id="fotoPdfBar">'
+      +'<span style="flex:1;font-size:13px;color:var(--text2)">'+selCount+' Foto(s) gewählt</span>'
+      +'<button class="btn-pdf-create" onclick="createPdfFromSelected()" '+(selCount===0?'disabled style="opacity:.4"':'')+'>📄 PDF erstellen</button>'
+      +'<button class="btn-pdf-cancel" onclick="cancelFotoSelectMode()">Abbrechen</button>'
+      +'</div>'
+    :'';
   el.innerHTML='<div class="foto-desktop-wrap">'
-    +'<div class="foto-desktop-wrap-label">📷 Fotos vom Handy (in Drive-Ordner) — '+taskFotos.length+' Stück</div>'
-    +'<div class="foto-desktop-grid">'+items+'</div>'
+    +'<div class="foto-desktop-wrap-label">📷 Fotos vom Handy ('+taskFotos.length+' Stück)'
+      +'<button onclick="startFotoSelectMode()" style="margin-left:10px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:11px;cursor:pointer">☑ Auswahl / PDF</button>'
+    +'</div>'
+    +pdfBar
+    +'<div class="foto-desktop-grid'+((_fotoSelectMode)?' foto-select-mode':'')+'">'+items+'</div>'
     +'</div>';
-  // Authentifizierte Thumbnails nachladen
   try{hydrateDesktopFotoThumbs();}catch(e){console.warn('hydrateDesktopFotoThumbs:',e);}
+}
+function _fotoThumbClick(i,e){
+  if(_fotoSelectMode){
+    e.stopPropagation();
+    if(_fotoSelected.has(i))_fotoSelected.delete(i);
+    else _fotoSelected.add(i);
+    renderFotoListDesktop();
+  }else{
+    openFotoDesktop(i);
+  }
+}
+function startFotoSelectMode(){_fotoSelectMode=true;_fotoSelected.clear();renderFotoListDesktop();}
+function cancelFotoSelectMode(){_fotoSelectMode=false;_fotoSelected.clear();renderFotoListDesktop();}
+// ── Foto-Galerie Overlay ──
+function openFotoGallery(){
+  if(!taskFotos||!taskFotos.length){showToast('Keine Fotos vorhanden','info');return;}
+  _fotoSelected.clear();
+  const overlay=document.getElementById('fotoGalleryOverlay');
+  const grid=document.getElementById('fotoGalleryGrid');
+  if(!overlay||!grid)return;
+  _renderGalleryGrid(grid);
+  overlay.classList.add('open');
+}
+function closeFotoGallery(){
+  document.getElementById('fotoGalleryOverlay')?.classList.remove('open');
+  _fotoSelected.clear();
+}
+function _renderGalleryGrid(grid){
+  if(!grid)return;
+  const items=(taskFotos||[]).map((f,i)=>{
+    const id=f.driveId||'';
+    const cached=id?_desktopFotoBlobCache.get(id):null;
+    const safeId=String(id).replace(/[^A-Za-z0-9_\-]/g,'');
+    const srcAttr=cached?'src="'+esc(cached)+'" ':(safeId?'data-foto-id-gal="'+safeId+'" ':'');
+    const sel=_fotoSelected.has(i);
+    return '<div class="foto-gallery-thumb'+(sel?' selected':'')+'" onclick="_galThumbClick('+i+',this)">'
+      +'<div class="gal-check">'+(sel?'✓':'')+'</div>'
+      +'<img '+srcAttr+'alt="" loading="lazy" onerror="this.style.display=\'none\'" id="galImg'+i+'">'
+      +'<div class="gal-name">'+esc(f.caption||f.name||'Foto')+'</div>'
+      +'</div>';
+  }).join('');
+  grid.innerHTML=items;
+  // Thumbnails nachladen
+  grid.querySelectorAll('img[data-foto-id-gal]').forEach(img=>{
+    const id=img.getAttribute('data-foto-id-gal');
+    if(id)_fetchDesktopFotoBlob(id).then(url=>{if(url)img.src=url;});
+  });
+}
+function _galThumbClick(i,el){
+  // Einfachklick → Auswahl; Doppelklick → Vollbild
+  if(el._galClickTimer){
+    clearTimeout(el._galClickTimer);el._galClickTimer=null;
+    openFotoDesktop(i);return;
+  }
+  el._galClickTimer=setTimeout(()=>{
+    el._galClickTimer=null;
+    if(_fotoSelected.has(i))_fotoSelected.delete(i);
+    else _fotoSelected.add(i);
+    const grid=document.getElementById('fotoGalleryGrid');
+    if(grid)_renderGalleryGrid(grid);
+    const btn=document.getElementById('galPdfBtn');
+    if(btn)btn.style.display=_fotoSelected.size?'':'none';
+  },250);
+}
+async function createPdfFromSelected(){
+  if(!_fotoSelected.size){showToast('Keine Fotos gewählt','error');return;}
+  if(!window.jspdf){showToast('PDF-Bibliothek nicht geladen','error');return;}
+  showToast('📄 PDF wird erstellt…','info');
+  const {jsPDF}=window.jspdf;
+  let doc=null;
+  const indices=[..._fotoSelected].sort((a,b)=>a-b);
+  for(const i of indices){
+    const f=taskFotos[i];if(!f)continue;
+    let url=f.driveId?_desktopFotoBlobCache.get(f.driveId):null;
+    if(!url&&f.driveId){url=await _fetchDesktopFotoBlob(f.driveId);}
+    if(!url)continue;
+    // Bildgröße ermitteln
+    const imgInfo=await new Promise(res=>{
+      const img=new Image();
+      img.onload=()=>res({w:img.naturalWidth,h:img.naturalHeight,src:url});
+      img.onerror=()=>res(null);img.src=url;
+    });
+    if(!imgInfo)continue;
+    const landscape=imgInfo.w>imgInfo.h;
+    const fmt=landscape?[297,210]:[210,297];
+    if(!doc){doc=new jsPDF({orientation:landscape?'landscape':'portrait',unit:'mm',format:fmt});}
+    else{doc.addPage(fmt,landscape?'landscape':'portrait');}
+    doc.addImage(imgInfo.src,'JPEG',0,0,fmt[0],fmt[1],'','FAST');
+    // Caption als Footer
+    const cap=f.caption||f.name||'';
+    if(cap){doc.setFontSize(9);doc.setTextColor(100);doc.text(cap,6,fmt[1]-4);}
+  }
+  if(!doc){showToast('Keine Bilder geladen','error');return;}
+  // Dateiname aus Task-Titel
+  const taskTitle=(document.getElementById('tTitle')?.value||'fotos').replace(/[^\w\-]/g,'_');
+  doc.save(taskTitle+'_fotos.pdf');
+  showToast('✓ PDF erstellt','success');
+  cancelFotoSelectMode();
 }
 let _currentFotoLbIdx=-1;
 let _deskPannellumViewer=null;
