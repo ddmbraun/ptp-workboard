@@ -229,14 +229,17 @@ input,select,textarea{font-family:inherit;}
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;z-index:100;overflow-x:auto;min-height:52px;}
 .topbar-left{display:flex;align-items:center;gap:12px;flex:1;min-width:200px;}
 .logo{font-size:20px;font-weight:700;color:var(--accent2);letter-spacing:1px;flex-shrink:0;}
-.board-selector{display:flex;gap:4px;align-items:center;overflow-x:auto;flex:1;min-width:0;}
-.board-tab{padding:6px 14px;border-radius:6px;background:transparent;color:var(--text2);font-size:13px;font-weight:500;transition:all .15s;white-space:nowrap;flex-shrink:0;}
-.board-tab:hover{background:var(--bg3);}
-.board-tab.active{background:var(--accent);color:#fff;}
-.board-tab.dragging{opacity:0.4;}
-.board-tab.drag-over-tab{outline:2px dashed var(--accent);outline-offset:-2px;}
-.board-tab[draggable="true"]{cursor:grab;}
-.board-tab[draggable="true"]:active{cursor:grabbing;}
+.board-selector{position:relative;flex:1;min-width:0;}
+.board-dropdown-btn{display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:14px;font-weight:600;cursor:pointer;min-width:160px;max-width:320px;transition:border-color .15s;}
+.board-dropdown-btn:hover{border-color:var(--accent);}
+.board-dropdown-btn .bd-label{flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.board-dropdown-btn .bd-arrow{font-size:11px;color:var(--text2);transition:transform .2s;flex-shrink:0;}
+.board-selector.open .bd-arrow{transform:rotate(180deg);}
+.board-dropdown-list{position:absolute;top:calc(100% + 4px);left:0;min-width:200px;max-width:340px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.35);z-index:800;display:none;overflow:hidden;}
+.board-selector.open .board-dropdown-list{display:block;}
+.board-dropdown-item{display:block;width:100%;padding:10px 16px;text-align:left;font-size:13px;color:var(--text);background:none;border:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.board-dropdown-item:hover{background:var(--bg3);}
+.board-dropdown-item.active{color:var(--accent);font-weight:700;}
 .board-add-btn{width:28px;height:28px;border-radius:6px;background:var(--bg3);color:var(--text2);font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;}
 .board-add-btn:hover{background:var(--accent);color:#fff;}
 .topbar-center{flex-shrink:0;width:320px;margin:0 16px;position:relative;}
@@ -1903,13 +1906,26 @@ function updateStatusSelect(){
 
 // ── BOARD TABS ──
 function renderBoardTabs(){
-  document.getElementById('boardTabs').innerHTML=Object.keys(boards).map((b,i)=>
-    `<button class="board-tab ${b===currentBoard?'active':''}" draggable="true" data-board="${esc(b)}" data-idx="${i}"
-       ondragstart="onBoardTabDragStart(event)" ondragend="onBoardTabDragEnd(event)"
-       ondragover="onBoardTabDragOver(event)" ondrop="onBoardTabDrop(event)"
-       onclick="switchBoard('${esc(b)}')">${esc(b)}</button>`
-  ).join('');
+  const keys=Object.keys(boards);
+  const sel=document.getElementById('boardTabs');
+  sel.innerHTML=
+    `<button class="board-dropdown-btn" onclick="toggleBoardDropdown(event)">
+       <span class="bd-label">${esc(currentBoard||'Board wählen')}</span>
+       <span class="bd-arrow">▾</span>
+     </button>
+     <div class="board-dropdown-list">
+       ${keys.map(b=>`<button class="board-dropdown-item${b===currentBoard?' active':''}" onclick="switchBoard('${esc(b)}');closeBoardDropdown()">${esc(b)}</button>`).join('')}
+     </div>`;
 }
+function toggleBoardDropdown(e){
+  if(e)e.stopPropagation();
+  document.getElementById('boardTabs').classList.toggle('open');
+}
+function closeBoardDropdown(){
+  document.getElementById('boardTabs')?.classList.remove('open');
+}
+// Klick außerhalb schließt Dropdown
+document.addEventListener('click',()=>closeBoardDropdown());
 // Drag-Reorder für Projekt-Tabs oben
 let _boardDragKey=null;
 function onBoardTabDragStart(e){_boardDragKey=e.target.dataset.board;e.target.classList.add('dragging');e.dataTransfer.effectAllowed='move';}
