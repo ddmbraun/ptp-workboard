@@ -6,25 +6,7 @@
 <title>PTP Workboard</title>
 <script src="https://accounts.google.com/gsi/client" defer onload="gdriveInit()"></script>
 <script>
-// ── EMAIL DROP-ZONE ──
-(function(){
-  function bind(){
-    var zone=document.getElementById('emailDropZone');
-    if(!zone||zone._eb)return;
-    zone._eb=true;
-    zone.addEventListener('dragenter',function(e){e.preventDefault();e.stopPropagation();zone.classList.add('dragover');});
-    zone.addEventListener('dragover',function(e){e.preventDefault();e.stopPropagation();zone.classList.add('dragover');e.dataTransfer.dropEffect='copy';});
-    zone.addEventListener('dragleave',function(e){if(!zone.contains(e.relatedTarget))zone.classList.remove('dragover');});
-    zone.addEventListener('drop',function(e){e.preventDefault();e.stopPropagation();zone.classList.remove('dragover');handleEmailDrop(e.dataTransfer,zone);});
-  }
-  document.addEventListener('DOMContentLoaded',bind);
-  if(document.readyState!=='loading')bind();
-  // Re-bind nach Modal-Oeffnen (class-Aenderung an .modal-overlay)
-  var obs=new MutationObserver(function(){bind();});
-  document.addEventListener('DOMContentLoaded',function(){
-    obs.observe(document.body,{attributes:true,subtree:true,attributeFilter:['class']});
-  });
-})();
+// ── EMAIL DROP-ZONE – Inline-Handler am Element, kein addEventListener nötig ──
 
 // .msg/.eml/.pdf per Datei-Dialog auswaehlen
 function handleEmailFileSelect(evt){
@@ -156,7 +138,21 @@ async function _ezProcess(info,fid,zone){
     _ezMsg(zone,'error','Fehler: '+err.message);
   }
 }
-function _ezMsg(z,cls,msg){if(!z)return;var msgEl=document.getElementById('emailDropZoneMsg');if(msgEl)msgEl.textContent=msg;else{z.className='email-drop-zone'+(cls?' '+cls:'');z.textContent=msg;}if(cls)z.className='email-drop-zone '+cls;else z.className='email-drop-zone';}
+var _ezErrorTimer=null;
+function _ezReset(){var z=document.getElementById('emailDropZone');var msgEl=document.getElementById('emailDropZoneMsg');if(z)z.className='email-drop-zone';if(msgEl)msgEl.textContent='📧 E-Mail / PDF hier hineinziehen  →  direkt in Google Drive';}
+function _ezMsg(z,cls,msg){
+  if(!z)return;
+  var msgEl=document.getElementById('emailDropZoneMsg');
+  if(msgEl)msgEl.textContent=msg;
+  else{z.className='email-drop-zone'+(cls?' '+cls:'');z.textContent=msg;}
+  if(cls)z.className='email-drop-zone '+cls;
+  else z.className='email-drop-zone';
+  // Bei Fehler: nach 5s automatisch zurücksetzen
+  if(cls==='error'){
+    clearTimeout(_ezErrorTimer);
+    _ezErrorTimer=setTimeout(_ezReset,5000);
+  }
+}
 function _ezParseHtml(html){
   var doc=new DOMParser().parseFromString(html,'text/html');
   var text=(doc.body?doc.body.innerText||doc.body.textContent:'')||'';
@@ -720,6 +716,7 @@ input,select,textarea{font-family:inherit;}
         ondragover="event.preventDefault();this.classList.add('dragover');event.dataTransfer.dropEffect='copy'"
         ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('dragover')"
         ondrop="event.preventDefault();this.classList.remove('dragover');handleEmailDrop(event.dataTransfer,this)"
+        onclick="if(this.classList.contains('error'))_ezReset()"
         style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:0;padding:6px 10px;">
         <span id="emailDropZoneMsg" style="text-align:center;font-size:12px;">&#128231; E-Mail / PDF hier hineinziehen<br><small style="opacity:.7">&#8594; direkt in Google Drive</small></span>
         <label style="cursor:pointer;padding:3px 10px;border-radius:5px;background:rgba(39,174,96,0.15);border:1px solid #27ae60;font-size:11px;color:#1a7a40;white-space:nowrap;">
