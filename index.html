@@ -825,12 +825,7 @@ input,select,textarea{font-family:inherit;}
             </div>
           </div>
         </div>
-        <div class="email-drop-zone" id="emailDropZone"
-             ondragenter="event.preventDefault();event.stopPropagation();this.classList.add('dragover')"
-             ondragover="event.preventDefault();event.stopPropagation();this.classList.add('dragover');event.dataTransfer.dropEffect='copy'"
-             ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('dragover')"
-             ondrop="event.preventDefault();event.stopPropagation();this.classList.remove('dragover');handleEmailDrop(event.dataTransfer,this)"
-             style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <div class="email-drop-zone" id="emailDropZone" style="display:flex;flex-direction:column;align-items:center;gap:6px;">
           <span id="emailDropZoneMsg">&#128231; E-Mail oder PDF hier hineinziehen &nbsp;<small style="opacity:.7">(direkt in Google Drive)</small></span>
           <label style="cursor:pointer;padding:4px 12px;border-radius:5px;background:rgba(39,174,96,0.15);border:1px solid #27ae60;font-size:11px;color:#1a7a40;">
             &#128193; .msg / PDF ausw&#228;hlen
