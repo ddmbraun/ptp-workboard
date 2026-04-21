@@ -11,45 +11,151 @@
     var zone=document.getElementById('emailDropZone');
     if(\!zone||zone._eb)return;
     zone._eb=true;
-    zone.addEventListener('dragover',function(e){e.preventDefault();zone.classList.add('dragover');});
-    zone.addEventListener('dragleave',function(){zone.classList.remove('dragover');});
-    zone.addEventListener('drop',function(e){e.preventDefault();zone.classList.remove('dragover');handleEmailDrop(e.dataTransfer,zone);});
+    zone.addEventListener('dragenter',function(e){e.preventDefault();e.stopPropagation();zone.classList.add('dragover');});
+    zone.addEventListener('dragover',function(e){e.preventDefault();e.stopPropagation();zone.classList.add('dragover');e.dataTransfer.dropEffect='copy';});
+    zone.addEventListener('dragleave',function(e){if(\!zone.contains(e.relatedTarget))zone.classList.remove('dragover');});
+    zone.addEventListener('drop',function(e){e.preventDefault();e.stopPropagation();zone.classList.remove('dragover');handleEmailDrop(e.dataTransfer,zone);});
   }
   document.addEventListener('DOMContentLoaded',bind);
   if(document.readyState\!=='loading')bind();
-  var obs=new MutationObserver(bind);
-  document.addEventListener('DOMContentLoaded',function(){obs.observe(document.body,{childList:true,subtree:true});});
+  // Re-bind nach Modal-Oeffnen (class-Aenderung an .modal-overlay)
+  var obs=new MutationObserver(function(){bind();});
+  document.addEventListener('DOMContentLoaded',function(){
+    obs.observe(document.body,{attributes:true,subtree:true,attributeFilter:['class']});
+  });
 })();
+
+// .msg/.eml/.pdf per Datei-Dialog auswaehlen
+function handleEmailFileSelect(evt){
+  var zone=document.getElementById('emailDropZone');
+  var file=evt.target.files&&evt.target.files[0];
+  if(\!file)return;
+  evt.target.value='';
+  var url=(document.getElementById('tEmailOrdner')||{}).value||'';
+  if(\!url.trim()){_ezMsg(zone,'error','Bitte zuerst E-Mail-Ablageordner (Google Drive) eintragen\!');return;}
+  var fid=_ezFolderId(url);
+  if(\!fid){_ezMsg(zone,'error','Ungueltige Google Drive Ordner-URL.');return;}
+  if(\!gdriveToken){_ezMsg(zone,'error','Bitte zuerst mit Google Drive verbinden (oben).');return;}
+  _ezMsg(zone,'','Verarbeite '+file.name+'...');
+  // PDF direkt hochladen
+  if(file.type==='application/pdf'||/\.pdf$/i.test(file.name)){
+    var reader=new FileReader();
+    reader.onload=function(e){
+      _ezUpload(e.target.result,file.name,fid).then(function(){
+        _ezMsg(zone,'success','✅ Gespeichert: '+file.name);
+        setTimeout(function(){_ezMsg(zone,'','');},4000);
+      }).catch(function(err){_ezMsg(zone,'error','Fehler: '+err.message);});
+    };
+    reader.readAsArrayBuffer(file);
+    return;
+  }
+  var info={subject:file.name.replace(/\.(msg|eml)$/i,''),sender:'',date:new Date(),bodyText:''};
+  // Try to read .eml as text
+  if(file.name.toLowerCase().endsWith('.eml')){
+    var reader=new FileReader();
+    reader.onload=function(e){
+      var text=e.target.result||'';
+      var lines=text.split(/\r?\n/);
+      lines.slice(0,30).forEach(function(l){
+        if(/^Subject:/i.test(l))info.subject=l.replace(/^Subject:\s*/i,'').trim();
+        if(/^From:/i.test(l))info.sender=l.replace(/^From:\s*/i,'').trim();
+        if(/^Date:/i.test(l)){try{var d=new Date(l.replace(/^Date:\s*/i,''));if(\!isNaN(d))info.date=d;}catch(ex){}}
+      });
+      info.bodyText=text.substring(0,4000);
+      _ezProcess(info,fid,zone);
+    };
+    reader.readAsText(file);
+  } else {
+    _ezProcess(info,fid,zone);
+  }
+}
 
 async function handleEmailDrop(dt,zone){
   var url=(document.getElementById('tEmailOrdner')||{}).value||'';
   if(\!url.trim()){_ezMsg(zone,'error','Bitte zuerst E-Mail-Ablageordner eintragen\!');return;}
   var fid=_ezFolderId(url);
   if(\!fid){_ezMsg(zone,'error','Ungueltige Google Drive Ordner-URL.');return;}
-  if(\!gdriveToken){_ezMsg(zone,'error','Bitte zuerst mit Google Drive verbinden.');return;}
-  _ezMsg(zone,'','Verarbeite E-Mail...');
-  try{
-    var info=null;
-    if(dt.files&&dt.files.length){
-      var f=[].slice.call(dt.files).find(function(x){return x.name.toLowerCase().endsWith('.msg');});
-      if(f)info={subject:f.name.replace(/\.msg$/i,''),sender:'',date:new Date(),bodyText:''};
+  if(\!gdriveToken){_ezMsg(zone,'error','⚠ Bitte zuerst mit Google Drive verbinden (oben rechts: ☁️ Google Drive).');return;}
+  _ezMsg(zone,'','Verarbeite...');
+
+  // 0. PDF direkt hochladen
+  if(dt.files&&dt.files.length){
+    var pdfs=[].slice.call(dt.files).filter(function(x){return x.type==='application/pdf'||/\.pdf$/i.test(x.name);});
+    if(pdfs.length){
+      var uploaded=[];
+      for(var pi=0;pi<pdfs.length;pi++){
+        var pf=pdfs[pi];
+        try{
+          var buf=await new Promise(function(res,rej){var r=new FileReader();r.onload=function(e){res(e.target.result);};r.onerror=rej;r.readAsArrayBuffer(pf);});
+          await _ezUpload(buf,pf.name,fid);
+          uploaded.push(pf.name);
+        }catch(err){_ezMsg(zone,'error','Fehler bei '+pf.name+': '+err.message);return;}
+      }
+      _ezMsg(zone,'success','✅ Gespeichert: '+uploaded.join(', '));
+      setTimeout(function(){_ezMsg(zone,'','');},4000);
+      return;
     }
-    if(\!info){var h=dt.getData('text/html');if(h&&h.length>20)info=_ezParseHtml(h);}
-    if(\!info){var t=dt.getData('text/plain');if(t&&t.trim()){var s=t.split('\n')[0].replace(/^(Betreff|Subject):\s*/i,'').trim()||'E-Mail';info={subject:s,sender:'',date:new Date(),bodyText:t};}}
-    if(\!info)throw new Error('Keine E-Mail-Daten erkannt. Bitte direkt aus Outlook ziehen.');
+  }
+
+  // Check what Outlook provides
+  var types=[].slice.call(dt.types||[]);
+  var info=null;
+
+  // 1. File drop (.msg or .eml)
+  if(dt.files&&dt.files.length){
+    var f=[].slice.call(dt.files).find(function(x){return/\.(msg|eml)$/i.test(x.name);});
+    if(f){
+      if(f.name.toLowerCase().endsWith('.eml')){
+        var text=await new Promise(function(res){var r=new FileReader();r.onload=function(e){res(e.target.result);};r.readAsText(f);});
+        info={subject:f.name.replace(/\.(msg|eml)$/i,''),sender:'',date:new Date(),bodyText:text.substring(0,4000)};
+        var lines=text.split(/\r?\n/);
+        lines.slice(0,30).forEach(function(l){
+          if(/^Subject:/i.test(l))info.subject=l.replace(/^Subject:\s*/i,'').trim();
+          if(/^From:/i.test(l))info.sender=l.replace(/^From:\s*/i,'').trim();
+          if(/^Date:/i.test(l)){try{var d=new Date(l.replace(/^Date:\s*/i,''));if(\!isNaN(d))info.date=d;}catch(ex){}}
+        });
+      } else {
+        info={subject:f.name.replace(/\.msg$/i,''),sender:'',date:new Date(),bodyText:''};
+      }
+    }
+  }
+
+  // 2. HTML from Outlook drag (direct from inbox)
+  if(\!info&&types.indexOf('text/html')>=0){
+    var h=dt.getData('text/html');
+    if(h&&h.length>20)info=_ezParseHtml(h);
+  }
+
+  // 3. Plain text fallback
+  if(\!info&&types.indexOf('text/plain')>=0){
+    var t=dt.getData('text/plain');
+    if(t&&t.trim()){
+      var s=t.split('\n')[0].replace(/^(Betreff|Subject):\s*/i,'').trim()||'E-Mail';
+      info={subject:s,sender:'',date:new Date(),bodyText:t};
+    }
+  }
+
+  if(\!info){
+    _ezMsg(zone,'error','Keine E-Mail-Daten erkannt. Bitte .msg-Datei per Knopf auswaehlen.');
+    return;
+  }
+  _ezProcess(info,fid,zone);
+}
+
+async function _ezProcess(info,fid,zone){
+  try{
     var pdf=await _ezBuildPdf(info);
     var d=info.date instanceof Date&&\!isNaN(info.date)?info.date:new Date();
     var stamp=d.getFullYear()+'.'+_ez2(d.getMonth()+1)+'.'+_ez2(d.getDate());
     var fname=stamp+'_'+_ezClean(info.subject)+'.pdf';
     await _ezUpload(pdf,fname,fid);
     _ezMsg(zone,'success','Gespeichert: '+fname);
-    setTimeout(function(){_ezMsg(zone,'','E-Mail aus Outlook hier hineinziehen');},5000);
+    setTimeout(function(){document.getElementById('emailDropZoneMsg')&&(_ezMsg(zone,'',''),document.getElementById('emailDropZone').innerHTML=document.getElementById('emailDropZone').innerHTML);},4000);
   }catch(err){
     _ezMsg(zone,'error','Fehler: '+err.message);
-    setTimeout(function(){_ezMsg(zone,'','E-Mail aus Outlook hier hineinziehen');},5000);
   }
 }
-function _ezMsg(z,cls,msg){if(\!z)return;z.className='email-drop-zone'+(cls?' '+cls:'');z.textContent=msg;}
+function _ezMsg(z,cls,msg){if(\!z)return;var msgEl=document.getElementById('emailDropZoneMsg');if(msgEl)msgEl.textContent=msg;else{z.className='email-drop-zone'+(cls?' '+cls:'');z.textContent=msg;}if(cls)z.className='email-drop-zone '+cls;else z.className='email-drop-zone';}
 function _ezParseHtml(html){
   var doc=new DOMParser().parseFromString(html,'text/html');
   var text=(doc.body?doc.body.innerText||doc.body.textContent:'')||'';
@@ -719,7 +825,18 @@ input,select,textarea{font-family:inherit;}
             </div>
           </div>
         </div>
-        <div class="email-drop-zone" id="emailDropZone">📧 E-Mail aus Outlook hier hineinziehen → wird als PDF in Google Drive gespeichert</div>
+        <div class="email-drop-zone" id="emailDropZone"
+             ondragenter="event.preventDefault();event.stopPropagation();this.classList.add('dragover')"
+             ondragover="event.preventDefault();event.stopPropagation();this.classList.add('dragover');event.dataTransfer.dropEffect='copy'"
+             ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('dragover')"
+             ondrop="event.preventDefault();event.stopPropagation();this.classList.remove('dragover');handleEmailDrop(event.dataTransfer,this)"
+             style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+          <span id="emailDropZoneMsg">&#128231; E-Mail oder PDF hier hineinziehen &nbsp;<small style="opacity:.7">(direkt in Google Drive)</small></span>
+          <label style="cursor:pointer;padding:4px 12px;border-radius:5px;background:rgba(39,174,96,0.15);border:1px solid #27ae60;font-size:11px;color:#1a7a40;">
+            &#128193; .msg / PDF ausw&#228;hlen
+            <input type="file" id="emailMsgInput" accept=".msg,.eml,.pdf" style="display:none" onchange="handleEmailFileSelect(event)">
+          </label>
+        </div>
         <div id="linksList" style="margin-top:8px;"></div>
         <button class="add-row-btn" onclick="addLinkRow()">+ weiteren Link hinzufügen</button>
       </div>
@@ -1017,6 +1134,12 @@ function gdriveInit() {
     scope: GDRIVE_SCOPE,
     callback: gdriveTokenCallback,
   });
+  // Stille Auto-Anmeldung versuchen (klappt wenn Google-Session noch aktiv)
+  const lastAction = localStorage.getItem('gdrive_last_action');
+  if (lastAction) {
+    gdrivePendingAction = lastAction;
+    try { gdriveTokenClient.requestAccessToken({ prompt: 'none' }); } catch(e) { gdrivePendingAction = null; }
+  }
 }
 
 async function ensureWorkspaceFolder() {
@@ -1044,12 +1167,18 @@ async function ensureWorkspaceFolder() {
 
 async function gdriveTokenCallback(resp) {
   if (resp.error) {
+    // Bei stiller Anmeldung (prompt:none) einfach ignorieren – kein Alert
+    if (resp.error === 'interaction_required' || resp.error === 'access_denied') {
+      gdrivePendingAction = null;
+      return;
+    }
     alert('Google Drive Anmeldefehler: ' + resp.error);
     return;
   }
   gdriveToken = resp.access_token;
   const action = gdrivePendingAction;
   gdrivePendingAction = null;
+  if (action) localStorage.setItem('gdrive_last_action', action);
   try { await ensureWorkspaceFolder(); } catch(e) { console.warn('Workspace-Ordner:', e); }
   if (action === 'load') gdrivePickAndLoad();
   else if (action === 'new') gdriveCreateFile();
