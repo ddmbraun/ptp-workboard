@@ -885,14 +885,17 @@ input,select,textarea{font-family:inherit;}
           <div class="modal-field full">
             <label>📁 Google Drive – Projektordner</label>
             <div class="link-row-2">
-              <input type="url" id="tGDOrdner" placeholder="https://drive.google.com/drive/folders/…">
+              <input type="url" id="tGDOrdner" placeholder="https://drive.google.com/drive/folders/…" oninput="_updateFotoOrdnerHint()">
               <button class="link-btn-2" onclick="tDriveOrdnerOeffnen()" title="Ordner öffnen">📁</button>
             </div>
           </div>
+          <div style="text-align:center;margin:2px 0">
+            <button type="button" onclick="_tauscheDriveOrdner()" title="URLs der beiden Ordner tauschen" style="font-size:11px;padding:3px 10px;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer">⇄ Tauschen</button>
+          </div>
           <div class="modal-field full">
-            <label>📷 Google Drive – Foto-Ordner <span style="font-size:10px;color:var(--accent);font-weight:600;">(wird vom 📷 Drive-Foto Button genutzt)</span></label>
+            <label>📷 Google Drive – Foto-Ordner <span style="font-size:10px;color:var(--accent);font-weight:600;">(📷 Drive-Foto Button nutzt diesen Ordner)</span></label>
             <div class="link-row-2">
-              <input type="url" id="tGD" placeholder="https://drive.google.com/drive/folders/…  ← Fotos-Unterordner" oninput="_updateFotoOrdnerHint()">
+              <input type="url" id="tGD" placeholder="https://drive.google.com/drive/folders/…" oninput="_updateFotoOrdnerHint()">
               <button class="link-btn-2" onclick="tDriveOeffnen()" title="Ordner öffnen">📁</button>
             </div>
           </div>
@@ -2506,24 +2509,39 @@ function removeLink(i){taskLinks.splice(i,1);renderLinksList();}
 // ── FILE ATTACHMENTS ──
 function triggerFileInput(){document.getElementById('fileAttachInput').click();}
 function _getDriveFotoFolderId(){
-  // Nur Foto-Ordner (tGD) – bewusst KEIN Fallback auf tGDOrdner (Projektordner)
-  return _extractFolderIdFromUrl(document.getElementById('tGD')?.value||'');
+  // Foto-Ordner (tGD) zuerst; Projektordner (tGDOrdner) als Fallback
+  return _extractFolderIdFromUrl(document.getElementById('tGD')?.value||'')
+      || _extractFolderIdFromUrl(document.getElementById('tGDOrdner')?.value||'');
+}
+function _tauscheDriveOrdner(){
+  const f1=document.getElementById('tGDOrdner');
+  const f2=document.getElementById('tGD');
+  if(!f1||!f2)return;
+  const tmp=f1.value;f1.value=f2.value;f2.value=tmp;
+  _updateFotoOrdnerHint();
 }
 function _updateFotoOrdnerHint(){
   const hint=document.getElementById('fotoOrdnerHint');
   if(!hint)return;
-  const url=(document.getElementById('tGD')?.value||'').trim();
-  const fid=_extractFolderIdFromUrl(url);
-  if(fid){
+  const urlFoto=(document.getElementById('tGD')?.value||'').trim();
+  const urlProjekt=(document.getElementById('tGDOrdner')?.value||'').trim();
+  const fidFoto=_extractFolderIdFromUrl(urlFoto);
+  const fidProjekt=_extractFolderIdFromUrl(urlProjekt);
+  if(fidFoto){
     hint.style.display='block';
     hint.style.background='rgba(39,174,96,0.08)';
-    hint.style.color='var(--success,#27ae60)';
-    hint.innerHTML='📷 Foto-Ordner: <a href="'+url+'" target="_blank" style="color:inherit;word-break:break-all">…'+fid.slice(-12)+'</a>';
+    hint.style.color='#1a7a40';
+    hint.innerHTML='✓ 📷 nutzt Foto-Ordner: <a href="'+urlFoto+'" target="_blank" style="color:inherit">Ordner öffnen ↗</a>';
+  } else if(fidProjekt){
+    hint.style.display='block';
+    hint.style.background='rgba(230,126,34,0.10)';
+    hint.style.color='#a04000';
+    hint.innerHTML='⚠ Kein separater Foto-Ordner – 📷 nutzt Projektordner als Ersatz. <br><span style="font-size:10px">Tipp: Fotos-Unterordner-URL oben ins Foto-Ordner-Feld eintragen, oder ⇄ Tauschen nutzen.</span>';
   } else {
     hint.style.display='block';
     hint.style.background='rgba(192,57,43,0.08)';
-    hint.style.color='var(--danger,#c0392b)';
-    hint.textContent='⚠ Kein Foto-Ordner eingetragen – unter Verknüpfungen eintragen';
+    hint.style.color='#8b1a1a';
+    hint.textContent='⚠ Kein Drive-Ordner eingetragen – unter Verknüpfungen URL eintragen';
   }
 }
 function triggerFotoUploadToDrive(){
@@ -2538,8 +2556,8 @@ function triggerFotoUploadToDrive(){
     setTimeout(()=>{const el=document.getElementById('tGD');if(el){el.focus();el.style.outline='2px solid var(--accent)';}},300);
     return;
   }
-  const url=(document.getElementById('tGD')?.value||'').trim();
-  showToast('📷 Lade hoch in: …'+folderId.slice(-12),'info',3000);
+  const hatFotoOrdner=!!_extractFolderIdFromUrl(document.getElementById('tGD')?.value||'');
+  showToast(hatFotoOrdner?'📷 Lade hoch in Foto-Ordner …':'📷 Lade hoch in Projektordner (kein sep. Foto-Ordner)','info',3000);
   document.getElementById('fotoDriveInput').click();
 }
 async function handleFotoUploadToDrive(e){
