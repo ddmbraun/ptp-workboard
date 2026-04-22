@@ -681,6 +681,13 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .card-size-group label{font-size:11px;color:var(--text2);white-space:nowrap;}
 .card-size-group input[type=range]{width:90px;accent-color:var(--accent);}
 .card-size-group .card-size-val{font-size:11px;color:var(--text2);min-width:28px;text-align:right;}
+
+/* ── TASK-TYP: Notiz-Modus (blendet Baustelle-spezifische Felder aus) ── */
+.ptp-notiz-mode .baustelle-only{display:none!important;}
+.task-type-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;flex-shrink:0;}
+.task-type-badge.baustelle{background:rgba(108,99,255,0.12);color:var(--accent);}
+.task-type-badge.notiz{background:rgba(39,174,96,0.12);color:#1a8a4a;}
+.proj-type-sel{padding:3px 6px;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:11px;cursor:pointer;flex-shrink:0;}
 </style>
 </head>
 <body>
@@ -790,6 +797,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
   <div class="modal" id="taskModalBox">
     <div class="modal-header-row">
       <h2 id="modalTitle">Neuer Task</h2>
+      <span id="_taskTypeIndicator" class="task-type-badge baustelle">🏗 Baustelle</span>
       <div class="modal-size-group" title="Schriftgröße im Formular anpassen">
         <label>🔍</label>
         <input id="modalSizeSlider" type="range" min="80" max="180" step="5" value="100" oninput="setModalSize(this.value)">
@@ -803,7 +811,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
         <div id="timerDisplayTop" class="timer-display">00:00:00</div>
         <button id="timerBtnTop" type="button" class="timer-toggle-btn" onclick="toggleTimer()">▶ Start</button>
       </div>
-      <div class="email-drop-zone" id="emailDropZone"
+      <div class="email-drop-zone baustelle-only" id="emailDropZone"
         ondragenter="event.preventDefault();this.classList.add('dragover')"
         ondragover="event.preventDefault();this.classList.add('dragover');event.dataTransfer.dropEffect='copy'"
         ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('dragover')"
@@ -833,11 +841,11 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
         <div style="display:grid;grid-template-columns:1.5fr 0.9fr 0.9fr 1.6fr;gap:5px;margin-bottom:5px;">
           <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Bearbeiter</label><input type="text" id="taskOwnerInput" placeholder="Name" style="font-size:12px;padding:4px 6px" oninput="scheduleTaskFieldSave();_updateStammSummary()"></div>
           <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Fälligkeit</label><input type="date" id="taskDueInput" style="font-size:12px;padding:4px 6px" onchange="scheduleTaskFieldSave();_updateStammSummary()"></div>
-          <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Auftrag erteilt</label><input type="date" id="taskAusfInput" style="font-size:12px;padding:4px 6px" onchange="scheduleTaskFieldSave()"></div>
+          <div class="modal-field baustelle-only" style="margin:0;font-size:11px"><label style="font-size:10px">Auftrag erteilt</label><input type="date" id="taskAusfInput" style="font-size:12px;padding:4px 6px" onchange="scheduleTaskFieldSave()"></div>
           <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Status</label><select id="taskStatusInput" style="font-size:12px;padding:4px 6px" onchange="updateGcalModalBtn();scheduleTaskFieldSave();_updateStammSummary()"></select></div>
         </div>
-        <!-- Zeile 2: Kostenstelle | Rep.-Nr. | Kunden-Nr. | [Bau-Btn] -->
-        <div style="display:grid;grid-template-columns:1.8fr 0.85fr 0.85fr auto;gap:5px;margin-bottom:4px;align-items:end;">
+        <!-- Zeile 2: Kostenstelle | Rep.-Nr. | Kunden-Nr. | [Bau-Btn] (nur Baustelle) -->
+        <div class="baustelle-only" style="display:grid;grid-template-columns:1.8fr 0.85fr 0.85fr auto;gap:5px;margin-bottom:4px;align-items:end;">
           <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Kostenstelle / Tags</label><input type="text" id="taskTagsInput" placeholder="z.B. 260036" style="font-size:12px;padding:4px 6px" oninput="scheduleTaskFieldSave();_updateStammSummary()"></div>
           <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Rep.-Nr.</label><input type="text" id="taskRepNr" placeholder="z.B. 3483" style="font-size:12px;padding:4px 6px" oninput="scheduleTaskFieldSave()"></div>
           <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Kunden-Nr.</label><input type="text" id="taskKundenNr" placeholder="z.B. 777" style="font-size:12px;padding:4px 6px" oninput="scheduleTaskFieldSave()"></div>
@@ -847,7 +855,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     </div>
 
     <!-- OBJEKT -->
-    <div class="form-collapse" id="tObjektSect">
+    <div class="form-collapse baustelle-only" id="tObjektSect">
       <div class="form-collapse-header" onclick="toggleFormSection('tObjektSect')">
         <span class="form-collapse-title">📍 Objekt</span>
         <span class="form-collapse-arrow">▾</span>
@@ -868,7 +876,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     </div>
 
     <!-- ANSPRECHPARTNER -->
-    <div class="form-collapse" id="tAnsprchSect">
+    <div class="form-collapse baustelle-only" id="tAnsprchSect">
       <div class="form-collapse-header" onclick="toggleFormSection('tAnsprchSect')">
         <span class="form-collapse-title" id="tAnsprchTitle">👥 Ansprechpartner</span>
         <span class="form-collapse-arrow">▾</span>
@@ -880,7 +888,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     </div>
 
     <!-- AUSSERHAUS-TERMINE -->
-    <div class="form-collapse" id="tTermineSect">
+    <div class="form-collapse baustelle-only" id="tTermineSect">
       <div class="form-collapse-header" onclick="toggleFormSection('tTermineSect')">
         <span class="form-collapse-title" id="tTermineTitle">📅 Außerhaus-Termine</span>
         <span class="form-collapse-arrow">▾</span>
@@ -916,7 +924,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       </div>
       <div class="form-collapse-body">
         <div class="modal-grid">
-          <div class="modal-field full">
+          <div class="modal-field full baustelle-only">
             <label>📷 Google Drive – Foto-Ordner <span style="font-size:10px;color:var(--accent);font-weight:600;">← 📷 Drive-Foto Button nutzt DIESEN Ordner</span></label>
             <div class="link-row-2">
               <input type="url" id="tGD" placeholder="https://drive.google.com/drive/folders/…" oninput="_updateFotoOrdnerHint()">
@@ -932,14 +940,14 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
               <button class="link-btn-2" onclick="tDriveOrdnerOeffnen()" title="Ordner öffnen">📁</button>
             </div>
           </div>
-          <div class="modal-field full">
+          <div class="modal-field full baustelle-only">
             <label>NAS-Pfad</label>
             <div class="link-row-2">
               <input type="text" id="tNAS" placeholder="\\nas-ddbraun\Datenarchiv\...">
               <button class="link-btn-2" id="tNasBtn" onclick="tNasKopieren()" title="Pfad kopieren">📋</button>
             </div>
           </div>
-          <div class="modal-field full">
+          <div class="modal-field full baustelle-only">
             <label>📧 E-Mail-Ablageordner (Google Drive)</label>
             <div class="link-row-2">
               <input type="url" id="tEmailOrdner" placeholder="https://drive.google.com/drive/folders/…">
@@ -954,7 +962,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     </div>
 
     <!-- FOTOS -->
-    <div class="form-collapse" id="tFotoSect">
+    <div class="form-collapse baustelle-only" id="tFotoSect">
       <div class="form-collapse-header" onclick="toggleFormSection('tFotoSect')">
         <span class="form-collapse-title">📷 Fotos (Drive)</span>
         <span style="display:flex;align-items:center;gap:6px;">
@@ -1014,7 +1022,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <div class="modal-actions">
       <button class="topbar-btn btn-danger" id="deleteTaskBtn" onclick="deleteTask()" style="display:none;margin-right:auto;">Löschen</button>
       <button class="gcal-btn-modal" id="gcalModalBtn" onclick="openGoogleCalendarFromModal()" style="display:none;margin-right:auto;">📅 In Kalender eintragen</button>
-      <button class="topbar-btn" id="abschlussBtn" onclick="createAbschlussakte()" style="display:none;margin-right:auto;background:var(--bg3);border:1px solid var(--border)">📁 Abschlussakte</button>
+      <button class="topbar-btn baustelle-only" id="abschlussBtn" onclick="createAbschlussakte()" style="display:none;margin-right:auto;background:var(--bg3);border:1px solid var(--border)">📁 Abschlussakte</button>
       <button class="topbar-btn btn-secondary" onclick="saveTaskAndBack()">← Zurück</button>
       <button class="topbar-btn btn-primary" onclick="saveTask()">Speichern</button>
     </div>
@@ -1046,6 +1054,10 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <div class="proj-list" id="projList"></div>
     <div class="proj-add-row">
       <input class="proj-add-input" id="projAddInput" placeholder="Neues Projekt benennen…" onkeydown="if(event.key==='Enter')addProject()">
+      <select id="projAddType" class="proj-type-sel" title="Projekt-Typ wählen">
+        <option value="baustelle">🏗 Baustelle</option>
+        <option value="notiz">📋 Notiz</option>
+      </select>
       <button class="proj-add-btn" onclick="addProject()">+ Anlegen</button>
     </div>
     <div class="modal-actions" style="margin-top:12px;">
@@ -1148,6 +1160,7 @@ let statuses = ['Backlog','Diese Woche','Heute','Waiting','Done']; // globaler F
 let boardStatuses = {}; // pro Board eigene Spalten: { 'Projektname': ['Spalte1',...] }
 let currentBoard = '';
 let mobileBoards = []; // Whitelist für PTP Mobile — leer = alle Boards aufs Handy
+let boardTypes = {}; // Typ pro Board: 'baustelle' (Standard) | 'notiz'
 let currentView = 'kanban';
 let filters = {owner:null,ampel:null,tag:null};
 let searchQuery = '';
@@ -1867,6 +1880,7 @@ function loadFromObject(data){
   if(data._statuses&&Array.isArray(data._statuses))statuses=data._statuses;
   boardStatuses=(data._boardStatuses&&typeof data._boardStatuses==='object')?{...data._boardStatuses}:{};
   mobileBoards=Array.isArray(data._mobileBoards)?data._mobileBoards.slice():[];
+  boardTypes=(data._boardTypes&&typeof data._boardTypes==='object')?{...data._boardTypes}:{};
   boards={};
   // Nur "echte" Boards: keine _-Keys, Wert muss Array sein
   for(const[k,v]of Object.entries(data)){
@@ -1884,6 +1898,7 @@ function buildSaveObject(){
   const out={_statuses:statuses};
   if(Object.keys(boardStatuses).length)out._boardStatuses={...boardStatuses};
   if(Array.isArray(mobileBoards)&&mobileBoards.length)out._mobileBoards=mobileBoards.slice();
+  if(Object.keys(boardTypes).length)out._boardTypes={...boardTypes};
   for(const[k,v]of Object.entries(boards))out[k]=v;
   return out;
 }
@@ -1936,9 +1951,9 @@ function seedData(){
     ]
   };
   currentBoard='Projekt Löwe';
-  // Jedem Demo-Board die Standard-Spalten zuweisen
-  boardStatuses={};
-  Object.keys(boards).forEach(k=>{ boardStatuses[k]=[...statuses]; });
+  // Jedem Demo-Board die Standard-Spalten + Typ zuweisen
+  boardStatuses={};boardTypes={};
+  Object.keys(boards).forEach(k=>{ boardStatuses[k]=[...statuses]; boardTypes[k]='baustelle'; });
 }
 
 // ── RENDER ──
@@ -1970,11 +1985,12 @@ function taskCardHTML(task){
   const hasAttach=(task.attachments||[]).length>0;
   const hasFotos=(task.fotos||[]).length>0;
   const isAH=isAusserhaus(task);
+  const isNotizBoard=(boardTypes[currentBoard]||'baustelle')==='notiz';
   return`<div class="task-card" draggable="true" data-id="${task.id}"
     ondragstart="onDragStart(event)" ondragend="onDragEnd(event)" onclick="openEditTaskModal('${task.id}')">
-    <div class="task-card-title">${esc(task.title)}</div>
+    <div class="task-card-title">${isNotizBoard?'📋 ':''}${esc(task.title)}</div>
     <div class="task-card-meta">
-      <span class="ampel ampel-${task.ampel==='grün'?'green':task.ampel==='orange'?'orange':'red'}"></span>
+      ${isNotizBoard?'':'<span class="ampel ampel-'+(task.ampel==='grün'?'green':task.ampel==='orange'?'orange':'red')+'"></span>'}
       <span class="task-card-owner">${esc(task.owner)}</span>
       ${task.due?`<span class="task-card-due ${overdue?'overdue':''}">${formatDate(task.due)}</span>`:''}
       ${task.ausführungsdatum?`<span class="task-card-due" style="color:#e67e22;font-weight:600;">📋 ${formatDate(task.ausführungsdatum)}</span>`:''}
@@ -4147,6 +4163,29 @@ function tNasKopieren(){
   });
 }
 // ── TASK MODAL ──
+// ── BOARD-TYP: blendet Baustelle-spezifische Felder ein/aus ──
+function _applyBoardType(boardName){
+  const type=(boardTypes[boardName||currentBoard]||'baustelle');
+  const box=document.getElementById('taskModalBox');
+  if(!box)return;
+  if(type==='notiz'){
+    box.classList.add('ptp-notiz-mode');
+  }else{
+    box.classList.remove('ptp-notiz-mode');
+  }
+  const ti=document.getElementById('_taskTypeIndicator');
+  if(ti){
+    if(type==='notiz'){ti.textContent='📋 Notiz';ti.className='task-type-badge notiz';}
+    else{ti.textContent='🏗 Baustelle';ti.className='task-type-badge baustelle';}
+  }
+  // Abschlussakte-Button: nur sichtbar für Baustelle-Tasks (und wenn ID vorhanden)
+  const abBtn=document.getElementById('abschlussBtn');
+  if(abBtn){
+    const hasId=!!(document.getElementById('taskId')?.value);
+    abBtn.style.display=(type==='baustelle'&&hasId)?'':'none';
+  }
+}
+
 const TASK_SECTION_IDS=['tStammSect','tObjektSect','tAnsprchSect','tTermineSect','tZeitSect','tVerkSect','tFotoSect','tAnhangSect','tNotizenSect'];
 function collapseAllTaskSections(){
   TASK_SECTION_IDS.forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('open');});
@@ -4198,6 +4237,7 @@ function openNewTaskModal(){
   renderLinksList();renderAttachList();renderFotoListDesktop();
   renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();
   const _ni=document.getElementById('newTaskNotizInput');if(_ni)_ni.value='';
+  _applyBoardType(currentBoard);
   openModal();
   setTimeout(()=>document.getElementById('taskTitleInput').focus(),100);
 }
@@ -4243,7 +4283,7 @@ function openEditTaskModal(id){
   _updateFotoOrdnerHint();
   document.getElementById('tEmailOrdner').value=task.emailOrdner||_dDef;
   document.getElementById('deleteTaskBtn').style.display='';
-  document.getElementById('abschlussBtn').style.display='';
+  // abschlussBtn: wird von _applyBoardType gesteuert (nur Baustelle-Typ)
   taskLinks=JSON.parse(JSON.stringify(task.links||[]));
   taskAttachments=JSON.parse(JSON.stringify(task.attachments||[]));
   taskAusserhausTermine=JSON.parse(JSON.stringify(task.ausserhausTermine||[]));
@@ -4254,6 +4294,10 @@ function openEditTaskModal(id){
   renderLinksList();renderAttachList();renderFotoListDesktop();
   renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();
   const _ni=document.getElementById('newTaskNotizInput');if(_ni)_ni.value='';
+  // Beim Bearbeiten: Board des Tasks finden, um richtigen Typ zu ermitteln
+  let _taskBoard=currentBoard;
+  for(const bk of Object.keys(boards)){if((boards[bk]||[]).some(t=>t.id===task.id)){_taskBoard=bk;break;}}
+  _applyBoardType(_taskBoard);
   openModal();
   }catch(err){
     console.error('openEditTaskModal Fehler:',err);
@@ -4332,7 +4376,8 @@ function openProjManager(){
   editProjects=Object.keys(boards).map(k=>({
     key:k,name:k,count:boards[k].length,
     // keine Whitelist definiert → Default = alle auf Handy sichtbar (alle angekreuzt)
-    mobile: hasWhitelist ? mobileBoards.includes(k) : true
+    mobile: hasWhitelist ? mobileBoards.includes(k) : true,
+    type: boardTypes[k]||'baustelle'
   }));
   renderProjList();
   document.getElementById('projAddInput').value='';
@@ -4348,6 +4393,10 @@ function renderProjList(){
       <span class="proj-icon">📁</span>
       <input type="text" value="${esc(p.name)}" id="projinput-${i}" placeholder="Projektname">
       <span class="proj-count">${p.count} Task${p.count!==1?'s':''}</span>
+      <select id="projtype-${i}" class="proj-type-sel" title="Projekt-Typ">
+        <option value="baustelle" ${(p.type||'baustelle')==='baustelle'?'selected':''}>🏗 Baustelle</option>
+        <option value="notiz" ${(p.type||'baustelle')==='notiz'?'selected':''}>📋 Notiz</option>
+      </select>
       <label class="proj-mobile" title="Auf PTP Mobile anzeigen" style="display:flex;align-items:center;gap:4px;margin:0 6px;font-size:12px;color:var(--text2);cursor:pointer;user-select:none;">
         <input type="checkbox" id="projmob-${i}" ${p.mobile?'checked':''} onchange="toggleProjMobile(${i})" style="margin:0;cursor:pointer;">
         📱 Mobile
@@ -4374,7 +4423,8 @@ function onProjDrop(e,toIdx){
 function syncProjInputs(){editProjects=editProjects.map((p,i)=>{
   const el=document.getElementById('projinput-'+i);
   const mob=document.getElementById('projmob-'+i);
-  return{...p,name:el?el.value.trim()||p.name:p.name, mobile: mob?mob.checked:!!p.mobile};
+  const typ=document.getElementById('projtype-'+i);
+  return{...p,name:el?el.value.trim()||p.name:p.name, mobile: mob?mob.checked:!!p.mobile, type: typ?typ.value:(p.type||'baustelle')};
 });}
 function toggleProjMobile(i){
   syncProjInputs();
@@ -4391,7 +4441,9 @@ function addProject(){
   syncProjInputs();const inp=document.getElementById('projAddInput');const n=inp.value.trim();
   if(!n){inp.focus();return;}
   if(editProjects.some(p=>p.name===n)){alert('Projektname bereits vergeben.');return;}
-  editProjects.push({key:'__new__'+Date.now(),name:n,count:0,isNew:true,mobile:false});
+  const typSel=document.getElementById('projAddType');
+  const newType=typSel?typSel.value:'baustelle';
+  editProjects.push({key:'__new__'+Date.now(),name:n,count:0,isNew:true,mobile:false,type:newType});
   inp.value='';renderProjList();
 }
 function saveProjects(){
@@ -4417,6 +4469,10 @@ function saveProjects(){
   });
   boards=newBoards;
   boardStatuses=newBoardStatuses;
+  // Typen übernehmen
+  const newBoardTypes={};
+  editProjects.forEach(p=>{newBoardTypes[p.name]=p.type||'baustelle';});
+  boardTypes=newBoardTypes;
   // Mobile-Whitelist zusammensetzen: nur angekreuzte Boards, in Reihenfolge des Projekt-Managers
   const selected=editProjects.filter(p=>p.mobile).map(p=>p.name);
   // Wenn alle angekreuzt sind → Whitelist leer lassen (Default = alle sichtbar, kein Flag in der JSON)
