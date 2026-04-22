@@ -918,29 +918,36 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       </div>
     </div>
 
+    <!-- FOTOS -->
+    <div class="form-collapse" id="tFotoSect">
+      <div class="form-collapse-header" onclick="toggleFormSection('tFotoSect')">
+        <span class="form-collapse-title">📷 Fotos (Drive)</span>
+        <span class="form-collapse-arrow">▾</span>
+      </div>
+      <div class="form-collapse-body">
+        <div id="fotoListDesktop" style="min-height:60px;"></div>
+        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+          <button onclick="triggerFotoUploadToDrive()" title="Foto hochladen nach Google Drive" style="padding:8px 12px;border-radius:6px;border:1.5px dashed var(--accent);background:rgba(108,99,255,0.06);color:var(--accent);font-size:12px;cursor:pointer;white-space:nowrap;">📷 Drive-Foto</button>
+          <button onclick="tDriveOeffnen()" title="Foto-Ordner in Google Drive öffnen" style="padding:8px 12px;border-radius:6px;border:1.5px solid var(--border);background:var(--bg3);color:var(--text2);font-size:12px;cursor:pointer;white-space:nowrap;">📂 Ordner</button>
+          <button onclick="loadFotosFromDriveFolder()" title="Vorhandene Fotos aus Drive-Ordner laden und auswählen" style="padding:8px 12px;border-radius:6px;border:1.5px dashed #34a853;background:rgba(52,168,83,0.06);color:#34a853;font-size:12px;cursor:pointer;white-space:nowrap;">🔄 Aus Ordner wählen</button>
+        </div>
+        <div id="fotoOrdnerHint" style="font-size:11px;margin-top:4px;padding:4px 6px;border-radius:4px;display:none"></div>
+        <input type="file" id="fotoDriveInput" style="display:none" accept="image/*" multiple onchange="handleFotoUploadToDrive(event)">
+      </div>
+    </div>
+
     <!-- DATEIHAENGE -->
     <div class="form-collapse" id="tAnhangSect">
       <div class="form-collapse-header" onclick="toggleFormSection('tAnhangSect')">
-        <span class="form-collapse-title">📎 Dateianhänge &amp; Fotos</span>
-        <span style="display:flex;align-items:center;gap:6px">
-          <button id="fotoExpandBtn" onclick="event.stopPropagation();openFotoPanel()" style="padding:3px 9px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:11px;cursor:pointer">⬇ Vergrößern</button>
-          <span class="form-collapse-arrow">▾</span>
-        </span>
+        <span class="form-collapse-title">📎 Dateianhänge</span>
+        <span class="form-collapse-arrow">▾</span>
       </div>
       <div class="form-collapse-body">
-        <div id="fotoListDesktop"></div>
         <div id="attachList"></div>
-        <div style="display:flex;gap:6px;margin-bottom:0;align-items:stretch;">
-          <div class="attach-drop-zone" id="dropZone" onclick="triggerFileInput()" style="flex:1;margin-bottom:0">
-            📎 Datei hier hineinziehen oder klicken
-          </div>
-          <button onclick="triggerFotoUploadToDrive()" title="Foto zu Google Drive hochladen (erscheint in Galerie, unterstützt 360°)" style="flex-shrink:0;padding:8px 12px;border-radius:6px;border:1.5px dashed var(--accent);background:rgba(108,99,255,0.06);color:var(--accent);font-size:12px;cursor:pointer;white-space:nowrap;">📷 Drive-Foto</button>
-          <button onclick="tDriveOeffnen()" title="Foto-Ordner in Google Drive öffnen" style="flex-shrink:0;padding:8px 12px;border-radius:6px;border:1.5px solid var(--border);background:var(--bg3);color:var(--text2);font-size:12px;cursor:pointer;white-space:nowrap;">📂 Ordner</button>
-          <button onclick="openDrivePicker()" title="Vorhandene Fotos aus Google Drive auswählen" style="flex-shrink:0;padding:8px 12px;border-radius:6px;border:1.5px dashed #34a853;background:rgba(52,168,83,0.06);color:#34a853;font-size:12px;cursor:pointer;white-space:nowrap;">🗂 Aus Drive</button>
+        <div class="attach-drop-zone" id="dropZone" onclick="triggerFileInput()" style="margin-bottom:0">
+          📎 Datei hier hineinziehen oder klicken
         </div>
-        <div id="fotoOrdnerHint" style="font-size:11px;margin-top:4px;padding:4px 6px;border-radius:4px;display:none"></div>
         <input type="file" id="fileAttachInput" style="display:none" multiple onchange="handleFileAttach(event)">
-        <input type="file" id="fotoDriveInput" style="display:none" accept="image/*" multiple onchange="handleFotoUploadToDrive(event)">
       </div>
     </div>
 
@@ -1020,6 +1027,13 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
   <div class="desk-draw-bar" id="deskDrawBar" onclick="event.stopPropagation()">
     <input type="color" class="desk-draw-color" id="deskDrawColor" value="#ff0000" title="Farbe">
     <input type="range" class="desk-draw-size" id="deskDrawSize" min="2" max="30" value="4" title="Stärke">
+    <div style="display:flex;gap:3px;border-right:1px solid rgba(255,255,255,.25);padding-right:8px;margin-right:4px;">
+      <button class="desk-draw-btn desk-tool-btn on" data-tool="freihand" onclick="event.stopPropagation();_deskSetTool('freihand')" title="Freihand">✏️</button>
+      <button class="desk-draw-btn desk-tool-btn" data-tool="linie" onclick="event.stopPropagation();_deskSetTool('linie')" title="Linie">╱</button>
+      <button class="desk-draw-btn desk-tool-btn" data-tool="rechteck" onclick="event.stopPropagation();_deskSetTool('rechteck')" title="Rechteck">▭</button>
+      <button class="desk-draw-btn desk-tool-btn" data-tool="kreis" onclick="event.stopPropagation();_deskSetTool('kreis')" title="Kreis">◯</button>
+      <button class="desk-draw-btn desk-tool-btn" data-tool="pfeil" onclick="event.stopPropagation();_deskSetTool('pfeil')" title="Pfeil">➜</button>
+    </div>
     <button class="desk-draw-btn" id="deskEraserBtn" onclick="event.stopPropagation();deskToggleEraser(this)">⬜ Radierer</button>
     <button class="desk-draw-btn save" onclick="event.stopPropagation();deskSaveDraw()">💾 Speichern</button>
     <button class="desk-draw-btn discard" onclick="event.stopPropagation();deskDiscardDraw()">✕ Verwerfen</button>
@@ -1258,7 +1272,7 @@ function showToast(msg, type='info', duration=3000){
 
 // ── GOOGLE DRIVE INTEGRATION ──
 const GDRIVE_CLIENT_ID = '56419258975-2ri3eujer9p6saph1mesa5hihlcae1pl.apps.googleusercontent.com';
-const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly';
 const WORKSPACE_FOLDER_NAME = 'PTP-BAU Daten';
 let workspaceFolderId = localStorage.getItem('workspace_folder_id') || null;
 
@@ -2567,64 +2581,113 @@ function triggerFotoUploadToDrive(){
   showToast('📷 Lade hoch in Foto-Ordner …','info',3000);
   document.getElementById('fotoDriveInput').click();
 }
-// ── GOOGLE DRIVE PICKER ──
+// ── GOOGLE DRIVE PICKER / ORDNER-LADER ──
 let _gapiReady=false;
 function gapiLoaded(){
-  if(window.gapi){
-    gapi.load('picker',()=>{_gapiReady=true;});
-  }
+  if(window.gapi){gapi.load('picker',()=>{_gapiReady=true;});}
 }
 function openDrivePicker(){
+  // Fallback: Ordner-Lader nutzen falls Picker nicht verfügbar
+  loadFotosFromDriveFolder();
+}
+async function loadFotosFromDriveFolder(){
   if(!gdriveToken){showToast('Bitte zuerst mit Google Drive verbinden (oben rechts)','error');return;}
-  if(!window.gapi||!_gapiReady){
-    showToast('Google Picker wird geladen – bitte kurz warten und nochmal klicken…','info',3000);
-    if(window.gapi){gapi.load('picker',()=>{_gapiReady=true;});}
+  const folderId=_getDriveFotoFolderId();
+  if(!folderId){
+    const sect=document.getElementById('tVerkSect');
+    if(sect&&!sect.classList.contains('open'))toggleFormSection('tVerkSect');
+    showToast('⚠ Bitte unter "Verknüpfungen" den Foto-Ordner-Link eintragen!','error',5000);
     return;
   }
-  const folderId=_getDriveFotoFolderId();
-  let view;
-  if(folderId){
-    // Foto-Ordner direkt anzeigen
-    view=new google.picker.DocsView(google.picker.ViewId.DOCS_IMAGES)
-      .setParent(folderId)
-      .setIncludeFolders(false);
-  } else {
-    // Kein Ordner eingetragen → alle Drive-Bilder
-    view=new google.picker.DocsView(google.picker.ViewId.DOCS_IMAGES);
+  showToast('⏳ Lade Fotos aus Drive-Ordner…','info',8000);
+  try{
+    const url='https://www.googleapis.com/drive/v3/files'
+      +'?q='+encodeURIComponent("'"+folderId+"' in parents and (mimeType contains 'image/') and trashed=false")
+      +'&fields='+encodeURIComponent('files(id,name,mimeType,thumbnailLink,createdTime)')
+      +'&orderBy=createdTime+desc&pageSize=100';
+    const r=await fetch(url,{headers:{Authorization:'Bearer '+gdriveToken}});
+    if(!r.ok){
+      const txt=await r.text().catch(()=>'');
+      if(r.status===403||r.status===401){
+        showToast('⚠ Keine Berechtigung. Bitte Drive neu verbinden (Seite neu laden, dann ☁️ klicken).','error',7000);
+      } else {
+        showToast('Fehler beim Laden ('+r.status+')','error');
+      }
+      return;
+    }
+    const data=await r.json();
+    const files=data.files||[];
+    if(!files.length){showToast('Keine Fotos im Ordner gefunden','info');return;}
+    _showDriveFolderPicker(files);
+  }catch(e){
+    console.warn('[PTP]',e);
+    showToast('Fehler: '+e.message,'error');
   }
-  const picker=new google.picker.PickerBuilder()
-    .setOAuthToken(gdriveToken)
-    .addView(view)
-    .setTitle('Fotos aus Google Drive auswählen')
-    .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
-    .setCallback(_drivePickerCallback)
-    .build();
-  picker.setVisible(true);
 }
-function _drivePickerCallback(data){
-  if(data.action!==google.picker.Action.PICKED)return;
-  const docs=data.docs||[];
-  if(!docs.length)return;
+function _showDriveFolderPicker(files){
+  let overlay=document.getElementById('driveFolderPickerOverlay');
+  if(overlay)overlay.remove();
+  overlay=document.createElement('div');
+  overlay.id='driveFolderPickerOverlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:4000;display:flex;align-items:center;justify-content:center;';
+  document.body.appendChild(overlay);
+  const grid=files.map(f=>{
+    const thumb=f.thumbnailLink?f.thumbnailLink.replace(/=s\d+$/,'=s160'):'';
+    const already=taskFotos&&taskFotos.find(t=>t.driveId===f.id)?'1':'0';
+    const borderStyle=already==='1'?'border:2.5px solid var(--accent);':'border:2.5px solid transparent;';
+    const checkStyle=already==='1'?'display:flex;':'display:none;';
+    return '<div class="dfp-item" data-id="'+esc(f.id)+'" data-name="'+esc(f.name)+'" data-mime="'+esc(f.mimeType||'image/jpeg')+'" data-selected="'+already+'" onclick="_dfpToggle(this)" style="position:relative;width:110px;height:110px;border-radius:8px;overflow:hidden;cursor:pointer;'+borderStyle+'background:var(--bg3);flex-shrink:0;">'
+      +(thumb?'<img src="'+esc(thumb)+'" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display=\'none\'">'
+             :'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:28px;">🖼️</div>')
+      +'<div style="position:absolute;bottom:0;left:0;right:0;font-size:9px;padding:2px 4px;background:rgba(0,0,0,.6);color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(f.name)+'</div>'
+      +'<div class="dfp-check" style="'+checkStyle+'position:absolute;top:4px;right:4px;background:var(--accent);color:#fff;border-radius:50%;width:20px;height:20px;align-items:center;justify-content:center;font-size:12px;font-weight:700;">✓</div>'
+      +'</div>';
+  }).join('');
+  overlay.innerHTML='<div style="background:var(--bg2);border-radius:14px;padding:20px;max-width:92vw;max-height:88vh;display:flex;flex-direction:column;gap:12px;min-width:360px;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">'
+    +'<b style="font-size:15px;">📷 Fotos aus Drive-Ordner auswählen</b>'
+    +'<button onclick="document.getElementById(\'driveFolderPickerOverlay\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2);padding:0 4px;">✕</button>'
+    +'</div>'
+    +'<div style="font-size:11px;color:var(--text2);">Klicke auf Fotos um sie auszuwählen (✓ = bereits hinzugefügt)</div>'
+    +'<div style="overflow-y:auto;display:flex;flex-wrap:wrap;gap:8px;padding:4px;max-height:60vh;">'+grid+'</div>'
+    +'<div style="display:flex;justify-content:flex-end;gap:8px;padding-top:4px;border-top:1px solid var(--border);">'
+    +'<button onclick="document.getElementById(\'driveFolderPickerOverlay\').remove()" style="padding:8px 16px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;font-size:13px;">Abbrechen</button>'
+    +'<button onclick="_dfpConfirm()" style="padding:8px 18px;border-radius:6px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:13px;font-weight:600;">✓ Auswahl übernehmen</button>'
+    +'</div>'
+    +'</div>';
+}
+function _dfpToggle(el){
+  const sel=el.dataset.selected==='1';
+  el.dataset.selected=sel?'0':'1';
+  el.style.border=sel?'2.5px solid transparent':'2.5px solid var(--accent)';
+  const chk=el.querySelector('.dfp-check');
+  if(chk)chk.style.display=sel?'none':'flex';
+}
+function _dfpConfirm(){
+  const overlay=document.getElementById('driveFolderPickerOverlay');
+  if(!overlay)return;
+  const selected=[...overlay.querySelectorAll('.dfp-item[data-selected="1"]')];
   if(!taskFotos)taskFotos=[];
   let added=0;
-  docs.forEach(doc=>{
-    // Doppelten Eintrag verhindern
-    if(taskFotos.find(f=>f.driveId===doc.id))return;
-    taskFotos.push({
-      driveId:doc.id,
-      name:doc.name||doc.id,
-      mimeType:doc.mimeType||'image/jpeg',
-      caption:''
-    });
-    added++;
+  selected.forEach(el=>{
+    const id=el.dataset.id;
+    if(!taskFotos.find(f=>f.driveId===id)){
+      taskFotos.push({driveId:id,name:el.dataset.name,mimeType:el.dataset.mime||'image/jpeg',caption:''});
+      added++;
+    }
   });
-  if(added>0){
-    scheduleTaskFieldSave();
-    renderFotoListDesktop();
-    showToast('✓ '+added+' Foto(s) aus Drive hinzugefügt','success');
-  } else {
-    showToast('Fotos bereits vorhanden','info');
-  }
+  // Nicht mehr ausgewählte entfernen (nur Drive-Fotos, keine Uploads)
+  const selectedIds=new Set(selected.map(el=>el.dataset.id));
+  const allIds=new Set([...overlay.querySelectorAll('.dfp-item')].map(el=>el.dataset.id));
+  taskFotos=taskFotos.filter(f=>{
+    if(!f.driveId||!allIds.has(f.driveId))return true; // Behalte nicht-Drive-Fotos
+    return selectedIds.has(f.driveId);
+  });
+  overlay.remove();
+  scheduleTaskFieldSave();
+  renderFotoListDesktop();
+  if(added>0){showToast('✓ '+added+' Foto(s) hinzugefügt','success');}
+  else{showToast('Auswahl aktualisiert','info');}
 }
 async function handleFotoUploadToDrive(e){
   const files=[...e.target.files];
@@ -3009,6 +3072,15 @@ async function createPdfFromSelected(){
 let _currentFotoLbIdx=-1;
 let _deskPannellumViewer=null;
 let _deskDrawPointer=null,_deskDrawCtx=null,_deskDrawErasing=false;
+let _deskDrawTool='freihand';
+let _deskDrawSnapshot=null;
+
+function _deskSetTool(tool){
+  _deskDrawTool=tool;
+  _deskDrawErasing=false;
+  document.getElementById('deskEraserBtn')?.classList.remove('on');
+  document.querySelectorAll('.desk-tool-btn').forEach(b=>b.classList.toggle('on',b.dataset.tool===tool));
+}
 async function openFotoDesktop(i){
   const f=taskFotos&&taskFotos[i];if(!f)return;
   _deskClosePannellum();deskDiscardDraw();
@@ -3082,6 +3154,9 @@ function deskStartDraw(){
   canvas.style.width=rect.width+'px';canvas.style.height=rect.height+'px';
   _deskDrawCtx=canvas.getContext('2d');
   _deskDrawErasing=false;
+  _deskDrawTool='freihand';
+  _deskDrawSnapshot=null;
+  document.querySelectorAll('.desk-tool-btn').forEach(b=>b.classList.toggle('on',b.dataset.tool==='freihand'));
   canvas.classList.add('active');
   document.getElementById('deskDrawBar').classList.add('visible');
   canvas.addEventListener('pointerdown',_deskOnDown);
@@ -3089,17 +3164,79 @@ function deskStartDraw(){
   canvas.addEventListener('pointerup',_deskOnUp);
   canvas.addEventListener('pointercancel',_deskOnUp);
 }
-function deskToggleEraser(btn){_deskDrawErasing=!_deskDrawErasing;btn.classList.toggle('on',_deskDrawErasing);}
-function _deskOnDown(e){e.preventDefault();document.getElementById('desktopDrawCanvas').setPointerCapture(e.pointerId);_deskDrawPointer={x:e.offsetX,y:e.offsetY};_deskDrawCtx.beginPath();_deskDrawCtx.moveTo(e.offsetX,e.offsetY);}
+function _deskOnDown(e){
+  e.preventDefault();
+  document.getElementById('desktopDrawCanvas').setPointerCapture(e.pointerId);
+  _deskDrawPointer={x:e.offsetX,y:e.offsetY};
+  if(_deskDrawTool==='freihand'||_deskDrawErasing){
+    _deskDrawCtx.beginPath();_deskDrawCtx.moveTo(e.offsetX,e.offsetY);
+  } else {
+    const c=document.getElementById('desktopDrawCanvas');
+    _deskDrawSnapshot=_deskDrawCtx.getImageData(0,0,c.width,c.height);
+  }
+}
 function _deskOnMove(e){
   if(!_deskDrawPointer)return;e.preventDefault();
   const ctx=_deskDrawCtx;
   const size=parseInt(document.getElementById('deskDrawSize')?.value||4);
-  if(_deskDrawErasing){ctx.globalCompositeOperation='destination-out';ctx.lineWidth=size*3;}
-  else{ctx.globalCompositeOperation='source-over';ctx.strokeStyle=document.getElementById('deskDrawColor')?.value||'#ff0000';ctx.lineWidth=size;}
-  ctx.lineCap='round';ctx.lineJoin='round';ctx.lineTo(e.offsetX,e.offsetY);ctx.stroke();ctx.beginPath();ctx.moveTo(e.offsetX,e.offsetY);
+  const color=document.getElementById('deskDrawColor')?.value||'#ff0000';
+  if(_deskDrawErasing){
+    ctx.globalCompositeOperation='destination-out';ctx.lineWidth=size*3;
+    ctx.lineCap='round';ctx.lineJoin='round';
+    ctx.lineTo(e.offsetX,e.offsetY);ctx.stroke();ctx.beginPath();ctx.moveTo(e.offsetX,e.offsetY);
+    return;
+  }
+  ctx.globalCompositeOperation='source-over';ctx.strokeStyle=color;ctx.lineWidth=size;ctx.lineCap='round';ctx.lineJoin='round';
+  if(_deskDrawTool==='freihand'){
+    ctx.lineTo(e.offsetX,e.offsetY);ctx.stroke();ctx.beginPath();ctx.moveTo(e.offsetX,e.offsetY);
+  } else if(_deskDrawSnapshot){
+    const c=document.getElementById('desktopDrawCanvas');
+    ctx.putImageData(_deskDrawSnapshot,0,0);
+    const x0=_deskDrawPointer.x,y0=_deskDrawPointer.y,x1=e.offsetX,y1=e.offsetY;
+    ctx.beginPath();
+    if(_deskDrawTool==='linie'){ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();}
+    else if(_deskDrawTool==='rechteck'){ctx.strokeRect(x0,y0,x1-x0,y1-y0);}
+    else if(_deskDrawTool==='kreis'){const rx=Math.abs(x1-x0)/2,ry=Math.abs(y1-y0)/2,cx=x0+(x1-x0)/2,cy=y0+(y1-y0)/2;ctx.ellipse(cx,cy,rx,ry,0,0,2*Math.PI);ctx.stroke();}
+    else if(_deskDrawTool==='pfeil'){_deskDrawArrow(ctx,x0,y0,x1,y1,size,color);}
+  }
 }
-function _deskOnUp(){_deskDrawPointer=null;}
+function _deskOnUp(e){
+  if(_deskDrawTool!=='freihand'&&!_deskDrawErasing&&_deskDrawPointer&&e&&_deskDrawSnapshot){
+    const ctx=_deskDrawCtx,c=document.getElementById('desktopDrawCanvas');
+    const size=parseInt(document.getElementById('deskDrawSize')?.value||4);
+    const color=document.getElementById('deskDrawColor')?.value||'#ff0000';
+    ctx.putImageData(_deskDrawSnapshot,0,0);
+    _deskDrawSnapshot=null;
+    ctx.globalCompositeOperation='source-over';ctx.strokeStyle=color;ctx.lineWidth=size;ctx.lineCap='round';ctx.lineJoin='round';
+    const x0=_deskDrawPointer.x,y0=_deskDrawPointer.y,x1=e.offsetX,y1=e.offsetY;
+    ctx.beginPath();
+    if(_deskDrawTool==='linie'){ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();}
+    else if(_deskDrawTool==='rechteck'){ctx.strokeRect(x0,y0,x1-x0,y1-y0);}
+    else if(_deskDrawTool==='kreis'){const rx=Math.abs(x1-x0)/2,ry=Math.abs(y1-y0)/2,cx=x0+(x1-x0)/2,cy=y0+(y1-y0)/2;ctx.ellipse(cx,cy,rx,ry,0,0,2*Math.PI);ctx.stroke();}
+    else if(_deskDrawTool==='pfeil'){_deskDrawArrow(ctx,x0,y0,x1,y1,size,color);}
+  }
+  _deskDrawPointer=null;
+}
+function _deskDrawArrow(ctx,x0,y0,x1,y1,size,color){
+  const headLen=Math.max(16,size*5);
+  const angle=Math.atan2(y1-y0,x1-x0);
+  ctx.strokeStyle=color;ctx.lineWidth=size;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x1,y1);
+  ctx.lineTo(x1-headLen*Math.cos(angle-Math.PI/6),y1-headLen*Math.sin(angle-Math.PI/6));
+  ctx.moveTo(x1,y1);
+  ctx.lineTo(x1-headLen*Math.cos(angle+Math.PI/6),y1-headLen*Math.sin(angle+Math.PI/6));
+  ctx.stroke();
+}
+function deskToggleEraser(btn){
+  _deskDrawErasing=!_deskDrawErasing;
+  btn.classList.toggle('on',_deskDrawErasing);
+  if(_deskDrawErasing){
+    _deskDrawTool='freihand';
+    document.querySelectorAll('.desk-tool-btn').forEach(b=>b.classList.remove('on'));
+  }
+}
 function deskDiscardDraw(){
   _deskDrawPointer=null;_deskDrawErasing=false;
   const c=document.getElementById('desktopDrawCanvas');
@@ -3736,7 +3873,7 @@ function tNasKopieren(){
   });
 }
 // ── TASK MODAL ──
-const TASK_SECTION_IDS=['tObjektSect','tAnsprchSect','tTermineSect','tZeitSect','tVerkSect','tAnhangSect','tNotizenSect'];
+const TASK_SECTION_IDS=['tObjektSect','tAnsprchSect','tTermineSect','tZeitSect','tVerkSect','tFotoSect','tAnhangSect','tNotizenSect'];
 function collapseAllTaskSections(){
   TASK_SECTION_IDS.forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('open');});
 }
