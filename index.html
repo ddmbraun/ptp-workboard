@@ -321,7 +321,7 @@ input,select,textarea{font-family:inherit;}
 .ampel-green{background:var(--green);}
 .ampel-orange{background:var(--orange);}
 .ampel-red{background:var(--red);}
-.task-tag{font-size:10px;padding:1px 6px;border-radius:3px;background:var(--bg);color:var(--text2);}
+.task-tag{font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(108,99,255,0.13);color:var(--accent2);border:1px solid rgba(108,99,255,0.22);font-weight:500;}
 .task-source{font-size:10px;color:var(--text2);font-style:italic;}
 .task-card-icons{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap;}
 .task-icon-badge{font-size:10px;color:var(--text2);background:var(--bg);padding:1px 5px;border-radius:3px;display:flex;align-items:center;gap:3px;}
@@ -2509,7 +2509,14 @@ function removeLink(i){taskLinks.splice(i,1);renderLinksList();}
 // ── FILE ATTACHMENTS ──
 function triggerFileInput(){document.getElementById('fileAttachInput').click();}
 function _getDriveFotoFolderId(){
-  // Foto-Ordner (tGD) zuerst; Projektordner (tGDOrdner) als Fallback
+  // Wie Mobile: direkt aus Task-Objekt lesen (nicht aus DOM-Feldern die abweichen könnten)
+  const taskId=document.getElementById('taskId')?.value;
+  const task=taskId?findTaskById(taskId):null;
+  if(task){
+    return _extractFolderIdFromUrl(task.gdrive||'')
+        || _extractFolderIdFromUrl(task.gdriveOrdner||'');
+  }
+  // Fallback auf DOM-Felder falls Task noch nicht gespeichert
   return _extractFolderIdFromUrl(document.getElementById('tGD')?.value||'')
       || _extractFolderIdFromUrl(document.getElementById('tGDOrdner')?.value||'');
 }
@@ -2523,8 +2530,11 @@ function _tauscheDriveOrdner(){
 function _updateFotoOrdnerHint(){
   const hint=document.getElementById('fotoOrdnerHint');
   if(!hint)return;
-  const urlFoto=(document.getElementById('tGD')?.value||'').trim();
-  const urlProjekt=(document.getElementById('tGDOrdner')?.value||'').trim();
+  // Aus Task-Objekt lesen (identisch mit _getDriveFotoFolderId)
+  const taskId=document.getElementById('taskId')?.value;
+  const task=taskId?findTaskById(taskId):null;
+  const urlFoto=task?(task.gdrive||''):(document.getElementById('tGD')?.value||'').trim();
+  const urlProjekt=task?(task.gdriveOrdner||''):(document.getElementById('tGDOrdner')?.value||'').trim();
   const fidFoto=_extractFolderIdFromUrl(urlFoto);
   const fidProjekt=_extractFolderIdFromUrl(urlProjekt);
   if(fidFoto){
