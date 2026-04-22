@@ -595,9 +595,9 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .col-add-btn:hover{background:var(--accent2);}
 
 /* PROJECT MANAGER */
-.proj-manager{background:var(--bg2);border-radius:12px;padding:24px;width:440px;max-width:90vw;box-shadow:0 20px 60px var(--shadow);}
+.proj-manager{background:var(--bg2);border-radius:12px;padding:24px;width:520px;max-width:95vw;box-shadow:0 20px 60px var(--shadow);}
 .proj-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;max-height:300px;overflow-y:auto;}
-.proj-row{display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:8px;padding:8px 10px;border:1px solid var(--border);transition:border-color .1s,background .1s;}
+.proj-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:var(--bg3);border-radius:8px;padding:8px 10px;border:1px solid var(--border);transition:border-color .1s,background .1s;}
 .proj-row input[type=text]{flex:1;background:var(--bg4);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 9px;font-size:13px;outline:none;}
 .proj-row input[type=text]:focus{border-color:var(--accent);}
 .proj-row.drag-over{border-color:var(--accent);background:var(--bg4);}
@@ -681,6 +681,26 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .card-size-group label{font-size:11px;color:var(--text2);white-space:nowrap;}
 .card-size-group input[type=range]{width:90px;accent-color:var(--accent);}
 .card-size-group .card-size-val{font-size:11px;color:var(--text2);min-width:28px;text-align:right;}
+
+/* ── E-MAIL ORIGINALE ── */
+.email-orig-drop{border:1.5px dashed var(--border);border-radius:8px;padding:9px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;transition:border-color .2s,background .2s;margin-top:6px;}
+.email-orig-drop.dragover{border-color:var(--accent);background:rgba(108,99,255,.07);}
+.email-orig-item{display:flex;align-items:center;gap:7px;padding:6px 9px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);margin-bottom:5px;font-size:12px;}
+.email-orig-item .eo-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);}
+.email-orig-item .eo-date{font-size:10px;color:var(--text2);flex-shrink:0;}
+.email-orig-item a.eo-open{padding:3px 9px;border-radius:5px;border:1px solid var(--accent);background:rgba(108,99,255,.08);color:var(--accent);font-size:11px;font-weight:600;text-decoration:none;flex-shrink:0;}
+.email-orig-item a.eo-open:hover{background:rgba(108,99,255,.18);}
+.email-orig-item .eo-del{padding:2px 7px;font-size:11px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;flex-shrink:0;}
+.email-orig-item .eo-del:hover{border-color:var(--red);color:var(--red);}
+
+/* ── CHECKLISTE ── */
+.checkliste-item{display:flex;align-items:center;gap:6px;margin-bottom:5px;}
+.checkliste-item input[type=checkbox]{width:15px;height:15px;flex-shrink:0;cursor:pointer;accent-color:var(--accent);}
+.checkliste-item input[type=text]{flex:1;padding:4px 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:calc(12px * var(--modal-scale,1));outline:none;}
+.checkliste-item input[type=text]:focus{border-color:var(--accent);}
+.checkliste-item input[type=text].done-text{text-decoration:line-through;opacity:.55;}
+.checkliste-item .ck-del{padding:2px 7px;font-size:11px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;flex-shrink:0;}
+.checkliste-item .ck-del:hover{border-color:var(--red);color:var(--red);}
 
 /* ── TASK-TYP: Notiz-Modus (blendet Baustelle-spezifische Felder aus) ── */
 .ptp-notiz-mode .baustelle-only{display:none!important;}
@@ -916,6 +936,21 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       </div>
     </div>
 
+    <!-- CHECKLISTE -->
+    <div class="form-collapse" id="tChecklisteSect">
+      <div class="form-collapse-header" onclick="toggleFormSection('tChecklisteSect')">
+        <span class="form-collapse-title" id="tChecklisteTitle">✅ Checkliste</span>
+        <span class="form-collapse-arrow">▾</span>
+      </div>
+      <div class="form-collapse-body">
+        <div id="checklisteList"></div>
+        <div style="display:flex;gap:6px;margin-top:4px;">
+          <input type="text" id="newChecklistInput" placeholder="Neue Aufgabe…" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();addChecklistItem();}">
+          <button type="button" class="topbar-btn btn-primary" onclick="addChecklistItem()" style="padding:6px 14px;font-size:14px;line-height:1;">+</button>
+        </div>
+      </div>
+    </div>
+
     <!-- VERKNUEPFUNGEN -->
     <div class="form-collapse" id="tVerkSect">
       <div class="form-collapse-header" onclick="toggleFormSection('tVerkSect')">
@@ -994,6 +1029,29 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
           📎 Datei hier hineinziehen oder klicken
         </div>
         <input type="file" id="fileAttachInput" style="display:none" multiple onchange="handleFileAttach(event)">
+      </div>
+    </div>
+
+    <!-- E-MAIL ORIGINALE -->
+    <div class="form-collapse" id="tEmailOrigSect">
+      <div class="form-collapse-header" onclick="toggleFormSection('tEmailOrigSect')">
+        <span class="form-collapse-title" id="tEmailOrigTitle">📧 E-Mail Originale</span>
+        <span class="form-collapse-arrow">▾</span>
+      </div>
+      <div class="form-collapse-body">
+        <p style="font-size:11px;color:var(--text2);margin:0 0 6px;">Outlook .msg oder .eml ablegen → direkt in Drive → von dort in Outlook öffnen &amp; antworten.</p>
+        <div id="emailOrigList"></div>
+        <div class="email-orig-drop" id="emailOrigDrop"
+          ondragenter="event.preventDefault();this.classList.add('dragover')"
+          ondragover="event.preventDefault();this.classList.add('dragover');event.dataTransfer.dropEffect='copy'"
+          ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('dragover')"
+          ondrop="event.preventDefault();this.classList.remove('dragover');_handleEmailOrigDrop(event.dataTransfer)">
+          <span id="emailOrigDropMsg" style="font-size:12px;color:var(--text2);">📨 .msg / .eml hier hineinziehen</span>
+          <label style="cursor:pointer;padding:5px 12px;border-radius:6px;border:1px solid var(--accent);background:rgba(108,99,255,.08);color:var(--accent);font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0;">
+            📁 Datei wählen
+            <input type="file" id="emailOrigInput" accept=".msg,.eml" style="display:none" onchange="_handleEmailOrigSelect(event)">
+          </label>
+        </div>
       </div>
     </div>
 
@@ -1180,6 +1238,8 @@ let collapsedCols = {};
 let taskAusserhausTermine = [];
 let taskZeitEntries = [];
 let taskNotizVerlauf = [];
+let taskCheckliste = [];
+let taskEmailOriginals = [];
 
 // ── KANBAN COLUMN RESIZE ──
 let resizingCol=null,resizeStartX=0,resizeStartWidth=0,resizingColIdx=-1;
@@ -1291,7 +1351,9 @@ function saveTaskData(){
     ausserhausTermine:taskAusserhausTermine,
     zeitEntries:taskZeitEntries,
     notizVerlauf:taskNotizVerlauf,
-    fotos:taskFotos
+    fotos:taskFotos,
+    checkliste:taskCheckliste,
+    emailOriginals:taskEmailOriginals
   };
   if(id){
     const idx=boards[currentBoard].findIndex(t=>t.id===id);
@@ -4163,6 +4225,116 @@ function tNasKopieren(){
   });
 }
 // ── TASK MODAL ──
+// ── E-MAIL ORIGINALE ──
+function renderEmailOriginals(){
+  const el=document.getElementById('emailOrigList');
+  if(!el)return;
+  const ti=document.getElementById('tEmailOrigTitle');
+  if(ti)ti.innerHTML='📧 E-Mail Originale'+(taskEmailOriginals.length?` <span style="color:var(--accent2);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">(${taskEmailOriginals.length})</span>`:'');
+  if(!taskEmailOriginals.length){el.innerHTML='';return;}
+  el.innerHTML=taskEmailOriginals.map((e,i)=>`
+    <div class="email-orig-item">
+      <span style="font-size:16px;flex-shrink:0;">📨</span>
+      <span class="eo-name" title="${esc(e.name)}">${esc(e.name)}</span>
+      <span class="eo-date">${esc(e.uploadedAt||'')}</span>
+      <a class="eo-open" href="${esc(e.url)}" target="_blank" title="In Google Drive öffnen (dann in Outlook öffnen &amp; antworten)">📂 Drive</a>
+      <button type="button" class="eo-del" onclick="taskEmailOriginals.splice(${i},1);renderEmailOriginals();scheduleTaskFieldSave();" title="Eintrag entfernen (Datei bleibt in Drive)">✕</button>
+    </div>`).join('');
+}
+
+// Generischer Drive-Upload (beliebiger MIME-Typ)
+async function _driveUploadGeneric(buf,fname,mimeType,fid){
+  const b='ptp_orig_'+Date.now();
+  const enc=new TextEncoder();
+  const m=JSON.stringify({name:fname,parents:[fid]});
+  const p1=enc.encode('--'+b+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+m+'\r\n');
+  const p2=enc.encode('--'+b+'\r\nContent-Type: '+mimeType+'\r\n\r\n');
+  const p3=enc.encode('\r\n--'+b+'--');
+  const fb=new Uint8Array(buf);
+  const out=new Uint8Array(p1.length+p2.length+fb.length+p3.length);
+  let o=0;out.set(p1,o);o+=p1.length;out.set(p2,o);o+=p2.length;out.set(fb,o);o+=fb.length;out.set(p3,o);
+  const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name',{
+    method:'POST',
+    headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'multipart/related; boundary='+b},
+    body:out
+  });
+  if(!r.ok)throw new Error('Drive Upload Fehler: HTTP '+r.status);
+  return r.json();
+}
+
+async function _uploadEmailOriginal(file){
+  if(!gdriveToken){showToast('⚠ Bitte zuerst mit Google Drive verbinden.','error');return;}
+  // Zielordner: tEmailOrdner → tGDOrdner → Fehler
+  const folderUrl=(document.getElementById('tEmailOrdner')?.value||document.getElementById('tGDOrdner')?.value||'').trim();
+  const fid=_ezFolderId(folderUrl);
+  if(!fid){showToast('⚠ Bitte zuerst einen Drive-Projektordner in den Verknüpfungen eintragen.','error');return;}
+  const msgEl=document.getElementById('emailOrigDropMsg');
+  if(msgEl)msgEl.textContent='⏳ Lade hoch: '+file.name+'…';
+  try{
+    const buf=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsArrayBuffer(file);});
+    const mimeType=file.name.toLowerCase().endsWith('.eml')?'message/rfc822':'application/octet-stream';
+    const result=await _driveUploadGeneric(buf,file.name,mimeType,fid);
+    taskEmailOriginals.push({name:file.name,fileId:result.id,url:'https://drive.google.com/file/d/'+result.id+'/view',uploadedAt:new Date().toLocaleDateString('de-DE')});
+    renderEmailOriginals();
+    scheduleTaskFieldSave();
+    if(msgEl)msgEl.textContent='✅ Abgelegt: '+file.name;
+    setTimeout(()=>{if(msgEl)msgEl.textContent='📨 .msg / .eml hier hineinziehen';},3500);
+    // Sektion öffnen
+    const sect=document.getElementById('tEmailOrigSect');
+    if(sect&&!sect.classList.contains('open'))sect.classList.add('open');
+  }catch(err){
+    showToast('⚠ Fehler: '+err.message,'error');
+    if(msgEl)msgEl.textContent='📨 .msg / .eml hier hineinziehen';
+  }
+}
+function _handleEmailOrigDrop(dt){
+  const files=[...(dt.files||[])].filter(f=>/\.(msg|eml)$/i.test(f.name));
+  if(!files.length){showToast('Nur .msg oder .eml Dateien','error');return;}
+  files.forEach(f=>_uploadEmailOriginal(f));
+}
+function _handleEmailOrigSelect(evt){
+  const file=evt.target.files&&evt.target.files[0];
+  evt.target.value='';
+  if(file)_uploadEmailOriginal(file);
+}
+
+// ── CHECKLISTE ──
+function renderCheckliste(){
+  const el=document.getElementById('checklisteList');
+  if(!el)return;
+  if(!taskCheckliste.length){el.innerHTML='';_updateChecklisteTitle();return;}
+  el.innerHTML=taskCheckliste.map((item,i)=>`
+    <div class="checkliste-item">
+      <input type="checkbox" ${item.done?'checked':''} onchange="taskCheckliste[${i}].done=this.checked;this.nextElementSibling.classList.toggle('done-text',this.checked);scheduleTaskFieldSave();_updateChecklisteTitle()">
+      <input type="text" value="${esc(item.text)}" placeholder="Aufgabe…" class="${item.done?'done-text':''}" oninput="taskCheckliste[${i}].text=this.value;scheduleTaskFieldSave()">
+      <button type="button" class="ck-del" onclick="removeChecklistItem(${i})">✕</button>
+    </div>`).join('');
+  _updateChecklisteTitle();
+}
+function addChecklistItem(){
+  const inp=document.getElementById('newChecklistInput');
+  const text=inp?inp.value.trim():'';
+  taskCheckliste.push({text,done:false});
+  if(inp)inp.value='';
+  renderCheckliste();
+  scheduleTaskFieldSave();
+  // Sektion öffnen falls noch geschlossen
+  const sect=document.getElementById('tChecklisteSect');
+  if(sect&&!sect.classList.contains('open'))sect.classList.add('open');
+}
+function removeChecklistItem(i){
+  taskCheckliste.splice(i,1);
+  renderCheckliste();
+  scheduleTaskFieldSave();
+}
+function _updateChecklisteTitle(){
+  const el=document.getElementById('tChecklisteTitle');
+  if(!el)return;
+  const done=taskCheckliste.filter(x=>x.done).length;
+  const total=taskCheckliste.length;
+  el.innerHTML=total?`✅ Checkliste <span style="color:var(--accent2);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">(${done}/${total})</span>`:'✅ Checkliste';
+}
+
 // ── BOARD-TYP: blendet Baustelle-spezifische Felder ein/aus ──
 function _applyBoardType(boardName){
   const type=(boardTypes[boardName||currentBoard]||'baustelle');
@@ -4186,7 +4358,7 @@ function _applyBoardType(boardName){
   }
 }
 
-const TASK_SECTION_IDS=['tStammSect','tObjektSect','tAnsprchSect','tTermineSect','tZeitSect','tVerkSect','tFotoSect','tAnhangSect','tNotizenSect'];
+const TASK_SECTION_IDS=['tStammSect','tObjektSect','tAnsprchSect','tTermineSect','tZeitSect','tChecklisteSect','tVerkSect','tFotoSect','tAnhangSect','tEmailOrigSect','tNotizenSect'];
 function collapseAllTaskSections(){
   TASK_SECTION_IDS.forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('open');});
 }
@@ -4232,11 +4404,12 @@ function openNewTaskModal(){
   updateKontaktePTPTitle();
   document.getElementById('deleteTaskBtn').style.display='none';
   document.getElementById('abschlussBtn').style.display='none';
-  taskLinks=[];taskAttachments=[];taskAusserhausTermine=[];taskZeitEntries=[];taskNotizVerlauf=[];taskFotos=[];
+  taskLinks=[];taskAttachments=[];taskAusserhausTermine=[];taskZeitEntries=[];taskNotizVerlauf=[];taskFotos=[];taskCheckliste=[];taskEmailOriginals=[];
   _attachImgsOpen=false;
   renderLinksList();renderAttachList();renderFotoListDesktop();
-  renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();
+  renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();renderCheckliste();renderEmailOriginals();
   const _ni=document.getElementById('newTaskNotizInput');if(_ni)_ni.value='';
+  const _ci=document.getElementById('newChecklistInput');if(_ci)_ci.value='';
   _applyBoardType(currentBoard);
   openModal();
   setTimeout(()=>document.getElementById('taskTitleInput').focus(),100);
@@ -4290,10 +4463,13 @@ function openEditTaskModal(id){
   taskZeitEntries=JSON.parse(JSON.stringify(task.zeitEntries||[]));
   taskNotizVerlauf=JSON.parse(JSON.stringify(task.notizVerlauf||[]));
   taskFotos=JSON.parse(JSON.stringify(task.fotos||[]));
+  taskCheckliste=JSON.parse(JSON.stringify(task.checkliste||[]));
+  taskEmailOriginals=JSON.parse(JSON.stringify(task.emailOriginals||[]));
   _attachImgsOpen=false;
   renderLinksList();renderAttachList();renderFotoListDesktop();
-  renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();
+  renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();renderCheckliste();renderEmailOriginals();
   const _ni=document.getElementById('newTaskNotizInput');if(_ni)_ni.value='';
+  const _ci=document.getElementById('newChecklistInput');if(_ci)_ci.value='';
   // Beim Bearbeiten: Board des Tasks finden, um richtigen Typ zu ermitteln
   let _taskBoard=currentBoard;
   for(const bk of Object.keys(boards)){if((boards[bk]||[]).some(t=>t.id===task.id)){_taskBoard=bk;break;}}
