@@ -2533,12 +2533,12 @@ function renderAttachList(){
   const el=document.getElementById('attachList');
   if(!taskAttachments.length){el.innerHTML='';return;}
   const imgItems=taskAttachments.map((a,i)=>({a,i})).filter(({a})=>a.type&&a.type.startsWith('image/'));
-  const otherItems=taskAttachments.map((a,i)=>({a,i})).filter(({a})=>!a.type||!a.type.startsWith('image/'));
-  // Dateiliste (alle Anhänge als Zeilen)
-  const fileRows=taskAttachments.map((a,i)=>{
-    const isImg=a.type&&a.type.startsWith('image/');
+  const nonImgItems=taskAttachments.map((a,i)=>({a,i})).filter(({a})=>!a.type||!a.type.startsWith('image/'));
+  // Dateiliste: NUR Nicht-Bild-Dateien (Bilder erscheinen nur in Foto-Vorschau)
+  const fileRows=nonImgItems.map(({a,i})=>{
     const isPdf=a.type==='application/pdf';
-    const canPreview=isImg||isPdf;
+    const isTxt=a.type==='text/plain'||a.name.endsWith('.txt');
+    const canPreview=isPdf||isTxt;
     return`<div class="attach-row">
       <span class="attach-icon">${attachIcon(a.type)}</span>
       <div class="attach-info"><div class="attach-name" title="${esc(a.name)}">${esc(a.name)}</div><div class="attach-size">${formatBytes(a.size)}</div></div>
@@ -2547,18 +2547,24 @@ function renderAttachList(){
       <button class="attach-remove" onclick="removeAttach(${i})">✕</button>
     </div>`;
   }).join('');
-  // Ausklappbarer Fotobereich
+  // Ausklappbarer Fotobereich (alle Bilder, inkl. 360°)
   let imgSection='';
   if(imgItems.length){
-    const thumbs=imgItems.map(({a,i})=>
-      `<div class="attach-img-cell" onclick="openPreview(${i})">
-        <img class="attach-thumb" src="${a.data}" alt="${esc(a.name)}" loading="lazy">
+    const thumbs=imgItems.map(({a,i})=>{
+      // 360°-Erkennung anhand Dateiname oder gespeicherter Ratio
+      const is360=a.is360||/360|panorama|pano/i.test(a.name);
+      const badge=is360?'<div style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,.7);color:#fff;font-size:9px;padding:2px 5px;border-radius:4px;pointer-events:none">360°</div>':'';
+      return`<div class="attach-img-cell" onclick="openPreview(${i})">
+        <img class="attach-thumb" src="${a.data}" alt="${esc(a.name)}" loading="lazy"
+          onload="_markIf360(this,${i})">
+        ${badge}
         <div class="attach-img-overlay">
           <button onclick="event.stopPropagation();openPreview(${i})" title="Vollbild">🔍</button>
           <button onclick="event.stopPropagation();removeAttach(${i})" title="Entfernen">✕</button>
         </div>
         <div class="attach-img-label">${esc(a.name)}</div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
     imgSection=`<div class="attach-imgs-toggle${_attachImgsOpen?' open':''}" onclick="toggleAttachImgs()">
       <span>🖼️ Foto-Vorschau (${imgItems.length} Bild${imgItems.length===1?'':'er'})</span>
       <span style="flex:1"></span>
@@ -2567,6 +2573,21 @@ function renderAttachList(){
     <div class="attach-imgs-body${_attachImgsOpen?' open':''}">${thumbs}</div>`;
   }
   el.innerHTML=fileRows+imgSection;
+}
+function _markIf360(imgEl,i){
+  // Ratio ≥ 1.8 → 360°-Badge nachträglich setzen + merken
+  if(!imgEl||!imgEl.naturalWidth)return;
+  if((imgEl.naturalWidth/imgEl.naturalHeight)>=1.8){
+    if(taskAttachments[i])taskAttachments[i].is360=true;
+    const cell=imgEl.closest('.attach-img-cell');
+    if(cell&&!cell.querySelector('.badge-360')){
+      const b=document.createElement('div');
+      b.className='badge-360';
+      b.style.cssText='position:absolute;top:4px;left:4px;background:rgba(0,0,0,.7);color:#fff;font-size:9px;padding:2px 5px;border-radius:4px;pointer-events:none';
+      b.textContent='360°';
+      cell.appendChild(b);
+    }
+  }
 }
 function attachIcon(type){
   if(!type)return'📄';
@@ -3388,6 +3409,12 @@ function openPreview(i){
     cnt.innerHTML='<img src="'+a.data+'" alt="'+esc(a.name)+'" id="deskLbImg" onload="_check360Local(this)">';
   } else if(a.type==='application/pdf'){
     cnt.innerHTML='<iframe src="'+a.data+'" title="'+esc(a.name)+'"></iframe>';
+  } else if(a.type==='text/plain'||a.name.toLowerCase().endsWith('.txt')){
+    try{
+      const b64=a.data.split(',')[1]||'';
+      const text=decodeURIComponent(escape(atob(b64)));
+      cnt.innerHTML='<div style="color:#e0e0e0;background:rgba(0,0,0,.6);border-radius:8px;padding:20px;max-width:80vw;max-height:70vh;overflow:auto;text-align:left;font-family:monospace;font-size:13px;white-space:pre-wrap;line-height:1.6;">'+esc(text)+'</div>';
+    }catch(e){cnt.innerHTML='<div style="color:#fff;padding:30px">Text konnte nicht geladen werden</div>';}
   } else {
     cnt.innerHTML='<div style="color:#fff;padding:30px;font-size:14px;">'+esc(a.name)+'<br><span style="opacity:.6;font-size:12px;">Keine Vorschau für diesen Dateityp</span></div>';
   }
