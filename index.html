@@ -1339,16 +1339,21 @@ function gdriveCreateNew() {
 
 function gdriveConnectFromBar() {
   if (gdriveFileId) {
-    // Already connected – show info
-    alert('Verbunden mit Google Drive\nDatei: ' + gdriveFileName + '\nDaten werden automatisch gespeichert.');
+    // Bereits verbunden – Option anbieten andere Datei zu laden
+    const choice = confirm('☁️ Verbunden mit: ' + gdriveFileName + '\n\nOK = Andere workboard.json laden (z.B. ältere Datei mit deinen Daten)\nAbbrechen = Nichts tun');
+    if (choice) {
+      gdriveFileId = null; // trennen damit gdrivePickAndLoad neu sucht
+      if (!gdriveToken) { gdriveRequestToken('load'); return; }
+      gdrivePickAndLoad();
+    }
     return;
   }
-  // Show mini choice
+  // Noch nicht verbunden
   const choice = confirm('Google Drive verbinden:\n\nOK = Vorhandene workboard.json laden\nAbbrechen = Neue Datei in Drive erstellen (aktuelle Daten bleiben erhalten)');
   if (choice) { gdriveOpenExisting(); }
   else {
     if (!gdriveToken) { gdriveRequestToken('new'); return; }
-    gdriveCreateFile(true); // aktuelle Boards behalten
+    gdriveCreateFile(true);
   }
 }
 
@@ -2870,7 +2875,14 @@ async function openFotoDesktop(i){
   if(f.driveId){
     const url=await _fetchDesktopFotoBlob(f.driveId);
     if(url){
-      // 360°-Erkennung
+      // .insp und bekannte 360°-Namen sofort als Panorama öffnen
+      const force360=/\.insp$/i.test(f.name)||/360|panorama|pano/i.test(f.name);
+      if(force360){
+        cnt.innerHTML='';cnt.style.display='none';
+        _deskInitPannellum(url);
+        return;
+      }
+      // Sonstige Bilder: 360°-Erkennung per Aspect-Ratio
       const testImg=new Image();
       testImg.onload=()=>{
         if(testImg.naturalWidth&&testImg.naturalHeight&&(testImg.naturalWidth/testImg.naturalHeight)>=1.8){
@@ -2881,7 +2893,7 @@ async function openFotoDesktop(i){
           cnt.innerHTML='<img src="'+esc(url)+'" alt="" id="deskLbImg">';
         }
       };
-      testImg.onerror=()=>{cnt.innerHTML='<img src="'+esc(url)+'" alt="" id="deskLbImg">';};
+      testImg.onerror=()=>{cnt.style.display='';cnt.innerHTML='<img src="'+esc(url)+'" alt="" id="deskLbImg">';};
       testImg.src=url;return;
     }
   }
@@ -3432,8 +3444,15 @@ function openPreview(i){
   _currentFotoLbIdx=-1;
   cnt.style.display='';
   if(a.type&&a.type.startsWith('image/')){
-    // Bild sofort anzeigen; 360°-Check per onload
-    cnt.innerHTML='<img src="'+a.data+'" alt="'+esc(a.name)+'" id="deskLbImg" onload="_check360Local(this)">';
+    // .insp (Insta360) und andere bekannte 360°-Formate sofort als Panorama öffnen
+    const force360=/\.insp$/i.test(a.name)||a.is360||/360|panorama|pano/i.test(a.name);
+    if(force360){
+      cnt.style.display='none';
+      _deskInitPannellum(a.data);
+    } else {
+      // Normales Bild sofort anzeigen; 360°-Check per onload (Aspect-Ratio)
+      cnt.innerHTML='<img src="'+a.data+'" alt="'+esc(a.name)+'" id="deskLbImg" onload="_check360Local(this)">';
+    }
   } else if(a.type==='application/pdf'){
     cnt.innerHTML='<iframe src="'+a.data+'" title="'+esc(a.name)+'"></iframe>';
   } else if(a.type==='text/plain'||a.name.toLowerCase().endsWith('.txt')){
