@@ -2636,6 +2636,12 @@ function openDrivePicker(){
   // Fallback: Ordner-Lader nutzen falls Picker nicht verfügbar
   loadFotosFromDriveFolder();
 }
+// ── Foto-Ordner-Picker mit Unterordner-Navigation ──
+let _dfpHistory=[];       // [{id,name}]
+let _dfpCurrentId='';
+let _dfpCurrentName='';
+let _dfpSelected=new Map(); // driveId → {id,name,mime}
+
 async function loadFotosFromDriveFolder(){
   if(!gdriveToken){showToast('Bitte zuerst mit Google Drive verbinden (oben rechts)','error');return;}
   const folderId=_getDriveFotoFolderId();
@@ -2645,62 +2651,119 @@ async function loadFotosFromDriveFolder(){
     showToast('⚠ Bitte unter "Verknüpfungen" den Foto-Ordner-Link eintragen!','error',5000);
     return;
   }
-  showToast('⏳ Lade Fotos aus Drive-Ordner…','info',8000);
+  // Bereits hinzugefügte Fotos vormerken
+  _dfpSelected=new Map();
+  (taskFotos||[]).forEach(f=>{if(f.driveId)_dfpSelected.set(f.driveId,{id:f.driveId,name:f.name||'',mime:f.mimeType||'image/jpeg'});});
+  _dfpHistory=[];
+  _dfpOpenOverlay();
+  await _dfpLoadFolder(folderId,'Foto-Ordner');
+}
+
+function _dfpOpenOverlay(){
+  let ov=document.getElementById('driveFolderPickerOverlay');
+  if(ov)ov.remove();
+  ov=document.createElement('div');
+  ov.id='driveFolderPickerOverlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:4000;display:flex;align-items:center;justify-content:center;';
+  ov.innerHTML=`
+    <div style="background:var(--bg2);border-radius:14px;width:min(680px,94vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden;">
+      <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0;">
+        <button id="dfpBackBtn" onclick="_dfpBack()" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:12px;cursor:pointer;">← Zurück</button>
+        <span id="dfpPath" style="flex:1;font-size:12px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+        <span id="dfpSelCount" style="font-size:12px;color:var(--accent);font-weight:600;flex-shrink:0;"></span>
+        <button onclick="document.getElementById('driveFolderPickerOverlay').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2);padding:0 4px;flex-shrink:0;">✕</button>
+      </div>
+      <div id="dfpContent" style="overflow-y:auto;flex:1;padding:12px;"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid var(--border);flex-shrink:0;">
+        <button onclick="document.getElementById('driveFolderPickerOverlay').remove()" style="padding:8px 16px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;font-size:13px;">Abbrechen</button>
+        <button onclick="_dfpConfirm()" style="padding:8px 18px;border-radius:6px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:13px;font-weight:600;">✓ Auswahl übernehmen</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+}
+
+async function _dfpLoadFolder(folderId,folderName){
+  _dfpCurrentId=folderId;
+  _dfpCurrentName=folderName;
+  // Pfad aktualisieren
+  const pathEl=document.getElementById('dfpPath');
+  const backBtn=document.getElementById('dfpBackBtn');
+  if(pathEl){
+    const crumbs=_dfpHistory.map(h=>h.name).concat(folderName);
+    pathEl.textContent=crumbs.join(' › ');
+  }
+  if(backBtn)backBtn.style.display=_dfpHistory.length?'':'none';
+  const content=document.getElementById('dfpContent');
+  if(!content)return;
+  content.innerHTML='<div style="padding:20px;text-align:center;color:var(--text2);">⏳ Lade…</div>';
   try{
-    const url='https://www.googleapis.com/drive/v3/files'
-      +'?q='+encodeURIComponent("'"+folderId+"' in parents and (mimeType contains 'image/') and trashed=false")
-      +'&fields='+encodeURIComponent('files(id,name,mimeType,thumbnailLink,createdTime)')
-      +'&orderBy=createdTime+desc&pageSize=100';
-    const r=await fetch(url,{headers:{Authorization:'Bearer '+gdriveToken}});
-    if(!r.ok){
-      const txt=await r.text().catch(()=>'');
-      if(r.status===403||r.status===401){
-        showToast('⚠ Keine Berechtigung. Bitte Drive neu verbinden (Seite neu laden, dann ☁️ klicken).','error',7000);
-      } else {
-        showToast('Fehler beim Laden ('+r.status+')','error');
-      }
+    // Unterordner laden
+    const qFolder=`'${folderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+    const rFolder=await fetch(
+      'https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(qFolder)+'&fields=files(id,name)&orderBy=name&pageSize=100',
+      {headers:{Authorization:'Bearer '+gdriveToken}});
+    const dFolder=rFolder.ok?await rFolder.json():{files:[]};
+    const folders=dFolder.files||[];
+    // Bilder laden
+    const qImg=`'${folderId}' in parents and mimeType contains 'image/' and trashed=false`;
+    const rImg=await fetch(
+      'https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(qImg)+'&fields=files(id,name,mimeType,thumbnailLink)&orderBy=name&pageSize=200',
+      {headers:{Authorization:'Bearer '+gdriveToken}});
+    if(!rImg.ok){
+      if(rImg.status===401||rImg.status===403)showToast('⚠ Keine Berechtigung – Drive neu verbinden','error',6000);
+      else showToast('Fehler beim Laden ('+rImg.status+')','error');
+      content.innerHTML='<div style="padding:20px;text-align:center;color:#c00;">Fehler beim Laden</div>';
       return;
     }
-    const data=await r.json();
-    const files=data.files||[];
-    if(!files.length){showToast('Keine Fotos im Ordner gefunden','info');return;}
-    _showDriveFolderPicker(files);
+    const dImg=await rImg.json();
+    const images=dImg.files||[];
+    if(!folders.length&&!images.length){
+      content.innerHTML='<div style="padding:20px;text-align:center;color:var(--text2);">Keine Inhalte in diesem Ordner</div>';
+      return;
+    }
+    let html='';
+    // Unterordner anzeigen
+    if(folders.length){
+      html+='<div style="font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--text2);margin-bottom:6px;font-weight:600;">📁 Unterordner</div>';
+      html+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">';
+      folders.forEach(f=>{
+        html+=`<button onclick="_dfpEnter('${esc(f.id)}','${esc(f.name).replace(/'/g,'\\x27')}')" style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text);cursor:pointer;font-size:13px;">📁 ${esc(f.name)} <span style="color:var(--accent);font-size:11px;">▶</span></button>`;
+      });
+      html+='</div>';
+    }
+    // Bilder anzeigen
+    if(images.length){
+      html+='<div style="font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--text2);margin-bottom:6px;font-weight:600;">🖼 Fotos ('+images.length+')</div>';
+      html+='<div style="display:flex;flex-wrap:wrap;gap:8px;">';
+      images.forEach(f=>{
+        const thumb=f.thumbnailLink?f.thumbnailLink.replace(/=s\d+$/,'=s160'):'';
+        const sel=_dfpSelected.has(f.id);
+        const border=sel?'border:2.5px solid var(--accent);':'border:2.5px solid transparent;';
+        const chk=sel?'display:flex;':'display:none;';
+        html+=`<div class="dfp-item" data-id="${esc(f.id)}" data-name="${esc(f.name)}" data-mime="${esc(f.mimeType||'image/jpeg')}" data-selected="${sel?'1':'0'}" onclick="_dfpToggle(this)" style="position:relative;width:110px;height:110px;border-radius:8px;overflow:hidden;cursor:pointer;${border}background:var(--bg3);flex-shrink:0;">`
+          +(thumb?`<img src="${esc(thumb)}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">`
+                 :`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:28px;">🖼️</div>`)
+          +`<div style="position:absolute;bottom:0;left:0;right:0;font-size:9px;padding:2px 4px;background:rgba(0,0,0,.6);color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(f.name)}</div>`
+          +`<div class="dfp-check" style="${chk}position:absolute;top:4px;right:4px;background:var(--accent);color:#fff;border-radius:50%;width:20px;height:20px;align-items:center;justify-content:center;font-size:12px;font-weight:700;">✓</div>`
+          +`</div>`;
+      });
+      html+='</div>';
+    }
+    content.innerHTML=html;
+    _dfpUpdateCount();
   }catch(e){
-    console.warn('[PTP]',e);
-    showToast('Fehler: '+e.message,'error');
+    console.warn('[PTP] dfpLoad:',e);
+    if(content)content.innerHTML='<div style="padding:20px;text-align:center;color:#c00;">Fehler: '+esc(e.message)+'</div>';
   }
 }
-function _showDriveFolderPicker(files){
-  let overlay=document.getElementById('driveFolderPickerOverlay');
-  if(overlay)overlay.remove();
-  overlay=document.createElement('div');
-  overlay.id='driveFolderPickerOverlay';
-  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:4000;display:flex;align-items:center;justify-content:center;';
-  document.body.appendChild(overlay);
-  const grid=files.map(f=>{
-    const thumb=f.thumbnailLink?f.thumbnailLink.replace(/=s\d+$/,'=s160'):'';
-    const already=taskFotos&&taskFotos.find(t=>t.driveId===f.id)?'1':'0';
-    const borderStyle=already==='1'?'border:2.5px solid var(--accent);':'border:2.5px solid transparent;';
-    const checkStyle=already==='1'?'display:flex;':'display:none;';
-    return '<div class="dfp-item" data-id="'+esc(f.id)+'" data-name="'+esc(f.name)+'" data-mime="'+esc(f.mimeType||'image/jpeg')+'" data-selected="'+already+'" onclick="_dfpToggle(this)" style="position:relative;width:110px;height:110px;border-radius:8px;overflow:hidden;cursor:pointer;'+borderStyle+'background:var(--bg3);flex-shrink:0;">'
-      +(thumb?'<img src="'+esc(thumb)+'" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display=\'none\'">'
-             :'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:28px;">🖼️</div>')
-      +'<div style="position:absolute;bottom:0;left:0;right:0;font-size:9px;padding:2px 4px;background:rgba(0,0,0,.6);color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(f.name)+'</div>'
-      +'<div class="dfp-check" style="'+checkStyle+'position:absolute;top:4px;right:4px;background:var(--accent);color:#fff;border-radius:50%;width:20px;height:20px;align-items:center;justify-content:center;font-size:12px;font-weight:700;">✓</div>'
-      +'</div>';
-  }).join('');
-  overlay.innerHTML='<div style="background:var(--bg2);border-radius:14px;padding:20px;max-width:92vw;max-height:88vh;display:flex;flex-direction:column;gap:12px;min-width:360px;">'
-    +'<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">'
-    +'<b style="font-size:15px;">📷 Fotos aus Drive-Ordner auswählen</b>'
-    +'<button onclick="document.getElementById(\'driveFolderPickerOverlay\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2);padding:0 4px;">✕</button>'
-    +'</div>'
-    +'<div style="font-size:11px;color:var(--text2);">Klicke auf Fotos um sie auszuwählen (✓ = bereits hinzugefügt)</div>'
-    +'<div style="overflow-y:auto;display:flex;flex-wrap:wrap;gap:8px;padding:4px;max-height:60vh;">'+grid+'</div>'
-    +'<div style="display:flex;justify-content:flex-end;gap:8px;padding-top:4px;border-top:1px solid var(--border);">'
-    +'<button onclick="document.getElementById(\'driveFolderPickerOverlay\').remove()" style="padding:8px 16px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;font-size:13px;">Abbrechen</button>'
-    +'<button onclick="_dfpConfirm()" style="padding:8px 18px;border-radius:6px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:13px;font-weight:600;">✓ Auswahl übernehmen</button>'
-    +'</div>'
-    +'</div>';
+function _dfpEnter(id,name){
+  _dfpHistory.push({id:_dfpCurrentId,name:_dfpCurrentName});
+  _dfpLoadFolder(id,name);
+}
+function _dfpBack(){
+  if(!_dfpHistory.length)return;
+  const prev=_dfpHistory.pop();
+  _dfpLoadFolder(prev.id,prev.name);
 }
 function _dfpToggle(el){
   const sel=el.dataset.selected==='1';
@@ -2708,33 +2771,36 @@ function _dfpToggle(el){
   el.style.border=sel?'2.5px solid transparent':'2.5px solid var(--accent)';
   const chk=el.querySelector('.dfp-check');
   if(chk)chk.style.display=sel?'none':'flex';
+  const id=el.dataset.id;
+  if(sel){_dfpSelected.delete(id);}
+  else{_dfpSelected.set(id,{id,name:el.dataset.name,mime:el.dataset.mime||'image/jpeg'});}
+  _dfpUpdateCount();
+}
+function _dfpUpdateCount(){
+  const el=document.getElementById('dfpSelCount');
+  if(el)el.textContent=_dfpSelected.size?_dfpSelected.size+' ausgewählt':'';
 }
 function _dfpConfirm(){
   const overlay=document.getElementById('driveFolderPickerOverlay');
   if(!overlay)return;
-  const selected=[...overlay.querySelectorAll('.dfp-item[data-selected="1"]')];
   if(!taskFotos)taskFotos=[];
   let added=0;
-  selected.forEach(el=>{
-    const id=el.dataset.id;
+  _dfpSelected.forEach(({id,name,mime})=>{
     if(!taskFotos.find(f=>f.driveId===id)){
-      taskFotos.push({driveId:id,name:el.dataset.name,mimeType:el.dataset.mime||'image/jpeg',caption:''});
+      taskFotos.push({driveId:id,name,mimeType:mime,caption:''});
       added++;
     }
   });
-  // Nicht mehr ausgewählte entfernen (nur Drive-Fotos, keine Uploads)
-  const selectedIds=new Set(selected.map(el=>el.dataset.id));
-  const allIds=new Set([...overlay.querySelectorAll('.dfp-item')].map(el=>el.dataset.id));
-  taskFotos=taskFotos.filter(f=>{
-    if(!f.driveId||!allIds.has(f.driveId))return true; // Behalte nicht-Drive-Fotos
-    return selectedIds.has(f.driveId);
-  });
+  // Nicht mehr ausgewählte Drive-Fotos entfernen
+  taskFotos=taskFotos.filter(f=>!f.driveId||_dfpSelected.has(f.driveId));
   overlay.remove();
   scheduleTaskFieldSave();
   renderFotoListDesktop();
   if(added>0){showToast('✓ '+added+' Foto(s) hinzugefügt','success');}
   else{showToast('Auswahl aktualisiert','info');}
 }
+// Legacy – wird nicht mehr direkt aufgerufen, schadet aber nicht
+function _showDriveFolderPicker(files){loadFotosFromDriveFolder();}
 async function handleFotoUploadToDrive(e){
   const files=[...e.target.files];
   e.target.value='';
