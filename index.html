@@ -553,7 +553,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .foto-gallery-header h3{flex:1;color:#fff;font-size:16px;margin:0;}
 .foto-gallery-header button{padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;}
 .foto-gallery-body{flex:1;overflow-y:auto;padding:16px;}
-.foto-gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;}
+.foto-gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--gal-thumb-size,300px),1fr));gap:14px;}
 .foto-gallery-thumb{position:relative;aspect-ratio:1;background:#1a1a2e;border:2px solid transparent;border-radius:10px;overflow:hidden;cursor:pointer;transition:border-color .15s,transform .12s;}
 .foto-gallery-thumb:hover{transform:scale(1.02);}
 .foto-gallery-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
@@ -922,7 +922,10 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <div class="form-collapse" id="tFotoSect">
       <div class="form-collapse-header" onclick="toggleFormSection('tFotoSect')">
         <span class="form-collapse-title">📷 Fotos (Drive)</span>
-        <span class="form-collapse-arrow">▾</span>
+        <span style="display:flex;align-items:center;gap:6px;">
+          <button onclick="event.stopPropagation();openFotoGallery()" title="Alle Fotos groß anzeigen" style="padding:3px 10px;border-radius:6px;border:1px solid var(--accent);background:rgba(108,99,255,0.1);color:var(--accent);font-size:11px;cursor:pointer;font-weight:600;">⛶ Große Ansicht</button>
+          <span class="form-collapse-arrow">▾</span>
+        </span>
       </div>
       <div class="form-collapse-body">
         <div id="fotoListDesktop" style="min-height:60px;"></div>
@@ -1066,6 +1069,12 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 <div class="foto-gallery-overlay" id="fotoGalleryOverlay">
   <div class="foto-gallery-header">
     <h3>📷 Foto-Galerie</h3>
+    <label style="display:flex;align-items:center;gap:8px;color:#ccc;font-size:12px;margin-right:6px;">
+      <span>🔍</span>
+      <input type="range" min="180" max="500" value="300" step="20"
+        style="width:110px;accent-color:var(--accent);"
+        oninput="document.getElementById('fotoGalleryGrid').style.setProperty('--gal-thumb-size',this.value+'px');document.querySelector('.foto-gallery-grid').style.gridTemplateColumns='repeat(auto-fill,minmax('+this.value+'px,1fr))'">
+    </label>
     <button id="galPdfBtn" style="background:var(--accent);color:#fff;display:none" onclick="createPdfFromSelected()">📄 PDF erstellen</button>
     <button style="background:rgba(255,255,255,.1);color:#fff" onclick="closeFotoGallery()">✕ Schließen</button>
   </div>
@@ -3000,14 +3009,16 @@ function closeFotoGallery(){
 function _renderGalleryGrid(grid){
   if(!grid)return;
   const items=(taskFotos||[]).map((f,i)=>{
-    const id=f.driveId||'';
+    const id=(f.editedDriveId||f.driveId)||'';
     const cached=id?_desktopFotoBlobCache.get(id):null;
     const safeId=String(id).replace(/[^A-Za-z0-9_\-]/g,'');
     const srcAttr=cached?'src="'+esc(cached)+'" ':(safeId?'data-foto-id-gal="'+safeId+'" ':'');
     const sel=_fotoSelected.has(i);
+    const editedBadge=f.editedDriveId?'<span style="position:absolute;top:7px;right:7px;background:var(--accent);color:#fff;font-size:9px;padding:2px 5px;border-radius:4px;font-weight:700;">✏ bearb.</span>':'';
     return '<div class="foto-gallery-thumb'+(sel?' selected':'')+'" onclick="_galThumbClick('+i+',this)">'
       +'<div class="gal-check">'+(sel?'✓':'')+'</div>'
       +'<img '+srcAttr+'alt="" loading="lazy" onerror="this.style.display=\'none\'" id="galImg'+i+'">'
+      +editedBadge
       +'<div class="gal-name">'+esc(f.caption||f.name||'Foto')+'</div>'
       +'</div>';
   }).join('');
