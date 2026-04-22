@@ -2283,6 +2283,15 @@ function renderTermineGesamt(){
 }
 
 // ── ZEITERFASSUNG (manuell) ──
+function _gcalUrl(z){
+  const d=(z.date||'').replace(/-/g,'');
+  if(!d||!z.von||!z.bis)return null;
+  function toT(hhmm){const[h,m]=(hhmm+':00').split(':');return d+'T'+(h||'00').padStart(2,'0')+(m||'00').padStart(2,'0')+'00';}
+  const task=tasks.find(t=>t.id===openId)||{};
+  const title=encodeURIComponent(z.beschreibung||task.titel||task.title||'Zeiteintrag');
+  const details=encodeURIComponent(((task.titel||task.title)?((task.titel||task.title)+'\n'):'')+(z.beschreibung||''));
+  return 'https://calendar.google.com/calendar/r/eventedit?text='+title+'&dates='+toT(z.von)+'/'+toT(z.bis)+'&details='+details;
+}
 function addZeitEntry(date='',von='',bis='',beschreibung=''){
   taskZeitEntries.push({date,von,bis,beschreibung});
   renderZeiterfassung();
@@ -2327,15 +2336,19 @@ function renderZeiterfassung(){
   if(!taskZeitEntries.length){
     html+='<div class="no-items-hint">Noch keine Eintr\u00e4ge — oben hinzufügen</div>';
   }else{
-    html+=taskZeitEntries.map((e,i)=>`
+    html+=taskZeitEntries.map((e,i)=>{
+      const gcUrl=_gcalUrl(e);
+      const calBtn=gcUrl?`<button class="termin-row-btn" title="In Google Kalender eintragen" onclick="window.open('${gcUrl}','_blank')" style="background:#1a73e8;color:#fff;border:none;border-radius:5px;padding:0 8px;cursor:pointer;font-size:14px;">📅</button>`:'<span></span>';
+      return `
     <div class="termin-row">
       <input type="date" value="${e.date||''}" oninput="syncZeitEntry(${i},'date',this.value)">
       <input type="time" value="${e.von||''}" oninput="syncZeitEntry(${i},'von',this.value)">
       <input type="time" value="${e.bis||''}" oninput="syncZeitEntry(${i},'bis',this.value)">
       <input type="text" value="${esc(e.beschreibung||'')}" placeholder="Beschreibung" oninput="syncZeitEntry(${i},'beschreibung',this.value)">
-      <span></span>
+      ${calBtn}
       <button class="termin-row-btn del" onclick="removeZeitEntry(${i})">✕</button>
-    </div>`).join('');
+    </div>`;
+    }).join('');
   }
   if(bauZeiten.length){
     html+=`<div class="bau-sync-divider">📡 Von Bau Doku (${bauZeiten.length})</div>`;
