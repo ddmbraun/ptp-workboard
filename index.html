@@ -892,7 +892,7 @@ input,select,textarea{font-family:inherit;}
           <div class="modal-field full">
             <label>📷 Google Drive – Foto-Ordner <span style="font-size:10px;color:var(--accent);font-weight:600;">(wird vom 📷 Drive-Foto Button genutzt)</span></label>
             <div class="link-row-2">
-              <input type="url" id="tGD" placeholder="https://drive.google.com/drive/folders/…  ← Fotos-Unterordner">
+              <input type="url" id="tGD" placeholder="https://drive.google.com/drive/folders/…  ← Fotos-Unterordner" oninput="_updateFotoOrdnerHint()">
               <button class="link-btn-2" onclick="tDriveOeffnen()" title="Ordner öffnen">📁</button>
             </div>
           </div>
@@ -934,6 +934,7 @@ input,select,textarea{font-family:inherit;}
           </div>
           <button onclick="triggerFotoUploadToDrive()" title="Foto zu Google Drive hochladen (erscheint in Galerie, unterstützt 360°)" style="flex-shrink:0;padding:8px 12px;border-radius:6px;border:1.5px dashed var(--accent);background:rgba(108,99,255,0.06);color:var(--accent);font-size:12px;cursor:pointer;white-space:nowrap;">📷 Drive-Foto</button>
         </div>
+        <div id="fotoOrdnerHint" style="font-size:11px;margin-top:4px;padding:4px 6px;border-radius:4px;display:none"></div>
         <input type="file" id="fileAttachInput" style="display:none" multiple onchange="handleFileAttach(event)">
         <input type="file" id="fotoDriveInput" style="display:none" accept="image/*" multiple onchange="handleFotoUploadToDrive(event)">
       </div>
@@ -2508,6 +2509,23 @@ function _getDriveFotoFolderId(){
   // Nur Foto-Ordner (tGD) – bewusst KEIN Fallback auf tGDOrdner (Projektordner)
   return _extractFolderIdFromUrl(document.getElementById('tGD')?.value||'');
 }
+function _updateFotoOrdnerHint(){
+  const hint=document.getElementById('fotoOrdnerHint');
+  if(!hint)return;
+  const url=(document.getElementById('tGD')?.value||'').trim();
+  const fid=_extractFolderIdFromUrl(url);
+  if(fid){
+    hint.style.display='block';
+    hint.style.background='rgba(39,174,96,0.08)';
+    hint.style.color='var(--success,#27ae60)';
+    hint.innerHTML='📷 Foto-Ordner: <a href="'+url+'" target="_blank" style="color:inherit;word-break:break-all">…'+fid.slice(-12)+'</a>';
+  } else {
+    hint.style.display='block';
+    hint.style.background='rgba(192,57,43,0.08)';
+    hint.style.color='var(--danger,#c0392b)';
+    hint.textContent='⚠ Kein Foto-Ordner eingetragen – unter Verknüpfungen eintragen';
+  }
+}
 function triggerFotoUploadToDrive(){
   if(!gdriveToken){showToast('Bitte zuerst mit Google Drive verbinden (oben rechts)','error');return;}
   const folderId=_getDriveFotoFolderId();
@@ -2520,6 +2538,8 @@ function triggerFotoUploadToDrive(){
     setTimeout(()=>{const el=document.getElementById('tGD');if(el){el.focus();el.style.outline='2px solid var(--accent)';}},300);
     return;
   }
+  const url=(document.getElementById('tGD')?.value||'').trim();
+  showToast('📷 Lade hoch in: …'+folderId.slice(-12),'info',3000);
   document.getElementById('fotoDriveInput').click();
 }
 async function handleFotoUploadToDrive(e){
@@ -3695,6 +3715,7 @@ function openEditTaskModal(id){
   document.getElementById('tGDOrdner').value=task.gdriveOrdner||'';
   document.getElementById('tGD').value=task.gdrive||'';
   document.getElementById('tNAS').value=task.nas||'';
+  _updateFotoOrdnerHint();
   document.getElementById('tEmailOrdner').value=task.emailOrdner||'';
   document.getElementById('deleteTaskBtn').style.display='';
   document.getElementById('abschlussBtn').style.display='';
