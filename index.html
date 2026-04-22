@@ -4346,24 +4346,33 @@ function renderEmailOriginals(){
     </div>`).join('');
 }
 
-// Direkter Download via Drive API (kein Browser-Login nötig, kein Virus-Warn-Popup)
+// Direkter Download via Drive API → .eml wird direkt in Outlook geöffnet
 async function _downloadEmailOrig(fileId,filename){
   if(!gdriveToken){showToast('⚠ Bitte zuerst mit Google Drive verbinden.','error');return;}
   try{
-    showToast('⏳ Download läuft…','info');
+    showToast('⏳ Lädt…','info');
     const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(fileId)+'?alt=media',{
       headers:{Authorization:'Bearer '+gdriveToken}
     });
     if(!r.ok)throw new Error('HTTP '+r.status);
-    const blob=await r.blob();
+    const arrayBuf=await r.arrayBuffer();
+    const isEml=/\.eml$/i.test(filename);
+    // .eml: MIME-Typ message/rfc822 → Browser öffnet direkt in Outlook (kein download-Attribut)
+    // .msg: als Datei speichern (proprietäres Format, Browser kann es nicht zuordnen)
+    const mimeType=isEml?'message/rfc822':'application/octet-stream';
+    const blob=new Blob([arrayBuf],{type:mimeType});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
-    a.href=url;a.download=filename;a.style.display='none';
-    document.body.appendChild(a);a.click();
-    setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},5000);
-    showToast('✅ '+filename+' heruntergeladen','success');
+    a.href=url;
+    a.style.display='none';
+    if(!isEml)a.download=filename; // .msg immer als Datei speichern
+    // .eml: kein download-Attribut → Browser reicht an Outlook weiter
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},8000);
+    showToast(isEml?'📧 Wird in Outlook geöffnet…':'✅ '+filename+' gespeichert','success');
   }catch(e){
-    showToast('⚠ Download Fehler: '+e.message,'error');
+    showToast('⚠ Fehler: '+e.message,'error');
   }
 }
 
