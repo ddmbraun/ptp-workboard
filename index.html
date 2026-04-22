@@ -653,7 +653,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .quick-add-bar .hint{font-size:11px;color:var(--text2);white-space:nowrap;}
 
 /* FILTER DROPDOWN */
-.filter-dropdown{position:absolute;top:100%;right:0;margin-top:4px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:6px;min-width:140px;box-shadow:0 8px 24px var(--shadow);z-index:200;display:none;}
+.filter-dropdown{position:fixed;top:0;right:0;margin-top:0;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:6px;min-width:140px;box-shadow:0 8px 24px var(--shadow);z-index:1200;display:none;}
 .filter-dropdown.open{display:block;}
 .filter-dropdown-item{padding:4px 10px;font-size:12px;color:var(--text2);cursor:pointer;border-radius:4px;display:flex;align-items:center;gap:6px;}
 .filter-dropdown-item:hover{background:var(--bg3);color:var(--text);}
@@ -818,18 +818,27 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       </div>
     </div>
     <!-- STAMMDATEN kompakt -->
-    <div class="modal-field" style="margin-bottom:6px"><label>Titel *</label><input type="text" id="taskTitleInput" placeholder="Task-Titel eingeben…" oninput="scheduleTaskFieldSave()"></div>
-    <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr 1.3fr 1fr;gap:6px;margin-bottom:6px;">
-      <div class="modal-field" style="margin:0"><label>Bearbeiter</label><input type="text" id="taskOwnerInput" placeholder="Name" oninput="scheduleTaskFieldSave()"></div>
-      <div class="modal-field" style="margin:0"><label>Fälligkeit</label><input type="date" id="taskDueInput" onchange="scheduleTaskFieldSave()"></div>
-      <div class="modal-field" style="margin:0"><label>Ausf.-Datum</label><input type="date" id="taskAusfInput" onchange="scheduleTaskFieldSave()"></div>
-      <div class="modal-field" style="margin:0"><label>Status</label><select id="taskStatusInput" onchange="updateGcalModalBtn();scheduleTaskFieldSave()"></select></div>
-      <div class="modal-field" style="margin:0"><label>Ampel</label><select id="taskAmpelInput" onchange="scheduleTaskFieldSave()"><option value="grün">🟢 Grün</option><option value="orange">🟠 Orange</option><option value="rot">🔴 Rot</option></select></div>
-    </div>
-    <div style="display:flex;gap:6px;margin-bottom:6px;align-items:flex-end;">
-      <div class="modal-field" style="flex:1;margin:0"><label>Tags / Kostenstelle</label><input type="text" id="taskTagsInput" placeholder="z.B. 260036, Report" oninput="scheduleTaskFieldSave()"></div>
-      <div class="modal-field" style="flex:1;margin:0"><label>Quelle</label><input type="text" id="taskSourceInput" placeholder="z.B. E-Mail, Meeting" oninput="scheduleTaskFieldSave()"></div>
-      <button type="button" id="openBauBtn" class="topbar-btn btn-primary" style="flex-shrink:0;padding:7px 12px;border-radius:6px;font-size:12px;font-weight:600;" onclick="openBaudokuApp()" title="Zur Baudoku App mit dieser Kostenstelle">📋 Bau</button>
+    <div class="modal-field" style="margin-bottom:5px"><label>Titel *</label><input type="text" id="taskTitleInput" placeholder="Task-Titel eingeben…" oninput="scheduleTaskFieldSave();_updateStammSummary()"></div>
+    <!-- Ausklappbare Detailfelder -->
+    <div class="form-collapse" id="tStammSect" style="border-bottom:1px solid var(--border);margin-bottom:6px;">
+      <div class="form-collapse-header" onclick="toggleFormSection('tStammSect')" style="padding:5px 0 5px;">
+        <span id="tStammSummary" style="font-size:11px;color:var(--text2);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">–</span>
+        <span class="form-collapse-arrow" style="margin-left:6px;">▾</span>
+      </div>
+      <div class="form-collapse-body">
+        <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr 1.3fr 1fr;gap:6px;margin-bottom:6px;">
+          <div class="modal-field" style="margin:0"><label>Bearbeiter</label><input type="text" id="taskOwnerInput" placeholder="Name" oninput="scheduleTaskFieldSave();_updateStammSummary()"></div>
+          <div class="modal-field" style="margin:0"><label>Fälligkeit</label><input type="date" id="taskDueInput" onchange="scheduleTaskFieldSave();_updateStammSummary()"></div>
+          <div class="modal-field" style="margin:0"><label>Ausf.-Datum</label><input type="date" id="taskAusfInput" onchange="scheduleTaskFieldSave()"></div>
+          <div class="modal-field" style="margin:0"><label>Status</label><select id="taskStatusInput" onchange="updateGcalModalBtn();scheduleTaskFieldSave();_updateStammSummary()"></select></div>
+          <div class="modal-field" style="margin:0"><label>Ampel</label><select id="taskAmpelInput" onchange="scheduleTaskFieldSave();_updateStammSummary()"><option value="grün">🟢</option><option value="orange">🟠</option><option value="rot">🔴</option></select></div>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:4px;align-items:flex-end;">
+          <div class="modal-field" style="flex:1;margin:0"><label>Tags / Kostenstelle</label><input type="text" id="taskTagsInput" placeholder="z.B. 260036, Report" oninput="scheduleTaskFieldSave();_updateStammSummary()"></div>
+          <div class="modal-field" style="flex:1;margin:0"><label>Quelle</label><input type="text" id="taskSourceInput" placeholder="z.B. E-Mail, Meeting" oninput="scheduleTaskFieldSave()"></div>
+          <button type="button" id="openBauBtn" class="topbar-btn btn-primary" style="flex-shrink:0;padding:7px 12px;border-radius:6px;font-size:12px;font-weight:600;" onclick="openBaudokuApp()" title="Zur Baudoku App mit dieser Kostenstelle">📋 Bau</button>
+        </div>
+      </div>
     </div>
 
     <!-- OBJEKT -->
@@ -1219,6 +1228,19 @@ function scheduleTaskFieldSave(){
   if(!id) return; // Neuer Task: erst beim Schließen speichern
   clearTimeout(autoSaveTimer);
   autoSaveTimer = setTimeout(()=>{saveTaskData();}, 1000);
+}
+function _updateStammSummary(){
+  const el=document.getElementById('tStammSummary');
+  if(!el)return;
+  const owner=(document.getElementById('taskOwnerInput')?.value||'').trim();
+  const due=(document.getElementById('taskDueInput')?.value||'').trim();
+  const status=(document.getElementById('taskStatusInput')?.value||'').trim();
+  const ampel=(document.getElementById('taskAmpelInput')?.value||'').trim();
+  const tags=(document.getElementById('taskTagsInput')?.value||'').trim();
+  const ampelEmoji=ampel==='rot'?'🔴':ampel==='orange'?'🟠':'🟢';
+  const dueFmt=due?due.split('-').reverse().join('.'):'';
+  const parts=[owner,dueFmt,status,tags].filter(Boolean);
+  el.textContent=(parts.length?parts.join(' · ')+' '+ampelEmoji:ampelEmoji+' Felder einklappbar');
 }
 // Speichert Task-Daten ohne Modal zu schließen
 function saveTaskData(){
@@ -2485,7 +2507,21 @@ function updateFilterDropdowns(){
   document.getElementById('filterAmpelBtn').classList.toggle('active',!!filters.ampel);
   document.getElementById('filterTagBtn').classList.toggle('active',!!filters.tag);
 }
-function toggleFilter(type){const dd=document.getElementById(`filter${type.charAt(0).toUpperCase()+type.slice(1)}Dropdown`);const was=dd.classList.contains('open');closeAllDropdowns();if(!was)dd.classList.add('open');}
+function toggleFilter(type){
+  const btnId=`filter${type.charAt(0).toUpperCase()+type.slice(1)}Btn`;
+  const ddId=`filter${type.charAt(0).toUpperCase()+type.slice(1)}Dropdown`;
+  const btn=document.getElementById(btnId);
+  const dd=document.getElementById(ddId);
+  const was=dd.classList.contains('open');
+  closeAllDropdowns();
+  if(!was&&btn){
+    const r=btn.getBoundingClientRect();
+    dd.style.top=(r.bottom+4)+'px';
+    dd.style.left='auto';
+    dd.style.right=(window.innerWidth-r.right)+'px';
+    dd.classList.add('open');
+  }
+}
 function closeAllDropdowns(){document.querySelectorAll('.filter-dropdown').forEach(d=>d.classList.remove('open'));}
 function setFilter(type,value){filters[type]=filters[type]===value?null:value;closeAllDropdowns();render();}
 function clearFilters(){filters={owner:null,ampel:null,tag:null};render();}
@@ -3481,7 +3517,10 @@ async function _dfbLoad(folderId,folderName){
     pathEl.textContent=crumbs.join(' › ');
   }
   if(backBtn)backBtn.style.display=_dfbHistory.length?'':'none';
-  if(pickBtn)pickBtn.style.display=folderId==='root'?'none':'';
+  if(pickBtn){
+    pickBtn.style.display=folderId==='root'?'none':'';
+    pickBtn.textContent='✓ „'+folderName+'" verwenden';
+  }
   if(!listEl)return;
   listEl.innerHTML='<div style="padding:16px;color:var(--text2);text-align:center;">⏳ Lade Ordner…</div>';
   try{
@@ -3499,10 +3538,10 @@ async function _dfbLoad(folderId,folderName){
       return;
     }
     listEl.innerHTML=folders.map(f=>`
-      <div class="dfb-item" onclick="_dfbPickItem('${f.id}','${esc(f.name).replace(/'/g,'\\x27')}')">
+      <div class="dfb-item" onclick="_dfbEnter('${f.id}','${esc(f.name).replace(/'/g,'\\x27')}')">
         <span>📁</span>
         <span class="dfb-item-name">${esc(f.name)}</span>
-        <button class="dfb-item-enter" onclick="event.stopPropagation();_dfbEnter('${f.id}','${esc(f.name).replace(/'/g,'\\x27')}')">▶ öffnen</button>
+        <span style="color:var(--accent);font-size:12px;flex-shrink:0;">▶</span>
       </div>`).join('');
   }catch(e){
     console.warn('[PTP] dfbLoad:',e);
@@ -4073,7 +4112,7 @@ function tNasKopieren(){
   });
 }
 // ── TASK MODAL ──
-const TASK_SECTION_IDS=['tObjektSect','tAnsprchSect','tTermineSect','tZeitSect','tVerkSect','tFotoSect','tAnhangSect','tNotizenSect'];
+const TASK_SECTION_IDS=['tStammSect','tObjektSect','tAnsprchSect','tTermineSect','tZeitSect','tVerkSect','tFotoSect','tAnhangSect','tNotizenSect'];
 function collapseAllTaskSections(){
   TASK_SECTION_IDS.forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('open');});
 }
@@ -4081,6 +4120,8 @@ function openModal(){
   document.getElementById('taskModal').classList.add('open');
   // Alle Sektionen beim Öffnen schließen
   collapseAllTaskSections();
+  // Zusammenfassung in Stammdaten-Header aktualisieren
+  setTimeout(_updateStammSummary,50);
   // Gespeicherte Modal-Größe anwenden
   if(typeof applyStoredModalSize==='function')applyStoredModalSize();
 }
