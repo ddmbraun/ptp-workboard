@@ -628,6 +628,24 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .start-btn.ghost{background:transparent;color:var(--text2);font-size:12px;font-weight:400;justify-content:center;padding:8px;}
 .start-btn.ghost:hover{color:var(--text);}
 
+/* ── Drive-Ordner-Browser ── */
+#driveFolderBrowserOverlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9800;display:none;align-items:center;justify-content:center;}
+#driveFolderBrowserOverlay.open{display:flex;}
+.dfb-box{background:var(--bg2);border-radius:14px;width:min(480px,94vw);max-height:75vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.5);}
+.dfb-header{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.dfb-path{flex:1;font-size:12px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dfb-header button{padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:12px;cursor:pointer;}
+.dfb-list{overflow-y:auto;flex:1;padding:6px;}
+.dfb-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;transition:background .12s;}
+.dfb-item:hover{background:var(--bg3);}
+.dfb-item-name{flex:1;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dfb-item-enter{background:rgba(108,99,255,.12);color:var(--accent);border:1px solid rgba(108,99,255,.3);border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;flex-shrink:0;}
+.dfb-item-enter:hover{background:rgba(108,99,255,.25);}
+.dfb-footer{display:flex;gap:8px;justify-content:flex-end;padding:10px 14px;border-top:1px solid var(--border);flex-shrink:0;}
+.dfb-footer button{padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;}
+.dfb-pick-btn{background:var(--accent);color:#fff;}
+.dfb-cancel-btn{background:var(--bg3);color:var(--text);}
+
 /* QUICK ADD */
 .quick-add-bar{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 8px 30px var(--shadow);z-index:500;width:500px;max-width:90vw;opacity:0;pointer-events:none;transition:all .2s;}
 .quick-add-bar.open{opacity:1;pointer-events:all;}
@@ -888,6 +906,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
             <label>📷 Google Drive – Foto-Ordner <span style="font-size:10px;color:var(--accent);font-weight:600;">← 📷 Drive-Foto Button nutzt DIESEN Ordner</span></label>
             <div class="link-row-2">
               <input type="url" id="tGD" placeholder="https://drive.google.com/drive/folders/…" oninput="_updateFotoOrdnerHint()">
+              <button class="link-btn-2" onclick="_pickDriveFolder('tGD')" title="Ordner aus Drive wählen">📂</button>
               <button class="link-btn-2" onclick="tDriveOeffnen()" title="Ordner öffnen">📁</button>
             </div>
           </div>
@@ -895,6 +914,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
             <label>📁 Google Drive – Projektordner</label>
             <div class="link-row-2">
               <input type="url" id="tGDOrdner" placeholder="https://drive.google.com/drive/folders/…" oninput="_updateFotoOrdnerHint()">
+              <button class="link-btn-2" onclick="_pickDriveFolder('tGDOrdner')" title="Ordner aus Drive wählen">📂</button>
               <button class="link-btn-2" onclick="tDriveOrdnerOeffnen()" title="Ordner öffnen">📁</button>
             </div>
           </div>
@@ -909,6 +929,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
             <label>📧 E-Mail-Ablageordner (Google Drive)</label>
             <div class="link-row-2">
               <input type="url" id="tEmailOrdner" placeholder="https://drive.google.com/drive/folders/…">
+              <button class="link-btn-2" onclick="_pickDriveFolder('tEmailOrdner')" title="Ordner aus Drive wählen">📂</button>
               <button class="link-btn-2" onclick="tEmailOrdnerOeffnen()" title="Ordner öffnen">📁</button>
             </div>
           </div>
@@ -1080,6 +1101,22 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
   </div>
   <div class="foto-gallery-body">
     <div class="foto-gallery-grid" id="fotoGalleryGrid"></div>
+  </div>
+</div>
+
+<!-- DRIVE ORDNER BROWSER -->
+<div id="driveFolderBrowserOverlay" onclick="if(event.target===this)_dfbClose()">
+  <div class="dfb-box">
+    <div class="dfb-header">
+      <button id="dfbBackBtn" onclick="_dfbBack()" style="display:none">← Zurück</button>
+      <span class="dfb-path" id="dfbPath">Mein Drive</span>
+      <button onclick="_dfbClose()">✕</button>
+    </div>
+    <div class="dfb-list" id="dfbList"></div>
+    <div class="dfb-footer">
+      <button class="dfb-cancel-btn" onclick="_dfbClose()">Abbrechen</button>
+      <button class="dfb-pick-btn" id="dfbPickCurrentBtn" onclick="_dfbPickCurrent()">✓ Diesen Ordner verwenden</button>
+    </div>
   </div>
 </div>
 
@@ -3344,6 +3381,92 @@ async function saveFotoCaptionFromLightbox(){
   }
 }
 // ── ABSCHLUSSAKTE ──
+// ── Drive-Ordner-Browser ──
+let _dfbTargetField=null;
+let _dfbHistory=[]; // [{id,name}]
+let _dfbCurrentId='root';
+let _dfbCurrentName='Mein Drive';
+
+async function _pickDriveFolder(fieldId){
+  if(!gdriveToken){showToast('Bitte zuerst mit Google Drive verbinden','error');return;}
+  _dfbTargetField=fieldId;
+  _dfbHistory=[];
+  // Starte beim aktuell eingetragenen Ordner, falls vorhanden
+  const el=document.getElementById(fieldId);
+  const existingUrl=el?el.value.trim():'';
+  const existingId=existingUrl?_extractFolderIdFromUrl(existingUrl):'';
+  if(existingId){
+    await _dfbLoad(existingId,'Aktueller Ordner');
+  }else{
+    await _dfbLoad('root','Mein Drive');
+  }
+  const ov=document.getElementById('driveFolderBrowserOverlay');
+  if(ov)ov.classList.add('open');
+}
+async function _dfbLoad(folderId,folderName){
+  _dfbCurrentId=folderId;
+  _dfbCurrentName=folderName;
+  const pathEl=document.getElementById('dfbPath');
+  const backBtn=document.getElementById('dfbBackBtn');
+  const listEl=document.getElementById('dfbList');
+  const pickBtn=document.getElementById('dfbPickCurrentBtn');
+  if(pathEl){
+    const crumbs=_dfbHistory.map(h=>h.name).concat(folderName);
+    pathEl.textContent=crumbs.join(' › ');
+  }
+  if(backBtn)backBtn.style.display=_dfbHistory.length?'':'none';
+  if(pickBtn)pickBtn.style.display=folderId==='root'?'none':'';
+  if(!listEl)return;
+  listEl.innerHTML='<div style="padding:16px;color:var(--text2);text-align:center;">⏳ Lade Ordner…</div>';
+  try{
+    const qStr=folderId==='root'
+      ?`mimeType='application/vnd.google-apps.folder' and 'root' in parents and trashed=false`
+      :`'${folderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+    const resp=await fetch(
+      'https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(qStr)+'&fields=files(id,name)&orderBy=name&pageSize=100',
+      {headers:{Authorization:'Bearer '+gdriveToken}});
+    if(!resp.ok)throw new Error('HTTP '+resp.status);
+    const data=await resp.json();
+    const folders=data.files||[];
+    if(!folders.length){
+      listEl.innerHTML='<div style="padding:16px;color:var(--text2);text-align:center;">Keine Unterordner vorhanden</div>';
+      return;
+    }
+    listEl.innerHTML=folders.map(f=>`
+      <div class="dfb-item" onclick="_dfbPickItem('${f.id}','${esc(f.name).replace(/'/g,'\\x27')}')">
+        <span>📁</span>
+        <span class="dfb-item-name">${esc(f.name)}</span>
+        <button class="dfb-item-enter" onclick="event.stopPropagation();_dfbEnter('${f.id}','${esc(f.name).replace(/'/g,'\\x27')}')">▶ öffnen</button>
+      </div>`).join('');
+  }catch(e){
+    console.warn('[PTP] dfbLoad:',e);
+    if(listEl)listEl.innerHTML='<div style="padding:16px;color:#c00;">Fehler: '+esc(e.message)+'</div>';
+  }
+}
+function _dfbEnter(id,name){
+  _dfbHistory.push({id:_dfbCurrentId,name:_dfbCurrentName});
+  _dfbLoad(id,name);
+}
+function _dfbBack(){
+  if(!_dfbHistory.length)return;
+  const prev=_dfbHistory.pop();
+  _dfbLoad(prev.id,prev.name);
+}
+function _dfbPickItem(id,name){
+  const url='https://drive.google.com/drive/folders/'+id;
+  const el=document.getElementById(_dfbTargetField);
+  if(el){el.value=url;el.dispatchEvent(new Event('input'));}
+  _dfbClose();
+  showToast('✓ Ordner gesetzt: '+name,'success');
+}
+function _dfbPickCurrent(){
+  _dfbPickItem(_dfbCurrentId,_dfbCurrentName);
+}
+function _dfbClose(){
+  const ov=document.getElementById('driveFolderBrowserOverlay');
+  if(ov)ov.classList.remove('open');
+}
+
 function _extractFolderIdFromUrl(url){
   if(!url)return null;
   const m=String(url).match(/\/folders\/([a-zA-Z0-9_-]+)/);
@@ -3916,7 +4039,12 @@ function openNewTaskModal(){
   document.getElementById('taskAusfInput').value='';
   document.getElementById('taskTagsInput').value='';
   document.getElementById('taskSourceInput').value='';
-  ['tHV','tAdr','tSch','tGDOrdner','tGD','tNAS','tEmailOrdner'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['tHV','tAdr','tSch'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const _driveDefault='https://drive.google.com/drive/u/0/folders/1GBcSWtUkKw7pJJ2CKvbTs_WZCZ1_RJ07';
+  const _nasDefault='\\\\nas-ddbraun\\Kunden';
+  ['tGDOrdner','tGD','tEmailOrdner'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=_driveDefault;});
+  const _nasEl=document.getElementById('tNAS');if(_nasEl)_nasEl.value=_nasDefault;
+  _updateFotoOrdnerHint();
   const kc=document.getElementById('tKontakteContainer');if(kc)kc.innerHTML='';
   updateKontaktePTPTitle();
   document.getElementById('deleteTaskBtn').style.display='none';
@@ -3961,11 +4089,13 @@ function openEditTaskModal(id){
       _kontakte.push({rolle:'eigentuemer',name:task.eigentuemerName||'',tel:task.eigentuemerTel||'',email:task.eigentuemerEmail||''});
   }
   renderKontaktePTP(_kontakte);
-  document.getElementById('tGDOrdner').value=task.gdriveOrdner||'';
-  document.getElementById('tGD').value=task.gdrive||'';
-  document.getElementById('tNAS').value=task.nas||'';
+  const _dDef='https://drive.google.com/drive/u/0/folders/1GBcSWtUkKw7pJJ2CKvbTs_WZCZ1_RJ07';
+  const _nDef='\\\\nas-ddbraun\\Kunden';
+  document.getElementById('tGDOrdner').value=task.gdriveOrdner||_dDef;
+  document.getElementById('tGD').value=task.gdrive||_dDef;
+  document.getElementById('tNAS').value=task.nas||_nDef;
   _updateFotoOrdnerHint();
-  document.getElementById('tEmailOrdner').value=task.emailOrdner||'';
+  document.getElementById('tEmailOrdner').value=task.emailOrdner||_dDef;
   document.getElementById('deleteTaskBtn').style.display='';
   document.getElementById('abschlussBtn').style.display='';
   taskLinks=JSON.parse(JSON.stringify(task.links||[]));
