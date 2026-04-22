@@ -1458,9 +1458,7 @@ async function pollWorkboardFile(){
     if(!mr.ok){
       if(mr.status===404){
         gdriveFileId=null;
-        updateFileStatus('unsaved','☁️ Datei gelöscht','⚠ workboard.json wurde in Drive gelöscht – wird neu erstellt…');
-        // Aktuelle Daten sofort in neue Datei speichern (Daten bleiben erhalten)
-        try{ await gdriveCreateFile(true); }catch(e){}
+        updateFileStatus('unsaved','☁️ Datei gelöscht','⚠ workboard.json wurde in Drive gelöscht – bitte neu verbinden');
       }
       return;
     }
@@ -1616,13 +1614,14 @@ async function gdriveSaveData() {
                 }
               }
             }
-            // 2) Lokal neu angelegte Tasks (noch nicht in Remote) → übernehmen
+            // 2) Lokal neu angelegte Boards + Tasks (noch nicht in Remote) → übernehmen
             for(const[k,v]of Object.entries(localState)){
-              if(k==='_statuses'||!Array.isArray(v))continue;
+              if(k==='_statuses'||k.startsWith('_')||!Array.isArray(v))continue;
+              // Leere Boards erhalten (auch wenn keine Tasks darin)
+              if(!merged[k])merged[k]=[];
               for(const lt of v){
                 if(!lt||!lt.id)continue;
                 if(!remoteIds.has(lt.id)){
-                  if(!merged[k])merged[k]=[];
                   // nur einfügen falls noch nicht drin (z.B. durch Modal-Regel)
                   let exists=false;
                   for(const rk of Object.keys(merged)){
@@ -1679,10 +1678,8 @@ async function gdriveSaveData() {
       updateFileStatus('ok', '☁️ ' + gdriveFileName,
         '✓ Gespeichert ' + new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}));
     } else if (r.status === 404) {
-      // Datei wurde in Drive gelöscht – neue Datei erstellen und Daten retten
       gdriveFileId = null;
-      updateFileStatus('unsaved', '☁️ Datei gelöscht', '⚠ workboard.json fehlt – wird neu erstellt…');
-      try{ await gdriveCreateFile(true); }catch(e){}
+      updateFileStatus('unsaved', '☁️ Datei gelöscht', '⚠ workboard.json wurde in Drive gelöscht – bitte neu verbinden');
     } else {
       updateFileStatus('unsaved', '☁️ ' + gdriveFileName, '⚠ Speichern fehlgeschlagen (HTTP ' + r.status + ')');
     }
