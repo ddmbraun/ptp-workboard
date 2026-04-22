@@ -1344,9 +1344,12 @@ function gdriveConnectFromBar() {
     return;
   }
   // Show mini choice
-  const choice = confirm('Google Drive verbinden:\n\nOK = Vorhandene workboard.json laden\nAbbrechen = Neue Datei in Drive erstellen');
+  const choice = confirm('Google Drive verbinden:\n\nOK = Vorhandene workboard.json laden\nAbbrechen = Neue Datei in Drive erstellen (aktuelle Daten bleiben erhalten)');
   if (choice) { gdriveOpenExisting(); }
-  else { gdriveCreateNew(); }
+  else {
+    if (!gdriveToken) { gdriveRequestToken('new'); return; }
+    gdriveCreateFile(true); // aktuelle Boards behalten
+  }
 }
 
 async function gdrivePickAndLoad() {
@@ -1455,7 +1458,9 @@ async function pollWorkboardFile(){
     if(!mr.ok){
       if(mr.status===404){
         gdriveFileId=null;
-        updateFileStatus('unsaved','☁️ Datei gelöscht','⚠ workboard.json wurde in Drive gelöscht – bitte neu verbinden');
+        updateFileStatus('unsaved','☁️ Datei gelöscht','⚠ workboard.json wurde in Drive gelöscht – wird neu erstellt…');
+        // Aktuelle Daten sofort in neue Datei speichern (Daten bleiben erhalten)
+        try{ await gdriveCreateFile(true); }catch(e){}
       }
       return;
     }
@@ -1487,10 +1492,13 @@ function startWorkboardPolling(){
   }
 }
 
-async function gdriveCreateFile() {
+async function gdriveCreateFile(keepCurrentData) {
   try {
-    seedData();
-    render();
+    // Nur Demo-Daten laden wenn keine echten Boards vorhanden (Erststart)
+    if(!keepCurrentData && (!boards || !Object.keys(boards).filter(k=>!k.startsWith('_')).length)){
+      seedData();
+      render();
+    }
     const content = JSON.stringify(buildSaveObject(), null, 2);
     const boundary = 'drive_boundary_ptp_' + Date.now();
     const metaObj = { name: 'workboard.json', mimeType: 'application/json' };
@@ -1671,9 +1679,10 @@ async function gdriveSaveData() {
       updateFileStatus('ok', '☁️ ' + gdriveFileName,
         '✓ Gespeichert ' + new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}));
     } else if (r.status === 404) {
-      // Datei wurde in Drive gelöscht – Verbindung trennen, damit keine weiteren Fehlversuche
+      // Datei wurde in Drive gelöscht – neue Datei erstellen und Daten retten
       gdriveFileId = null;
-      updateFileStatus('unsaved', '☁️ Datei gelöscht', '⚠ workboard.json wurde in Drive gelöscht – bitte neu verbinden');
+      updateFileStatus('unsaved', '☁️ Datei gelöscht', '⚠ workboard.json fehlt – wird neu erstellt…');
+      try{ await gdriveCreateFile(true); }catch(e){}
     } else {
       updateFileStatus('unsaved', '☁️ ' + gdriveFileName, '⚠ Speichern fehlgeschlagen (HTTP ' + r.status + ')');
     }
