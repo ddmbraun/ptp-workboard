@@ -2561,10 +2561,19 @@ function _fileImageMime(file){
 }
 function handleFileAttach(e){
   const files=[...e.target.files];
-  const MAX=50*1024*1024; // 50 MB – reicht für 360°-Fotos
+  // Max 5 MB für Base64-Anhänge (werden in workboard.json gespeichert!).
+  // Größere Fotos → bitte "📷 Drive-Foto" Button nutzen (direkt in Drive)
+  const MAX=5*1024*1024;
   files.forEach(file=>{
-    if(file.size>MAX){alert(`"${file.name}" ist zu groß (max. 50 MB).`);return;}
     const isImg=_fileIsImage(file);
+    if(isImg && file.size>MAX){
+      alert(`"${file.name}" ist ${(file.size/1024/1024).toFixed(1)} MB groß.\n\nFotos bitte über den "📷 Drive-Foto"-Button einfügen – diese werden direkt in Google Drive gespeichert und machen die workboard.json nicht zu groß.\n\n(Limit für Dateianhänge: 5 MB)`);
+      return;
+    }
+    if(!isImg && file.size>MAX){
+      alert(`"${file.name}" ist zu groß (max. 5 MB für Anhänge).`);
+      return;
+    }
     const forcedMime=isImg?_fileImageMime(file):file.type;
     const reader=new FileReader();
     reader.onload=ev=>{
