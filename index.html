@@ -826,17 +826,22 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
         <span class="form-collapse-arrow" style="margin-left:6px;">▾</span>
       </div>
       <div class="form-collapse-body">
-        <div style="display:grid;grid-template-columns:1.4fr 0.85fr 0.85fr 1.7fr 0.75fr;gap:6px;margin-bottom:6px;">
-          <div class="modal-field" style="margin:0"><label>Bearbeiter</label><input type="text" id="taskOwnerInput" placeholder="Name" oninput="scheduleTaskFieldSave();_updateStammSummary()"></div>
-          <div class="modal-field" style="margin:0"><label>Fälligkeit</label><input type="date" id="taskDueInput" onchange="scheduleTaskFieldSave();_updateStammSummary()"></div>
-          <div class="modal-field" style="margin:0"><label>Auftrag erteilt</label><input type="date" id="taskAusfInput" onchange="scheduleTaskFieldSave()"></div>
-          <div class="modal-field" style="margin:0"><label>Status</label><select id="taskStatusInput" onchange="updateGcalModalBtn();scheduleTaskFieldSave();_updateStammSummary()"></select></div>
-          <div class="modal-field" style="margin:0"><label>Ampel</label><select id="taskAmpelInput" onchange="scheduleTaskFieldSave();_updateStammSummary()"><option value="grün">🟢</option><option value="orange">🟠</option><option value="rot">🔴</option></select></div>
+        <!-- versteckte Felder für Daten-Kompatibilität -->
+        <select id="taskAmpelInput" style="display:none"><option value="grün">🟢</option><option value="orange">🟠</option><option value="rot">🔴</option></select>
+        <input type="hidden" id="taskSourceInput" value="">
+        <!-- Zeile 1: Bearbeiter | Fälligkeit | Auftrag erteilt | Status -->
+        <div style="display:grid;grid-template-columns:1.5fr 0.9fr 0.9fr 1.6fr;gap:5px;margin-bottom:5px;">
+          <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Bearbeiter</label><input type="text" id="taskOwnerInput" placeholder="Name" style="font-size:12px;padding:4px 6px" oninput="scheduleTaskFieldSave();_updateStammSummary()"></div>
+          <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Fälligkeit</label><input type="date" id="taskDueInput" style="font-size:12px;padding:4px 6px" onchange="scheduleTaskFieldSave();_updateStammSummary()"></div>
+          <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Auftrag erteilt</label><input type="date" id="taskAusfInput" style="font-size:12px;padding:4px 6px" onchange="scheduleTaskFieldSave()"></div>
+          <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Status</label><select id="taskStatusInput" style="font-size:12px;padding:4px 6px" onchange="updateGcalModalBtn();scheduleTaskFieldSave();_updateStammSummary()"></select></div>
         </div>
-        <div style="display:flex;gap:6px;margin-bottom:4px;align-items:flex-end;">
-          <div class="modal-field" style="flex:1;margin:0"><label>Tags / Kostenstelle</label><input type="text" id="taskTagsInput" placeholder="z.B. 260036, Report" oninput="scheduleTaskFieldSave();_updateStammSummary()"></div>
-          <div class="modal-field" style="flex:1;margin:0"><label>Quelle</label><input type="text" id="taskSourceInput" placeholder="z.B. E-Mail, Meeting" oninput="scheduleTaskFieldSave()"></div>
-          <button type="button" id="openBauBtn" class="topbar-btn btn-primary" style="flex-shrink:0;padding:7px 12px;border-radius:6px;font-size:12px;font-weight:600;" onclick="openBaudokuApp()" title="Zur Baudoku App mit dieser Kostenstelle">📋 Bau</button>
+        <!-- Zeile 2: Kostenstelle | Rep.-Nr. | Kunden-Nr. | [Bau-Btn] -->
+        <div style="display:grid;grid-template-columns:1.8fr 0.85fr 0.85fr auto;gap:5px;margin-bottom:4px;align-items:end;">
+          <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Kostenstelle / Tags</label><input type="text" id="taskTagsInput" placeholder="z.B. 260036" style="font-size:12px;padding:4px 6px" oninput="scheduleTaskFieldSave();_updateStammSummary()"></div>
+          <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Rep.-Nr.</label><input type="text" id="taskRepNr" placeholder="z.B. 3483" style="font-size:12px;padding:4px 6px" oninput="scheduleTaskFieldSave()"></div>
+          <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Kunden-Nr.</label><input type="text" id="taskKundenNr" placeholder="z.B. 777" style="font-size:12px;padding:4px 6px" oninput="scheduleTaskFieldSave()"></div>
+          <button type="button" id="openBauBtn" class="topbar-btn btn-primary" style="flex-shrink:0;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;margin-bottom:1px;" onclick="openBaudokuApp()" title="Zur Baudoku App mit dieser Kostenstelle">📋 Bau</button>
         </div>
       </div>
     </div>
@@ -1235,12 +1240,11 @@ function _updateStammSummary(){
   const owner=(document.getElementById('taskOwnerInput')?.value||'').trim();
   const due=(document.getElementById('taskDueInput')?.value||'').trim();
   const status=(document.getElementById('taskStatusInput')?.value||'').trim();
-  const ampel=(document.getElementById('taskAmpelInput')?.value||'').trim();
   const tags=(document.getElementById('taskTagsInput')?.value||'').trim();
-  const ampelEmoji=ampel==='rot'?'🔴':ampel==='orange'?'🟠':'🟢';
+  const repNr=(document.getElementById('taskRepNr')?.value||'').trim();
   const dueFmt=due?due.split('-').reverse().join('.'):'';
-  const parts=[owner,dueFmt,status,tags].filter(Boolean);
-  el.textContent=(parts.length?parts.join(' · ')+' '+ampelEmoji:ampelEmoji+' Felder einklappbar');
+  const parts=[owner,dueFmt,status,tags,repNr?'Rep.'+repNr:''].filter(Boolean);
+  el.textContent=parts.length?parts.join(' · '):'Felder einklappbar';
 }
 // Speichert Task-Daten ohne Modal zu schließen
 function saveTaskData(){
@@ -1254,10 +1258,12 @@ function saveTaskData(){
     owner:document.getElementById('taskOwnerInput').value.trim(),
     due:document.getElementById('taskDueInput').value,
     status:document.getElementById('taskStatusInput').value,
-    ampel:document.getElementById('taskAmpelInput').value,
+    ampel:document.getElementById('taskAmpelInput').value||'grün',
     ausführungsdatum:document.getElementById('taskAusfInput').value,
     tags:document.getElementById('taskTagsInput').value.split(',').map(s=>s.trim()).filter(Boolean),
     source:document.getElementById('taskSourceInput').value.trim(),
+    repNr:document.getElementById('taskRepNr').value.trim(),
+    kundenNr:document.getElementById('taskKundenNr').value.trim(),
     hausverwaltung:document.getElementById('tHV').value.trim(),
     adresse:document.getElementById('tAdr').value.trim(),
     schadensbild:document.getElementById('tSch').value.trim(),
@@ -2427,11 +2433,13 @@ function parseAuftragText(text){
     };
 
     const kostenstelle=get('Auftrag_Kostenstelle');
+    const auftragDatum=get('Auftrag_Datum');
     const strasse=get('Objekt_Strasse');
     const mieter=get('Mieter_Name');
     const eigentuemer=get('Eigentuemer_Name');
     const auftraggeber=get('Auftraggeber');
     const repNr=get('Rep_Nr');
+    const kundenNr=get('Kunden_Nr');
     const terminAbgabe=get('Termin_Abgabe');
     const terminOrt=get('Termin_Ortstermin');
     const schadensbild=get('Baustelle_Schadensbild');
@@ -2452,8 +2460,12 @@ function parseAuftragText(text){
     openNewTaskModal();
     document.getElementById('taskTitleInput').value=titel;
     if(dueDate)document.getElementById('taskDueInput').value=dueDate;
+    const ausfDate=deDate(auftragDatum);
+    if(ausfDate)document.getElementById('taskAusfInput').value=ausfDate;
     document.getElementById('taskSourceInput').value='Auftragsakte';
     if(kostenstelle)document.getElementById('taskTagsInput').value=kostenstelle;
+    if(repNr)document.getElementById('taskRepNr').value=repNr;
+    if(kundenNr)document.getElementById('taskKundenNr').value=kundenNr;
     if(schadensbild)document.getElementById('taskDescInput').value=schadensbild;
     if(hausverwaltung)document.getElementById('tHV').value=hausverwaltung;
     if(strasse)document.getElementById('tAdr').value=strasse;
@@ -4161,6 +4173,8 @@ function openNewTaskModal(){
   document.getElementById('taskAusfInput').value='';
   document.getElementById('taskTagsInput').value='';
   document.getElementById('taskSourceInput').value='';
+  document.getElementById('taskRepNr').value='';
+  document.getElementById('taskKundenNr').value='';
   ['tHV','tAdr','tSch'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const _driveDefault='https://drive.google.com/drive/u/0/folders/1GBcSWtUkKw7pJJ2CKvbTs_WZCZ1_RJ07';
   const _nasDefault='\\\\nas-ddbraun\\Kunden';
@@ -4193,10 +4207,12 @@ function openEditTaskModal(id){
   document.getElementById('taskOwnerInput').value=task.owner||'Braun';
   document.getElementById('taskDueInput').value=task.due||'';
   document.getElementById('taskStatusInput').value=task.status;
-  document.getElementById('taskAmpelInput').value=task.ampel;
+  document.getElementById('taskAmpelInput').value=task.ampel||'grün';
   document.getElementById('taskAusfInput').value=task.ausführungsdatum||'';
   document.getElementById('taskTagsInput').value=(task.tags||[]).join(', ');
   document.getElementById('taskSourceInput').value=task.source||'';
+  document.getElementById('taskRepNr').value=task.repNr||'';
+  document.getElementById('taskKundenNr').value=task.kundenNr||'';
   document.getElementById('tHV').value=task.hausverwaltung||'';
   document.getElementById('tAdr').value=task.adresse||'';
   document.getElementById('tSch').value=task.schadensbild||'';
