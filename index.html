@@ -1234,6 +1234,23 @@ function generateId(){return 't_'+Date.now()+'_'+Math.random().toString(36).subs
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
 function formatBytes(b){if(b<1024)return b+'B';if(b<1048576)return (b/1024).toFixed(1)+'KB';return (b/1048576).toFixed(1)+'MB';}
 
+// ── TOAST-NACHRICHTEN ──
+function showToast(msg, type='info', duration=3000){
+  let el=document.getElementById('_globalToast');
+  if(!el){
+    el=document.createElement('div');
+    el.id='_globalToast';
+    el.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:99999;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none;';
+    document.body.appendChild(el);
+  }
+  const t=document.createElement('div');
+  const bg=type==='error'?'#c0392b':type==='success'?'#27ae60':'#2c3e50';
+  t.style.cssText=`background:${bg};color:#fff;padding:8px 18px;border-radius:8px;font-size:13px;font-weight:500;box-shadow:0 2px 12px rgba(0,0,0,.4);opacity:1;transition:opacity .4s;white-space:nowrap;`;
+  t.textContent=msg;
+  el.appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';setTimeout(()=>t.remove(),400);},duration);
+}
+
 // ── GOOGLE DRIVE INTEGRATION ──
 const GDRIVE_CLIENT_ID = '56419258975-2ri3eujer9p6saph1mesa5hihlcae1pl.apps.googleusercontent.com';
 const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
@@ -1339,10 +1356,14 @@ function gdriveCreateNew() {
 
 function gdriveConnectFromBar() {
   if (gdriveFileId) {
-    // Bereits verbunden – Option anbieten andere Datei zu laden
-    const choice = confirm('☁️ Verbunden mit: ' + gdriveFileName + '\n\nOK = Andere workboard.json laden (z.B. ältere Datei mit deinen Daten)\nAbbrechen = Nichts tun');
+    // Bereits verbunden – Info + Optionen
+    const choice = confirm(
+      '☁️ Verbunden mit: ' + gdriveFileName +
+      '\nDatei-ID: ' + gdriveFileId.substring(0,12) + '…' +
+      '\n\nOK = Andere/ältere workboard.json wählen\nAbbrechen = Nichts tun'
+    );
     if (choice) {
-      gdriveFileId = null; // trennen damit gdrivePickAndLoad neu sucht
+      gdriveFileId = null;
       if (!gdriveToken) { gdriveRequestToken('load'); return; }
       gdrivePickAndLoad();
     }
@@ -1685,11 +1706,17 @@ async function gdriveSaveData() {
     } else if (r.status === 404) {
       gdriveFileId = null;
       updateFileStatus('unsaved', '☁️ Datei gelöscht', '⚠ workboard.json wurde in Drive gelöscht – bitte neu verbinden');
+      showToast('⚠ workboard.json nicht gefunden – bitte neu verbinden', 'error', 6000);
+    } else if (r.status === 401) {
+      updateFileStatus('unsaved', '☁️ ' + gdriveFileName, '⚠ Anmeldung abgelaufen (401)');
+      showToast('⚠ Drive-Anmeldung abgelaufen – Seite neu laden', 'error', 6000);
     } else {
       updateFileStatus('unsaved', '☁️ ' + gdriveFileName, '⚠ Speichern fehlgeschlagen (HTTP ' + r.status + ')');
+      showToast('⚠ Drive-Fehler HTTP ' + r.status, 'error', 5000);
     }
   } catch(e) {
     updateFileStatus('unsaved', '☁️ ' + gdriveFileName, '⚠ ' + e.message);
+    showToast('⚠ Speichern fehlgeschlagen: ' + e.message, 'error', 5000);
   } finally {
     gdriveSaving = false;
   }
