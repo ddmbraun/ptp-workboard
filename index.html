@@ -682,6 +682,14 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .card-size-group input[type=range]{width:90px;accent-color:var(--accent);}
 .card-size-group .card-size-val{font-size:11px;color:var(--text2);min-width:28px;text-align:right;}
 
+/* ── GMAIL-LINKS ── */
+.gmail-link-item{display:flex;align-items:center;gap:7px;padding:6px 9px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);margin-bottom:5px;font-size:12px;}
+.gmail-link-item .gl-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);}
+.gmail-link-item a.gl-open{padding:3px 9px;border-radius:5px;border:1px solid #ea4335;background:rgba(234,67,53,.08);color:#c0392b;font-size:11px;font-weight:600;text-decoration:none;flex-shrink:0;}
+.gmail-link-item a.gl-open:hover{background:rgba(234,67,53,.18);}
+.gmail-link-item .gl-del{padding:2px 7px;font-size:11px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;flex-shrink:0;}
+.gmail-link-item .gl-del:hover{border-color:var(--red);color:var(--red);}
+
 /* ── E-MAIL ORIGINALE ── */
 .email-orig-drop{border:1.5px dashed var(--border);border-radius:8px;padding:9px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;transition:border-color .2s,background .2s;margin-top:6px;}
 .email-orig-drop.dragover{border-color:var(--accent);background:rgba(108,99,255,.07);}
@@ -991,6 +999,17 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
             </div>
           </div>
         </div>
+        <!-- Gmail-Threads -->
+        <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px;">
+          <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">📧 Gmail-Threads</div>
+          <div id="gmailLinkList"></div>
+          <div style="display:flex;gap:6px;margin-top:4px;">
+            <input type="url" id="newGmailLinkUrl" placeholder="Gmail-Thread-URL einfügen…" style="flex:2;" onkeydown="if(event.key==='Enter'){event.preventDefault();addGmailLink();}">
+            <input type="text" id="newGmailLinkLabel" placeholder="Betreff (optional)" style="flex:1.5;" onkeydown="if(event.key==='Enter'){event.preventDefault();addGmailLink();}">
+            <button type="button" class="topbar-btn btn-primary" onclick="addGmailLink()" style="padding:6px 14px;flex-shrink:0;">+</button>
+          </div>
+          <p style="font-size:10px;color:var(--text2);margin:4px 0 0;">In Gmail: E-Mail öffnen → URL aus der Adresszeile kopieren → hier einfügen.</p>
+        </div>
         <div id="linksList" style="margin-top:8px;"></div>
         <button class="add-row-btn" onclick="addLinkRow()">+ weiteren Link hinzufügen</button>
       </div>
@@ -1240,6 +1259,7 @@ let taskZeitEntries = [];
 let taskNotizVerlauf = [];
 let taskCheckliste = [];
 let taskEmailOriginals = [];
+let taskGmailLinks = [];
 
 // ── KANBAN COLUMN RESIZE ──
 let resizingCol=null,resizeStartX=0,resizeStartWidth=0,resizingColIdx=-1;
@@ -1353,7 +1373,8 @@ function saveTaskData(){
     notizVerlauf:taskNotizVerlauf,
     fotos:taskFotos,
     checkliste:taskCheckliste,
-    emailOriginals:taskEmailOriginals
+    emailOriginals:taskEmailOriginals,
+    gmailLinks:taskGmailLinks
   };
   if(id){
     const idx=boards[currentBoard].findIndex(t=>t.id===id);
@@ -1426,6 +1447,8 @@ const WORKSPACE_FOLDER_NAME = 'PTP-BAU Daten';
 let workspaceFolderId = localStorage.getItem('workspace_folder_id') || null;
 
 let gdriveToken = null;
+let gdriveTokenExpires = 0;
+let _gdriveRefreshTimer = null;
 let gdriveFileId = null;
 let gdriveFileName = 'workboard.json';
 let gdriveTokenClient = null;
@@ -1481,6 +1504,8 @@ async function gdriveTokenCallback(resp) {
     return;
   }
   gdriveToken = resp.access_token;
+  gdriveTokenExpires = Date.now() + (Number(resp.expires_in || 3600) - 60) * 1000;
+  _scheduleGdriveRefresh(Number(resp.expires_in || 3600));
   const action = gdrivePendingAction;
   gdrivePendingAction = null;
   if (action) localStorage.setItem('gdrive_last_action', action);
@@ -1497,6 +1522,30 @@ async function gdriveTokenCallback(resp) {
     if(typeof hydrateDesktopFotoThumbs==='function')hydrateDesktopFotoThumbs();
   }catch(e){console.warn('[PTP]',e);}
 }
+
+// Automatischer Hintergrund-Refresh: 5 Min vor Ablauf still erneuern
+function _scheduleGdriveRefresh(expiresIn) {
+  clearTimeout(_gdriveRefreshTimer);
+  const delay = Math.max(10000, (expiresIn - 300)) * 1000;
+  _gdriveRefreshTimer = setTimeout(() => {
+    if (!gdriveTokenClient) return;
+    try {
+      // Stil erneuern ohne Popup
+      const prev = gdriveTokenClient.callback;
+      gdriveTokenClient.callback = (r) => {
+        gdriveTokenClient.callback = prev;
+        if (r && r.access_token) {
+          gdriveToken = r.access_token;
+          gdriveTokenExpires = Date.now() + (Number(r.expires_in || 3600) - 60) * 1000;
+          _scheduleGdriveRefresh(Number(r.expires_in || 3600));
+          console.info('[PTP] Drive-Token still erneuert ✓');
+        }
+      };
+      gdriveTokenClient.requestAccessToken({ prompt: 'none' });
+    } catch(e) { console.warn('[PTP] Token-Refresh:', e); }
+  }, delay);
+}
+function gdriveTokenValid() { return !!gdriveToken && Date.now() < gdriveTokenExpires; }
 
 function gdriveRequestToken(action) {
   gdrivePendingAction = action;
@@ -4225,6 +4274,36 @@ function tNasKopieren(){
   });
 }
 // ── TASK MODAL ──
+// ── GMAIL-LINKS ──
+function renderGmailLinks(){
+  const el=document.getElementById('gmailLinkList');
+  if(!el)return;
+  if(!taskGmailLinks.length){el.innerHTML='';return;}
+  el.innerHTML=taskGmailLinks.map((g,i)=>`
+    <div class="gmail-link-item">
+      <span style="font-size:15px;flex-shrink:0;">📧</span>
+      <span class="gl-label" title="${esc(g.url)}">${esc(g.label||g.url)}</span>
+      <a class="gl-open" href="${esc(g.url)}" target="_blank" title="In Gmail öffnen &amp; antworten">↗ Gmail</a>
+      <button type="button" class="gl-del" onclick="taskGmailLinks.splice(${i},1);renderGmailLinks();scheduleTaskFieldSave();" title="Entfernen">✕</button>
+    </div>`).join('');
+}
+function addGmailLink(){
+  const urlEl=document.getElementById('newGmailLinkUrl');
+  const lblEl=document.getElementById('newGmailLinkLabel');
+  const url=(urlEl?.value||'').trim();
+  if(!url){urlEl?.focus();return;}
+  if(!url.includes('mail.google.com')&&!url.startsWith('http')){showToast('Bitte eine gültige Gmail-URL einfügen.','error');return;}
+  const label=(lblEl?.value||'').trim()||url;
+  taskGmailLinks.push({url,label});
+  if(urlEl)urlEl.value='';
+  if(lblEl)lblEl.value='';
+  renderGmailLinks();
+  scheduleTaskFieldSave();
+  // Verknüpfungen-Sektion öffnen
+  const sect=document.getElementById('tVerkSect');
+  if(sect&&!sect.classList.contains('open'))sect.classList.add('open');
+}
+
 // ── E-MAIL ORIGINALE ──
 function renderEmailOriginals(){
   const el=document.getElementById('emailOrigList');
@@ -4237,7 +4316,8 @@ function renderEmailOriginals(){
       <span style="font-size:16px;flex-shrink:0;">📨</span>
       <span class="eo-name" title="${esc(e.name)}">${esc(e.name)}</span>
       <span class="eo-date">${esc(e.uploadedAt||'')}</span>
-      <a class="eo-open" href="${esc(e.url)}" target="_blank" title="In Google Drive öffnen (dann in Outlook öffnen &amp; antworten)">📂 Drive</a>
+      <a class="eo-open" href="https://drive.google.com/uc?id=${esc(e.fileId)}&export=download" title="Datei herunterladen → in Outlook öffnen &amp; antworten">⬇ Herunterladen</a>
+      <a class="eo-open" href="${esc(e.url)}" target="_blank" title="In Google Drive anzeigen" style="background:transparent;border-color:var(--border);color:var(--text2);">📂</a>
       <button type="button" class="eo-del" onclick="taskEmailOriginals.splice(${i},1);renderEmailOriginals();scheduleTaskFieldSave();" title="Eintrag entfernen (Datei bleibt in Drive)">✕</button>
     </div>`).join('');
 }
@@ -4404,12 +4484,14 @@ function openNewTaskModal(){
   updateKontaktePTPTitle();
   document.getElementById('deleteTaskBtn').style.display='none';
   document.getElementById('abschlussBtn').style.display='none';
-  taskLinks=[];taskAttachments=[];taskAusserhausTermine=[];taskZeitEntries=[];taskNotizVerlauf=[];taskFotos=[];taskCheckliste=[];taskEmailOriginals=[];
+  taskLinks=[];taskAttachments=[];taskAusserhausTermine=[];taskZeitEntries=[];taskNotizVerlauf=[];taskFotos=[];taskCheckliste=[];taskEmailOriginals=[];taskGmailLinks=[];
   _attachImgsOpen=false;
   renderLinksList();renderAttachList();renderFotoListDesktop();
-  renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();renderCheckliste();renderEmailOriginals();
+  renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();renderCheckliste();renderEmailOriginals();renderGmailLinks();
   const _ni=document.getElementById('newTaskNotizInput');if(_ni)_ni.value='';
   const _ci=document.getElementById('newChecklistInput');if(_ci)_ci.value='';
+  const _gu=document.getElementById('newGmailLinkUrl');if(_gu)_gu.value='';
+  const _gl=document.getElementById('newGmailLinkLabel');if(_gl)_gl.value='';
   _applyBoardType(currentBoard);
   openModal();
   setTimeout(()=>document.getElementById('taskTitleInput').focus(),100);
@@ -4465,11 +4547,14 @@ function openEditTaskModal(id){
   taskFotos=JSON.parse(JSON.stringify(task.fotos||[]));
   taskCheckliste=JSON.parse(JSON.stringify(task.checkliste||[]));
   taskEmailOriginals=JSON.parse(JSON.stringify(task.emailOriginals||[]));
+  taskGmailLinks=JSON.parse(JSON.stringify(task.gmailLinks||[]));
   _attachImgsOpen=false;
   renderLinksList();renderAttachList();renderFotoListDesktop();
-  renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();renderCheckliste();renderEmailOriginals();
+  renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();renderCheckliste();renderEmailOriginals();renderGmailLinks();
   const _ni=document.getElementById('newTaskNotizInput');if(_ni)_ni.value='';
   const _ci=document.getElementById('newChecklistInput');if(_ci)_ci.value='';
+  const _gu=document.getElementById('newGmailLinkUrl');if(_gu)_gu.value='';
+  const _gl=document.getElementById('newGmailLinkLabel');if(_gl)_gl.value='';
   // Beim Bearbeiten: Board des Tasks finden, um richtigen Typ zu ermitteln
   let _taskBoard=currentBoard;
   for(const bk of Object.keys(boards)){if((boards[bk]||[]).some(t=>t.id===task.id)){_taskBoard=bk;break;}}
