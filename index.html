@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PTP Workboard</title>
 <script src="https://accounts.google.com/gsi/client" defer onload="gdriveInit()"></script>
+<script src="https://apis.google.com/js/api.js" defer onload="gapiLoaded()"></script>
 <script>
 // ── EMAIL DROP-ZONE – Inline-Handler am Element, kein addEventListener nötig ──
 
@@ -269,7 +270,7 @@ input,select,textarea{font-family:inherit;}
 .file-btn.drive-connected{color:var(--green);border-color:var(--green);}
 
 /* TOOLBAR */
-.toolbar{display:flex;align-items:center;justify-content:space-between;padding:8px 20px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;}
+.toolbar{display:flex;align-items:center;justify-content:space-between;padding:8px 20px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;position:relative;z-index:50;}
 .toolbar-left{display:flex;align-items:center;gap:8px;}
 .view-tabs{display:flex;gap:2px;background:var(--bg2);border-radius:8px;padding:2px;}
 .view-tab{padding:5px 14px;border-radius:6px;background:transparent;color:var(--text2);font-size:12px;font-weight:500;transition:all .15s;}
@@ -890,9 +891,6 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
               <button class="link-btn-2" onclick="tDriveOeffnen()" title="Ordner öffnen">📁</button>
             </div>
           </div>
-          <div style="text-align:center;margin:4px 0">
-            <button type="button" onclick="_tauscheDriveOrdner()" title="URLs der beiden Ordner tauschen – falls sie vertauscht eingetragen wurden" style="font-size:12px;padding:5px 14px;border-radius:6px;border:1.5px solid var(--accent);background:rgba(108,99,255,0.08);color:var(--accent);cursor:pointer;font-weight:600">⇄ URLs tauschen</button>
-          </div>
           <div class="modal-field full">
             <label>📁 Google Drive – Projektordner</label>
             <div class="link-row-2">
@@ -937,6 +935,8 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
             📎 Datei hier hineinziehen oder klicken
           </div>
           <button onclick="triggerFotoUploadToDrive()" title="Foto zu Google Drive hochladen (erscheint in Galerie, unterstützt 360°)" style="flex-shrink:0;padding:8px 12px;border-radius:6px;border:1.5px dashed var(--accent);background:rgba(108,99,255,0.06);color:var(--accent);font-size:12px;cursor:pointer;white-space:nowrap;">📷 Drive-Foto</button>
+          <button onclick="tDriveOeffnen()" title="Foto-Ordner in Google Drive öffnen" style="flex-shrink:0;padding:8px 12px;border-radius:6px;border:1.5px solid var(--border);background:var(--bg3);color:var(--text2);font-size:12px;cursor:pointer;white-space:nowrap;">📂 Ordner</button>
+          <button onclick="openDrivePicker()" title="Vorhandene Fotos aus Google Drive auswählen" style="flex-shrink:0;padding:8px 12px;border-radius:6px;border:1.5px dashed #34a853;background:rgba(52,168,83,0.06);color:#34a853;font-size:12px;cursor:pointer;white-space:nowrap;">🗂 Aus Drive</button>
         </div>
         <div id="fotoOrdnerHint" style="font-size:11px;margin-top:4px;padding:4px 6px;border-radius:4px;display:none"></div>
         <input type="file" id="fileAttachInput" style="display:none" multiple onchange="handleFileAttach(event)">
@@ -2567,6 +2567,65 @@ function triggerFotoUploadToDrive(){
   showToast('📷 Lade hoch in Foto-Ordner …','info',3000);
   document.getElementById('fotoDriveInput').click();
 }
+// ── GOOGLE DRIVE PICKER ──
+let _gapiReady=false;
+function gapiLoaded(){
+  if(window.gapi){
+    gapi.load('picker',()=>{_gapiReady=true;});
+  }
+}
+function openDrivePicker(){
+  if(!gdriveToken){showToast('Bitte zuerst mit Google Drive verbinden (oben rechts)','error');return;}
+  if(!window.gapi||!_gapiReady){
+    showToast('Google Picker wird geladen – bitte kurz warten und nochmal klicken…','info',3000);
+    if(window.gapi){gapi.load('picker',()=>{_gapiReady=true;});}
+    return;
+  }
+  const folderId=_getDriveFotoFolderId();
+  let view;
+  if(folderId){
+    // Foto-Ordner direkt anzeigen
+    view=new google.picker.DocsView(google.picker.ViewId.DOCS_IMAGES)
+      .setParent(folderId)
+      .setIncludeFolders(false);
+  } else {
+    // Kein Ordner eingetragen → alle Drive-Bilder
+    view=new google.picker.DocsView(google.picker.ViewId.DOCS_IMAGES);
+  }
+  const picker=new google.picker.PickerBuilder()
+    .setOAuthToken(gdriveToken)
+    .addView(view)
+    .setTitle('Fotos aus Google Drive auswählen')
+    .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
+    .setCallback(_drivePickerCallback)
+    .build();
+  picker.setVisible(true);
+}
+function _drivePickerCallback(data){
+  if(data.action!==google.picker.Action.PICKED)return;
+  const docs=data.docs||[];
+  if(!docs.length)return;
+  if(!taskFotos)taskFotos=[];
+  let added=0;
+  docs.forEach(doc=>{
+    // Doppelten Eintrag verhindern
+    if(taskFotos.find(f=>f.driveId===doc.id))return;
+    taskFotos.push({
+      driveId:doc.id,
+      name:doc.name||doc.id,
+      mimeType:doc.mimeType||'image/jpeg',
+      caption:''
+    });
+    added++;
+  });
+  if(added>0){
+    scheduleTaskFieldSave();
+    renderFotoListDesktop();
+    showToast('✓ '+added+' Foto(s) aus Drive hinzugefügt','success');
+  } else {
+    showToast('Fotos bereits vorhanden','info');
+  }
+}
 async function handleFotoUploadToDrive(e){
   const files=[...e.target.files];
   e.target.value='';
@@ -2764,10 +2823,12 @@ function renderFotoListDesktop(){
   const items=taskFotos.map((f,i)=>{
     const name=f.name||'';
     const caption=f.caption||'';
-    const id=f.driveId||'';
+    // Bearbeitete Version bevorzugen wenn vorhanden
+    const id=(f.editedDriveId||f.driveId||'');
     const cached=id?_desktopFotoBlobCache.get(id):null;
     const safeId=String(id).replace(/[^A-Za-z0-9_\-]/g,'');
     const srcAttr=cached?'src="'+esc(cached)+'" ':(safeId?'data-foto-id="'+safeId+'" ':'');
+    const editedBadge=f.editedDriveId?'<div style="position:absolute;top:4px;left:4px;background:rgba(108,99,255,.75);color:#fff;font-size:9px;padding:2px 5px;border-radius:4px;pointer-events:none">✏ bearb.</div>':'';
     const tip=caption?(caption+' — '+name):name;
     const bottomLabel=caption
       ?'<div class="foto-caption" title="'+esc(caption)+'">'+esc(caption)+'</div>'
@@ -2777,6 +2838,7 @@ function renderFotoListDesktop(){
     return '<div class="foto-desktop-thumb'+selClass+'" onclick="_fotoThumbClick('+i+',event)" title="'+esc(tip)+'">'
       +'<div class="foto-check">'+checkMark+'</div>'
       +'<img '+srcAttr+'alt="" loading="lazy" onerror="this.style.display=\'none\';this.parentElement.classList.add(\'fallback\')">'
+      +editedBadge
       +bottomLabel
       +'<button class="foto-edit" onclick="event.stopPropagation();editFotoCaptionDesktop('+i+')" title="Beschreibung bearbeiten">📝</button>'
       +'<button class="foto-del" onclick="event.stopPropagation();removeFotoDesktop('+i+')" title="Entfernen">✕</button>'
@@ -3073,7 +3135,15 @@ async function deskSaveDraw(){
     if(!taskFotos)taskFotos=[];
     const blobUrl=URL.createObjectURL(blob);
     _desktopFotoBlobCache.set(meta.id,blobUrl);
-    taskFotos.push({driveId:meta.id,name:meta.name||copyName,mimeType:meta.mimeType||'image/jpeg',caption:'Zeichnung'});
+    // Bearbeitetes Bild auf dem Original-Eintrag vermerken statt neuen Eintrag anzulegen
+    // → das Thumbnail zeigt ab sofort die bearbeitete Version
+    const origFoto=taskFotos[_currentFotoLbIdx];
+    if(origFoto){
+      origFoto.editedDriveId=meta.id;
+      origFoto.editedName=meta.name||copyName;
+    } else {
+      taskFotos.push({driveId:meta.id,name:meta.name||copyName,mimeType:meta.mimeType||'image/jpeg',caption:'Zeichnung'});
+    }
     scheduleTaskFieldSave();
     renderFotoListDesktop();
   }
