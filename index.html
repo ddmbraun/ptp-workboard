@@ -4131,4 +4131,1104 @@ function renderTimerDisplay(){
   const text=formatDuration(ms);
   const running=isTaskTimerRunning(taskId);
   const el=document.getElementById('timerDisplay');
-  if(el){el.textContent=text;el.cl
+  if(el){el.textContent=text;el.className='timer-display'+(running?' running':'');}
+  const elTop=document.getElementById('timerDisplayTop');
+  if(elTop){elTop.textContent=text;elTop.className='timer-display'+(running?' running':'');}
+}
+function renderTimerEntries(task){
+  const el=document.getElementById('timerEntries');
+  if(!el)return;
+  const entries=(task?.timeEntries||[]).filter(e=>e.end);
+  if(!entries.length){el.innerHTML='';return;}
+  const total=entries.reduce((s,e)=>s+(e.end-e.start),0);
+  el.innerHTML=entries.map((e,i)=>`
+    <div class="timer-entry">
+      <span class="timer-entry-time">${new Date(e.start).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span>
+      <span class="timer-entry-dur">${formatDuration(e.end-e.start)}</span>
+      <button class="timer-entry-del" onclick="deleteTimerEntry('${esc(task.id)}',${i})" title="Eintrag löschen">✕</button>
+    </div>`).join('')+
+    `<div class="timer-total-row"><span>Gesamt (abgeschlossen)</span><span class="timer-total-val">${formatDuration(total)}</span></div>`;
+}
+function deleteTimerEntry(taskId,idx){
+  const task=findTaskById(taskId);
+  if(!task)return;
+  const finished=task.timeEntries.filter(e=>e.end);
+  finished.splice(idx,1);
+  task.timeEntries=task.timeEntries.filter(e=>!e.end).concat(finished);
+  renderTimerSection();autoSave();
+}
+function updateCardTimerBadge(taskId){
+  const card=document.querySelector(`.task-card[data-id="${taskId}"]`);
+  if(!card)return;
+  render();
+}
+
+// ── PREVIEW ──
+function _check360Local(imgEl){
+  // Nach dem Laden prüfen ob 360°-Panorama → Pannellum
+  if(!imgEl||!imgEl.naturalWidth||!imgEl.naturalHeight)return;
+  if((imgEl.naturalWidth/imgEl.naturalHeight)>=1.8){
+    const src=imgEl.src;
+    const cnt=document.getElementById('previewContent');
+    if(cnt){cnt.innerHTML='';cnt.style.display='none';}
+    _deskInitPannellum(src);
+  }
+}
+function openPreview(i){
+  const a=taskAttachments[i];
+  const lb=document.getElementById('previewLightbox');
+  const cnt=document.getElementById('previewContent');
+  const lbl=document.getElementById('previewLabel');
+  const capBar=document.getElementById('fotoLbCapBar');
+  _deskClosePannellum();
+  lbl.textContent=a.name;
+  if(capBar)capBar.classList.remove('visible');
+  _currentFotoLbIdx=-1;
+  cnt.style.display='';
+  if(a.type&&a.type.startsWith('image/')){
+    // .insp (Insta360) und andere bekannte 360°-Formate sofort als Panorama öffnen
+    const force360=/\.insp$/i.test(a.name)||a.is360||/360|panorama|pano/i.test(a.name);
+    if(force360){
+      cnt.style.display='none';
+      _deskInitPannellum(a.data);
+    } else {
+      // Normales Bild sofort anzeigen; 360°-Check per onload (Aspect-Ratio)
+      cnt.innerHTML='<img src="'+a.data+'" alt="'+esc(a.name)+'" id="deskLbImg" onload="_check360Local(this)">';
+    }
+  } else if(a.type==='application/pdf'){
+    cnt.innerHTML='<iframe src="'+esc(a.data)+'" title="'+esc(a.name)+'"></iframe>';
+  } else if(a.type==='text/plain'||a.name.toLowerCase().endsWith('.txt')){
+    try{
+      const b64=a.data.split(',')[1]||'';
+      const text=decodeURIComponent(escape(atob(b64)));
+      cnt.innerHTML='<div style="color:#e0e0e0;background:rgba(0,0,0,.6);border-radius:8px;padding:20px;max-width:80vw;max-height:70vh;overflow:auto;text-align:left;font-family:monospace;font-size:13px;white-space:pre-wrap;line-height:1.6;">'+esc(text)+'</div>';
+    }catch(e){cnt.innerHTML='<div style="color:#fff;padding:30px">Text konnte nicht geladen werden</div>';}
+  } else {
+    cnt.innerHTML='<div style="color:#fff;padding:30px;font-size:14px;">'+esc(a.name)+'<br><span style="opacity:.6;font-size:12px;">Keine Vorschau für diesen Dateityp</span></div>';
+  }
+  lb.classList.add('open');
+}
+function closePreview(){
+  _deskClosePannellum();deskDiscardDraw();
+  const lb=document.getElementById('previewLightbox');
+  lb.classList.remove('open');
+  _currentFotoLbIdx=-1;
+  const capBar=document.getElementById('fotoLbCapBar');
+  if(capBar)capBar.classList.remove('visible');
+  setTimeout(()=>{const c=document.getElementById('previewContent');if(c){c.innerHTML='';c.style.display='';}},200);
+}
+
+// Drop zone for attachments
+const dz=document.getElementById('dropZone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('dragover');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('dragover'));
+dz.addEventListener('drop',e=>{
+  e.preventDefault();dz.classList.remove('dragover');
+  const files=[...e.dataTransfer.files];
+  const fakeEvt={target:{files},preventDefault:()=>{}};
+  fakeEvt.target.value='';
+  handleFileAttach({target:{files},preventDefault:()=>{}});
+});
+
+// ── KONTAKTE (dynamisch) ──
+function addKontaktPTP(rolle,name,tel,email){
+  const c=document.getElementById('tKontakteContainer');if(!c)return;
+  const rolleOpts=['ag','mieter','eigentuemer','sonstiges'];
+  const rolleLabel={ag:'👔 AG Kontakt',mieter:'🏠 Mieter',eigentuemer:'👤 Eigentümer',sonstiges:'👥 Sonstiges'};
+  name=name||'';tel=tel||'';email=email||'';
+  const div=document.createElement('div');div.className='kontakt-entry';
+  const fs='font-size:11px;padding:3px 6px;';
+  div.innerHTML='<div class="kontakt-entry-header">'
+    +'<select class="k-rolle" style="font-size:11px;padding:2px 4px;">'
+    +rolleOpts.map(r=>'<option value="'+r+'"'+(r===rolle?' selected':'')+'>'+rolleLabel[r]+'</option>').join('')
+    +'</select>'
+    +'<button type="button" class="rm-btn" style="padding:2px 6px;font-size:11px;" onclick="this.closest(\'.kontakt-entry\').remove();updateKontaktePTPTitle()" title="Entfernen">✕</button>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">'
+    +'<div class="modal-field" style="margin:0"><label style="font-size:10px">Name</label><input type="text" class="k-name" value="'+name.replace(/"/g,'&quot;')+'" placeholder="Max Mustermann" style="'+fs+'"></div>'
+    +'<div class="modal-field" style="margin:0"><label style="font-size:10px">Telefon</label><div style="display:flex;gap:3px;">'
+    +'<input type="tel" class="k-tel" value="'+tel.replace(/"/g,'&quot;')+'" style="flex:1;'+fs+'" placeholder="0361 / 123456">'
+    +'<a class="tel-call-btn'+(tel?'':' disabled')+'" href="'+(tel?'tel:'+tel:'#')+'"><span style="font-size:15px">📞</span></a>'
+    +'</div></div>'
+    +'<div class="modal-field" style="margin:0;grid-column:1/-1"><label style="font-size:10px">E-Mail</label><input type="email" class="k-email" value="'+email.replace(/"/g,'&quot;')+'" placeholder="max@beispiel.de" style="'+fs+'"></div>'
+    +'</div>';
+  const telInput=div.querySelector('.k-tel');
+  const telLink=div.querySelector('.tel-call-btn');
+  telInput.addEventListener('input',()=>{
+    const v=telInput.value.trim();
+    telLink.href=v?'tel:'+v:'#';
+    telLink.classList.toggle('disabled',!v);
+  });
+  c.appendChild(div);
+  updateKontaktePTPTitle();
+}
+function renderKontaktePTP(kontakte){
+  const c=document.getElementById('tKontakteContainer');if(!c)return;
+  c.innerHTML='';
+  for(const k of(kontakte||[]))addKontaktPTP(k.rolle||'sonstiges',k.name||'',k.tel||'',k.email||'');
+}
+function getKontaktePTP(){
+  const c=document.getElementById('tKontakteContainer');if(!c)return[];
+  return[...c.querySelectorAll('.kontakt-entry')].map(e=>({
+    rolle:e.querySelector('.k-rolle').value,
+    name:e.querySelector('.k-name').value.trim(),
+    tel:e.querySelector('.k-tel').value.trim(),
+    email:e.querySelector('.k-email').value.trim()
+  })).filter(k=>k.name||k.tel||k.email);
+}
+function updateKontaktePTPTitle(){
+  const count=document.getElementById('tKontakteContainer')?.querySelectorAll('.kontakt-entry').length||0;
+  const el=document.getElementById('tAnsprchTitle');
+  if(el)el.innerHTML='👥 Ansprechpartner'+(count?' <span style="color:var(--accent2);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">('+count+')</span>':'');
+}
+// ── FORM COLLAPSE ──
+// Debounce gegen Doppelklick — sonst öffnet und schließt sich die Sektion sofort wieder.
+const _formSectionLastToggle={};
+function toggleFormSection(id){
+  const now=Date.now();
+  const last=_formSectionLastToggle[id]||0;
+  if(now-last<350){_formSectionLastToggle[id]=now;return;} // zweiten Klick binnen 350 ms ignorieren
+  _formSectionLastToggle[id]=now;
+  const el=document.getElementById(id);
+  if(el)el.classList.toggle('open');
+}
+// Textfeld per Doppelklick vergrößern / verkleinern (z.B. Schadensbild)
+function toggleExpandTA(ta){if(!ta)return;ta.classList.toggle('expanded');if(ta.classList.contains('expanded'))ta.focus();}
+function tMapsOeffnen(){
+  const adr=document.getElementById('tAdr').value.trim();
+  if(adr)window.open('https://www.google.com/maps/search/'+encodeURIComponent(adr),'_blank');
+  else alert('Bitte zuerst eine Adresse eingeben.');
+}
+function tDriveOeffnen(){
+  const url=document.getElementById('tGD').value.trim();
+  if(url)window.open(url,'_blank');
+  else alert('Bitte zuerst einen Google Drive Link eingeben.');
+}
+function tDriveOrdnerOeffnen(){
+  const url=document.getElementById('tGDOrdner').value.trim();
+  if(url)window.open(url,'_blank');
+  else alert('Bitte zuerst einen Google Drive Link eingeben.');
+}
+function tNasKopieren(){
+  const v=document.getElementById('tNAS').value.trim();
+  if(!v){alert('Kein NAS-Pfad eingetragen.');return;}
+  navigator.clipboard.writeText(v).then(()=>{
+    const btn=document.getElementById('tNasBtn');
+    if(btn){const orig=btn.textContent;btn.textContent='✓ Kopiert';setTimeout(()=>{btn.textContent=orig;},1500);}
+  });
+}
+// ── TASK MODAL ──
+// ── GMAIL-LINKS ──
+function renderGmailLinks(){
+  const el=document.getElementById('gmailLinkList');
+  if(!el)return;
+  if(!taskGmailLinks.length){el.innerHTML='';return;}
+  el.innerHTML=taskGmailLinks.map((g,i)=>`
+    <div class="gmail-link-item">
+      <span style="font-size:15px;flex-shrink:0;">📧</span>
+      <span class="gl-label" title="${esc(g.url)}">${esc(g.label||g.url)}</span>
+      <a class="gl-open" href="${esc(g.url)}" target="_blank" title="In Gmail öffnen &amp; antworten">↗ Gmail</a>
+      <button type="button" class="gl-del" onclick="taskGmailLinks.splice(${i},1);renderGmailLinks();scheduleTaskFieldSave();" title="Entfernen">✕</button>
+    </div>`).join('');
+}
+function addGmailLink(){
+  const urlEl=document.getElementById('newGmailLinkUrl');
+  const lblEl=document.getElementById('newGmailLinkLabel');
+  const url=(urlEl?.value||'').trim();
+  if(!url){urlEl?.focus();return;}
+  if(!url.includes('mail.google.com')&&!url.startsWith('http')){showToast('Bitte eine gültige Gmail-URL einfügen.','error');return;}
+  const label=(lblEl?.value||'').trim()||url;
+  taskGmailLinks.push({url,label});
+  if(urlEl)urlEl.value='';
+  if(lblEl)lblEl.value='';
+  renderGmailLinks();
+  scheduleTaskFieldSave();
+  // Verknüpfungen-Sektion öffnen
+  const sect=document.getElementById('tVerkSect');
+  if(sect&&!sect.classList.contains('open'))sect.classList.add('open');
+}
+
+// ── E-MAIL ORIGINALE ──
+function renderEmailOriginals(){
+  const el=document.getElementById('emailOrigList');
+  if(!el)return;
+  const ti=document.getElementById('tEmailOrigTitle');
+  if(ti)ti.innerHTML='📧 E-Mail Originale'+(taskEmailOriginals.length?` <span style="color:var(--accent2);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">(${taskEmailOriginals.length})</span>`:'');
+  if(!taskEmailOriginals.length){el.innerHTML='';return;}
+  el.innerHTML=taskEmailOriginals.map((e,i)=>`
+    <div class="email-orig-item">
+      <span style="font-size:16px;flex-shrink:0;">📨</span>
+      <span class="eo-name" title="${esc(e.name)}">${esc(e.name)}</span>
+      <span class="eo-date">${esc(e.uploadedAt||'')}</span>
+      <button type="button" class="eo-open" onclick="_downloadEmailOrig('${esc(e.fileId)}','${esc(e.name)}')" title="Datei herunterladen → in Outlook öffnen &amp; antworten">⬇ Herunterladen</button>
+      <a class="eo-open" href="${esc(e.url)}" target="_blank" title="In Google Drive anzeigen" style="background:transparent;border-color:var(--border);color:var(--text2);">📂</a>
+      <button type="button" class="eo-del" onclick="taskEmailOriginals.splice(${i},1);renderEmailOriginals();scheduleTaskFieldSave();" title="Eintrag entfernen (Datei bleibt in Drive)">✕</button>
+    </div>`).join('');
+}
+
+// Direkter Download via Drive API → .eml wird direkt in Outlook geöffnet
+async function _downloadEmailOrig(fileId,filename){
+  if(!gdriveToken){showToast('⚠ Bitte zuerst mit Google Drive verbinden.','error');return;}
+  try{
+    showToast('⏳ Lädt…','info');
+    const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(fileId)+'?alt=media',{
+      headers:{Authorization:'Bearer '+gdriveToken}
+    });
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const arrayBuf=await r.arrayBuffer();
+    const isEml=/\.eml$/i.test(filename);
+    // .eml: MIME-Typ message/rfc822 → Browser öffnet direkt in Outlook (kein download-Attribut)
+    // .msg: als Datei speichern (proprietäres Format, Browser kann es nicht zuordnen)
+    const mimeType=isEml?'message/rfc822':'application/octet-stream';
+    const blob=new Blob([arrayBuf],{type:mimeType});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.style.display='none';
+    if(!isEml)a.download=filename; // .msg immer als Datei speichern
+    // .eml: kein download-Attribut → Browser reicht an Outlook weiter
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},8000);
+    showToast(isEml?'📧 Wird in Outlook geöffnet…':'✅ '+filename+' gespeichert','success');
+  }catch(e){
+    showToast('⚠ Fehler: '+e.message,'error');
+  }
+}
+
+// Generischer Drive-Upload (beliebiger MIME-Typ)
+async function _driveUploadGeneric(buf,fname,mimeType,fid){
+  const b='ptp_orig_'+Date.now();
+  const enc=new TextEncoder();
+  const m=JSON.stringify({name:fname,parents:[fid]});
+  const p1=enc.encode('--'+b+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+m+'\r\n');
+  const p2=enc.encode('--'+b+'\r\nContent-Type: '+mimeType+'\r\n\r\n');
+  const p3=enc.encode('\r\n--'+b+'--');
+  const fb=new Uint8Array(buf);
+  const out=new Uint8Array(p1.length+p2.length+fb.length+p3.length);
+  let o=0;out.set(p1,o);o+=p1.length;out.set(p2,o);o+=p2.length;out.set(fb,o);o+=fb.length;out.set(p3,o);
+  const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name',{
+    method:'POST',
+    headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'multipart/related; boundary='+b},
+    body:out
+  });
+  if(!r.ok)throw new Error('Drive Upload Fehler: HTTP '+r.status);
+  return r.json();
+}
+
+async function _uploadEmailOriginal(file){
+  if(!gdriveToken){showToast('⚠ Bitte zuerst mit Google Drive verbinden.','error');return;}
+  // Zielordner: tEmailOrdner → tGDOrdner → Fehler
+  const folderUrl=(document.getElementById('tEmailOrdner')?.value||document.getElementById('tGDOrdner')?.value||'').trim();
+  const fid=_ezFolderId(folderUrl);
+  if(!fid){showToast('⚠ Bitte zuerst einen Drive-Projektordner in den Verknüpfungen eintragen.','error');return;}
+  const msgEl=document.getElementById('emailOrigDropMsg');
+  if(msgEl)msgEl.textContent='⏳ Lade hoch: '+file.name+'…';
+  try{
+    const buf=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsArrayBuffer(file);});
+    const mimeType=file.name.toLowerCase().endsWith('.eml')?'message/rfc822':'application/octet-stream';
+    const result=await _driveUploadGeneric(buf,file.name,mimeType,fid);
+    taskEmailOriginals.push({name:file.name,fileId:result.id,url:'https://drive.google.com/file/d/'+result.id+'/view',uploadedAt:new Date().toLocaleDateString('de-DE')});
+    renderEmailOriginals();
+    scheduleTaskFieldSave();
+    if(msgEl)msgEl.textContent='✅ Abgelegt: '+file.name;
+    setTimeout(()=>{if(msgEl)msgEl.textContent='📨 .msg / .eml hier hineinziehen';},3500);
+    // Sektion öffnen
+    const sect=document.getElementById('tEmailOrigSect');
+    if(sect&&!sect.classList.contains('open'))sect.classList.add('open');
+  }catch(err){
+    showToast('⚠ Fehler: '+err.message,'error');
+    if(msgEl)msgEl.textContent='📨 .msg / .eml hier hineinziehen';
+  }
+}
+function _handleEmailOrigDrop(dt){
+  const allFiles=[...(dt.files||[])];
+  const files=allFiles.filter(f=>/\.(msg|eml)$/i.test(f.name));
+  if(!files.length){
+    // Neue Outlook ist eine Web-App und unterstützt kein Drag&Drop von E-Mails
+    showToast('Kein .msg/.eml erkannt. Bei Outlook Neu: Datei → Speichern unter → .eml, dann hier hochladen.','error');
+    return;
+  }
+  files.forEach(f=>_uploadEmailOriginal(f));
+}
+function _handleEmailOrigSelect(evt){
+  const file=evt.target.files&&evt.target.files[0];
+  evt.target.value='';
+  if(file)_uploadEmailOriginal(file);
+}
+
+// ── CHECKLISTE ──
+function renderCheckliste(){
+  const el=document.getElementById('checklisteList');
+  if(!el)return;
+  if(!taskCheckliste.length){el.innerHTML='';_updateChecklisteTitle();return;}
+  el.innerHTML=taskCheckliste.map((item,i)=>`
+    <div class="checkliste-item">
+      <input type="checkbox" ${item.done?'checked':''} onchange="taskCheckliste[${i}].done=this.checked;this.nextElementSibling.classList.toggle('done-text',this.checked);scheduleTaskFieldSave();_updateChecklisteTitle()">
+      <input type="text" value="${esc(item.text)}" placeholder="Aufgabe…" class="${item.done?'done-text':''}" oninput="taskCheckliste[${i}].text=this.value;scheduleTaskFieldSave()">
+      <button type="button" class="ck-del" onclick="removeChecklistItem(${i})">✕</button>
+    </div>`).join('');
+  _updateChecklisteTitle();
+}
+function addChecklistItem(){
+  const inp=document.getElementById('newChecklistInput');
+  const text=inp?inp.value.trim():'';
+  taskCheckliste.push({text,done:false});
+  if(inp)inp.value='';
+  renderCheckliste();
+  scheduleTaskFieldSave();
+  // Sektion öffnen falls noch geschlossen
+  const sect=document.getElementById('tChecklisteSect');
+  if(sect&&!sect.classList.contains('open'))sect.classList.add('open');
+}
+function removeChecklistItem(i){
+  taskCheckliste.splice(i,1);
+  renderCheckliste();
+  scheduleTaskFieldSave();
+}
+function _updateChecklisteTitle(){
+  const el=document.getElementById('tChecklisteTitle');
+  if(!el)return;
+  const done=taskCheckliste.filter(x=>x.done).length;
+  const total=taskCheckliste.length;
+  el.innerHTML=total?`✅ Checkliste <span style="color:var(--accent2);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">(${done}/${total})</span>`:'✅ Checkliste';
+}
+
+// ── BOARD-TYP: blendet Baustelle-spezifische Felder ein/aus ──
+function _applyBoardType(boardName){
+  const type=(boardTypes[boardName||currentBoard]||'baustelle');
+  const box=document.getElementById('taskModalBox');
+  if(!box)return;
+  if(type==='notiz'){
+    box.classList.add('ptp-notiz-mode');
+  }else{
+    box.classList.remove('ptp-notiz-mode');
+  }
+  const ti=document.getElementById('_taskTypeIndicator');
+  if(ti){
+    if(type==='notiz'){ti.textContent='📋 Notiz';ti.className='task-type-badge notiz';}
+    else{ti.textContent='🏗 Baustelle';ti.className='task-type-badge baustelle';}
+  }
+  // Abschlussakte-Button: nur sichtbar für Baustelle-Tasks (und wenn ID vorhanden)
+  const abBtn=document.getElementById('abschlussBtn');
+  if(abBtn){
+    const hasId=!!(document.getElementById('taskId')?.value);
+    abBtn.style.display=(type==='baustelle'&&hasId)?'':'none';
+  }
+}
+
+const TASK_SECTION_IDS=['tStammSect','tObjektSect','tAnsprchSect','tTermineSect','tZeitSect','tChecklisteSect','tVerkSect','tFotoSect','tAnhangSect','tEmailOrigSect','tNotizenSect'];
+function collapseAllTaskSections(){
+  TASK_SECTION_IDS.forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('open');});
+}
+function openModal(){
+  document.getElementById('taskModal').classList.add('open');
+  // Alle Sektionen beim Öffnen schließen
+  collapseAllTaskSections();
+  // Zusammenfassung in Stammdaten-Header aktualisieren
+  setTimeout(_updateStammSummary,50);
+  // Gespeicherte Modal-Größe anwenden
+  if(typeof applyStoredModalSize==='function')applyStoredModalSize();
+}
+function closeModal(){
+  saveTaskData(); // Auto-Speichern beim Schließen (kein Effekt wenn kein Titel)
+  collapseAllTaskSections();
+  document.getElementById('taskModal').classList.remove('open');
+}
+function saveTaskAndBack(){
+  saveTask(); // speichert (wenn Titel vorhanden) und schließt
+}
+
+function openNewTaskModal(){
+  document.getElementById('modalTitle').textContent='Neuer Task';
+  document.getElementById('taskId').value='';
+  document.getElementById('taskTitleInput').value='';
+  document.getElementById('taskDescInput').value='';
+  document.getElementById('taskOwnerInput').value='Braun';
+  document.getElementById('taskDueInput').value='';
+  document.getElementById('taskStatusInput').value=statuses[0]||'';
+  document.getElementById('taskAmpelInput').value='grün';
+  document.getElementById('taskAusfInput').value='';
+  document.getElementById('taskTagsInput').value='';
+  document.getElementById('taskSourceInput').value='';
+  document.getElementById('taskRepNr').value='';
+  document.getElementById('taskKundenNr').value='';
+  ['tHV','tAdr','tSch'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const _driveDefault='https://drive.google.com/drive/u/0/folders/1GBcSWtUkKw7pJJ2CKvbTs_WZCZ1_RJ07';
+  const _nasDefault='\\\\nas-ddbraun\\Kunden';
+  ['tGDOrdner','tGD','tEmailOrdner'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=_driveDefault;});
+  const _nasEl=document.getElementById('tNAS');if(_nasEl)_nasEl.value=_nasDefault;
+  _updateFotoOrdnerHint();
+  const kc=document.getElementById('tKontakteContainer');if(kc)kc.innerHTML='';
+  updateKontaktePTPTitle();
+  document.getElementById('deleteTaskBtn').style.display='none';
+  document.getElementById('abschlussBtn').style.display='none';
+  taskLinks=[];taskAttachments=[];taskAusserhausTermine=[];taskZeitEntries=[];taskNotizVerlauf=[];taskFotos=[];taskCheckliste=[];taskEmailOriginals=[];taskGmailLinks=[];
+  _attachImgsOpen=false;
+  renderLinksList();renderAttachList();renderFotoListDesktop();
+  renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();renderCheckliste();renderEmailOriginals();renderGmailLinks();
+  const _ni=document.getElementById('newTaskNotizInput');if(_ni)_ni.value='';
+  const _ci=document.getElementById('newChecklistInput');if(_ci)_ci.value='';
+  const _gu=document.getElementById('newGmailLinkUrl');if(_gu)_gu.value='';
+  const _gl=document.getElementById('newGmailLinkLabel');if(_gl)_gl.value='';
+  _applyBoardType(currentBoard);
+  openModal();
+  setTimeout(()=>document.getElementById('taskTitleInput').focus(),100);
+}
+
+function openEditTaskModal(id){
+  try{
+  // In allen Boards suchen, nicht nur im aktiven (Task könnte verschoben worden sein)
+  let task=null;
+  for(const bk of Object.keys(boards)){const f=(boards[bk]||[]).find(t=>t.id===id);if(f){task=f;break;}}
+  if(!task){showToast('Task nicht gefunden (ID: '+id+')','error');return;}
+  document.getElementById('modalTitle').textContent='Task bearbeiten';
+  document.getElementById('taskId').value=task.id;
+  document.getElementById('taskTitleInput').value=task.title;
+  document.getElementById('taskDescInput').value=task.desc||'';
+  document.getElementById('taskOwnerInput').value=task.owner||'Braun';
+  document.getElementById('taskDueInput').value=task.due||'';
+  document.getElementById('taskStatusInput').value=task.status;
+  document.getElementById('taskAmpelInput').value=task.ampel||'grün';
+  document.getElementById('taskAusfInput').value=task.ausführungsdatum||'';
+  document.getElementById('taskTagsInput').value=(task.tags||[]).join(', ');
+  document.getElementById('taskSourceInput').value=task.source||'';
+  document.getElementById('taskRepNr').value=task.repNr||'';
+  document.getElementById('taskKundenNr').value=task.kundenNr||'';
+  document.getElementById('tHV').value=task.hausverwaltung||'';
+  document.getElementById('tAdr').value=task.adresse||'';
+  document.getElementById('tSch').value=task.schadensbild||'';
+  // Kontakte: migrate old static fields if no kontakte array yet
+  let _kontakte=task.kontakte||[];
+  if(!_kontakte.length){
+    if(task.agKontaktName||task.agKontaktTel||task.agKontaktEmail)
+      _kontakte.push({rolle:'ag',name:task.agKontaktName||'',tel:task.agKontaktTel||'',email:task.agKontaktEmail||''});
+    if(task.mieterName||task.mieterTel||task.mieterEmail)
+      _kontakte.push({rolle:'mieter',name:task.mieterName||'',tel:task.mieterTel||'',email:task.mieterEmail||''});
+    if(task.eigentuemerName||task.eigentuemerTel||task.eigentuemerEmail)
+      _kontakte.push({rolle:'eigentuemer',name:task.eigentuemerName||'',tel:task.eigentuemerTel||'',email:task.eigentuemerEmail||''});
+  }
+  renderKontaktePTP(_kontakte);
+  const _dDef='https://drive.google.com/drive/u/0/folders/1GBcSWtUkKw7pJJ2CKvbTs_WZCZ1_RJ07';
+  const _nDef='\\\\nas-ddbraun\\Kunden';
+  document.getElementById('tGDOrdner').value=task.gdriveOrdner||_dDef;
+  document.getElementById('tGD').value=task.gdrive||_dDef;
+  document.getElementById('tNAS').value=task.nas||_nDef;
+  _updateFotoOrdnerHint();
+  document.getElementById('tEmailOrdner').value=task.emailOrdner||_dDef;
+  document.getElementById('deleteTaskBtn').style.display='';
+  // abschlussBtn: wird von _applyBoardType gesteuert (nur Baustelle-Typ)
+  taskLinks=JSON.parse(JSON.stringify(task.links||[]));
+  taskAttachments=JSON.parse(JSON.stringify(task.attachments||[]));
+  taskAusserhausTermine=JSON.parse(JSON.stringify(task.ausserhausTermine||[]));
+  taskZeitEntries=JSON.parse(JSON.stringify(task.zeitEntries||[]));
+  taskNotizVerlauf=JSON.parse(JSON.stringify(task.notizVerlauf||[]));
+  taskFotos=JSON.parse(JSON.stringify(task.fotos||[]));
+  taskCheckliste=JSON.parse(JSON.stringify(task.checkliste||[]));
+  taskEmailOriginals=JSON.parse(JSON.stringify(task.emailOriginals||[]));
+  taskGmailLinks=JSON.parse(JSON.stringify(task.gmailLinks||[]));
+  _attachImgsOpen=false;
+  renderLinksList();renderAttachList();renderFotoListDesktop();
+  renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();renderCheckliste();renderEmailOriginals();renderGmailLinks();
+  const _ni=document.getElementById('newTaskNotizInput');if(_ni)_ni.value='';
+  const _ci=document.getElementById('newChecklistInput');if(_ci)_ci.value='';
+  const _gu=document.getElementById('newGmailLinkUrl');if(_gu)_gu.value='';
+  const _gl=document.getElementById('newGmailLinkLabel');if(_gl)_gl.value='';
+  // Beim Bearbeiten: Board des Tasks finden, um richtigen Typ zu ermitteln
+  let _taskBoard=currentBoard;
+  for(const bk of Object.keys(boards)){if((boards[bk]||[]).some(t=>t.id===task.id)){_taskBoard=bk;break;}}
+  _applyBoardType(_taskBoard);
+  openModal();
+  }catch(err){
+    console.error('openEditTaskModal Fehler:',err);
+    showToast('⚠ Fehler beim Öffnen: '+err.message,'error',6000);
+  }
+}
+
+function saveTask(){
+  const title=document.getElementById('taskTitleInput').value.trim();
+  if(!title){document.getElementById('taskTitleInput').focus();return;}
+  if(saveTaskData()){
+    collapseAllTaskSections();
+    document.getElementById('taskModal').classList.remove('open');
+  }
+}
+
+function deleteTask(){
+  const id=document.getElementById('taskId').value;
+  if(!id||!confirm('Task wirklich löschen?'))return;
+  boards[currentBoard]=boards[currentBoard].filter(t=>t.id!==id);
+  closeModal();render();autoSave();
+}
+
+// ── COLUMN MANAGER ──
+function openColManager(){
+  editStatuses=[...getBoardStatuses()];renderColList();
+  document.getElementById('colAddInput').value='';
+  // Titel zeigt welches Projekt bearbeitet wird
+  const h=document.getElementById('colModalTitle');
+  if(h)h.textContent='✎ Spalten: '+currentBoard;
+  document.getElementById('colModal').classList.add('open');
+}
+function closeColManager(){document.getElementById('colModal').classList.remove('open');}
+function renderColList(){
+  document.getElementById('colList').innerHTML=editStatuses.map((s,i)=>`
+    <div class="col-row">
+      <span class="col-dot" style="background:${colColor(i)}"></span>
+      <input type="text" value="${esc(s)}" id="colinput-${i}" placeholder="Spaltenname">
+      <div class="col-row-btns">
+        <button class="col-icon-btn" onclick="moveCol(${i},-1)" ${i===0?'disabled':''}>▲</button>
+        <button class="col-icon-btn" onclick="moveCol(${i},1)" ${i===editStatuses.length-1?'disabled':''}>▼</button>
+        <button class="col-icon-btn" onclick="removeCol(${i})" ${editStatuses.length<=1?'disabled':''} style="color:var(--red)">✕</button>
+      </div>
+    </div>`).join('');
+}
+function syncColInputs(){editStatuses=editStatuses.map((_,i)=>{const el=document.getElementById('colinput-'+i);return el?el.value.trim()||editStatuses[i]:editStatuses[i];});}
+function moveCol(i,d){syncColInputs();const n=i+d;if(n<0||n>=editStatuses.length)return;[editStatuses[i],editStatuses[n]]=[editStatuses[n],editStatuses[i]];renderColList();}
+function removeCol(i){
+  syncColInputs();if(editStatuses.length<=1)return;
+  const removed=editStatuses[i];
+  if(!confirm(`Spalte "${removed}" löschen? Tasks werden zu "${editStatuses[0]}" verschoben.`))return;
+  editStatuses.splice(i,1);
+  Object.values(boards).flat().forEach(t=>{if(t.status===removed)t.status=editStatuses[0];});
+  renderColList();
+}
+function addColumn(){
+  syncColInputs();const inp=document.getElementById('colAddInput');const n=inp.value.trim();
+  if(!n){inp.focus();return;}
+  if(editStatuses.includes(n)){alert('Spalte existiert bereits.');return;}
+  editStatuses.push(n);inp.value='';renderColList();
+}
+function saveColumns(){
+  syncColInputs();editStatuses=editStatuses.map(s=>s.trim()).filter(Boolean);
+  if(!editStatuses.length){alert('Mindestens eine Spalte erforderlich.');return;}
+  const first=editStatuses[0];
+  // Nur Tasks des aktuellen Boards verschieben, wenn deren Status nicht mehr existiert
+  (boards[currentBoard]||[]).forEach(t=>{if(!editStatuses.includes(t.status))t.status=first;});
+  // Spalten nur für dieses Board speichern
+  boardStatuses[currentBoard]=[...editStatuses];
+  closeColManager();render();autoSave();
+}
+
+// ── PROJECT MANAGER ──
+function openProjManager(){
+  const hasWhitelist=Array.isArray(mobileBoards)&&mobileBoards.length>0;
+  editProjects=Object.keys(boards).map(k=>({
+    key:k,name:k,count:boards[k].length,
+    // keine Whitelist definiert → Default = alle auf Handy sichtbar (alle angekreuzt)
+    mobile: hasWhitelist ? mobileBoards.includes(k) : true,
+    type: boardTypes[k]||'baustelle'
+  }));
+  renderProjList();
+  document.getElementById('projAddInput').value='';
+  document.getElementById('projModal').classList.add('open');
+}
+function closeProjManager(){document.getElementById('projModal').classList.remove('open');}
+function renderProjList(){
+  document.getElementById('projList').innerHTML=editProjects.map((p,i)=>`
+    <div class="proj-row" draggable="true" data-idx="${i}"
+         ondragstart="onProjDragStart(event,${i})" ondragend="onProjDragEnd(event)"
+         ondragover="onProjDragOver(event)" ondragleave="onProjDragLeave(event)" ondrop="onProjDrop(event,${i})">
+      <span class="proj-drag" title="Ziehen zum Umsortieren" style="cursor:grab;user-select:none;color:var(--text2);padding:0 4px;">⋮⋮</span>
+      <span class="proj-icon">📁</span>
+      <input type="text" value="${esc(p.name)}" id="projinput-${i}" placeholder="Projektname">
+      <span class="proj-count">${p.count} Task${p.count!==1?'s':''}</span>
+      <select id="projtype-${i}" class="proj-type-sel" title="Projekt-Typ">
+        <option value="baustelle" ${(p.type||'baustelle')==='baustelle'?'selected':''}>🏗 Baustelle</option>
+        <option value="notiz" ${(p.type||'baustelle')==='notiz'?'selected':''}>📋 Notiz</option>
+      </select>
+      <label class="proj-mobile" title="Auf PTP Mobile anzeigen" style="display:flex;align-items:center;gap:4px;margin:0 6px;font-size:12px;color:var(--text2);cursor:pointer;user-select:none;">
+        <input type="checkbox" id="projmob-${i}" ${p.mobile?'checked':''} onchange="toggleProjMobile(${i})" style="margin:0;cursor:pointer;">
+        📱 Mobile
+      </label>
+      <button class="col-icon-btn" onclick="removeProject(${i})" ${editProjects.length<=1?'disabled':''} style="color:var(--red)" title="Projekt löschen">✕</button>
+    </div>`).join('');
+}
+// Drag-Drop zum Umsortieren der Projekte
+let _projDragIdx=null;
+function onProjDragStart(e,i){_projDragIdx=i;syncProjInputs();e.dataTransfer.effectAllowed='move';e.currentTarget.style.opacity='0.4';}
+function onProjDragEnd(e){e.currentTarget.style.opacity='1';_projDragIdx=null;document.querySelectorAll('.proj-row').forEach(r=>r.classList.remove('drag-over'));}
+function onProjDragOver(e){e.preventDefault();e.currentTarget.classList.add('drag-over');e.dataTransfer.dropEffect='move';}
+function onProjDragLeave(e){e.currentTarget.classList.remove('drag-over');}
+function onProjDrop(e,toIdx){
+  e.preventDefault();e.currentTarget.classList.remove('drag-over');
+  if(_projDragIdx===null||_projDragIdx===toIdx)return;
+  const from=_projDragIdx;
+  const item=editProjects[from];
+  editProjects.splice(from,1);
+  editProjects.splice(toIdx,0,item);
+  _projDragIdx=null;
+  renderProjList();
+}
+function syncProjInputs(){editProjects=editProjects.map((p,i)=>{
+  const el=document.getElementById('projinput-'+i);
+  const mob=document.getElementById('projmob-'+i);
+  const typ=document.getElementById('projtype-'+i);
+  return{...p,name:el?el.value.trim()||p.name:p.name, mobile: mob?mob.checked:!!p.mobile, type: typ?typ.value:(p.type||'baustelle')};
+});}
+function toggleProjMobile(i){
+  syncProjInputs();
+  // keine Neuzeichnung nötig — Checkbox reflektiert Zustand bereits
+}
+function removeProject(i){
+  syncProjInputs();if(editProjects.length<=1)return;
+  const p=editProjects[i];
+  const msg=p.count>0?`Projekt "${p.name}" löschen? Alle ${p.count} Tasks gehen verloren.`:`Projekt "${p.name}" löschen?`;
+  if(!confirm(msg))return;
+  editProjects.splice(i,1);renderProjList();
+}
+function addProject(){
+  syncProjInputs();const inp=document.getElementById('projAddInput');const n=inp.value.trim();
+  if(!n){inp.focus();return;}
+  if(editProjects.some(p=>p.name===n)){alert('Projektname bereits vergeben.');return;}
+  const typSel=document.getElementById('projAddType');
+  const newType=typSel?typSel.value:'baustelle';
+  editProjects.push({key:'__new__'+Date.now(),name:n,count:0,isNew:true,mobile:false,type:newType});
+  inp.value='';renderProjList();
+}
+function saveProjects(){
+  syncProjInputs();
+  if(!editProjects.length){alert('Mindestens ein Projekt erforderlich.');return;}
+  const names=editProjects.map(p=>p.name);
+  if(new Set(names).size!==names.length){alert('Projektnamen müssen eindeutig sein.');return;}
+  const newBoards={};
+  const newBoardStatuses={};
+  editProjects.forEach(p=>{
+    if(p.isNew){
+      newBoards[p.name]=[];
+      // Neues Projekt erbt Spalten des aktuellen Projekts
+      newBoardStatuses[p.name]=[...getBoardStatuses()];
+    } else if(p.key!==p.name){
+      // Umbenennung: Tasks + Spalten übertragen
+      newBoards[p.name]=boards[p.key]||[];
+      if(boardStatuses[p.key])newBoardStatuses[p.name]=[...boardStatuses[p.key]];
+    } else {
+      newBoards[p.name]=boards[p.key]||[];
+      if(boardStatuses[p.key])newBoardStatuses[p.name]=[...boardStatuses[p.key]];
+    }
+  });
+  boards=newBoards;
+  boardStatuses=newBoardStatuses;
+  // Typen übernehmen
+  const newBoardTypes={};
+  editProjects.forEach(p=>{newBoardTypes[p.name]=p.type||'baustelle';});
+  boardTypes=newBoardTypes;
+  // Mobile-Whitelist zusammensetzen: nur angekreuzte Boards, in Reihenfolge des Projekt-Managers
+  const selected=editProjects.filter(p=>p.mobile).map(p=>p.name);
+  // Wenn alle angekreuzt sind → Whitelist leer lassen (Default = alle sichtbar, kein Flag in der JSON)
+  mobileBoards = (selected.length && selected.length < editProjects.length) ? selected : [];
+  if(!boards[currentBoard])currentBoard=Object.keys(boards)[0]||'';
+  closeProjManager();render();autoSave();
+}
+
+// ── QUICK ADD ──
+function openQuickAdd(){document.getElementById('quickAddBar').classList.add('open');document.getElementById('quickAddInput').value='';setTimeout(()=>document.getElementById('quickAddInput').focus(),50);}
+function closeQuickAdd(){document.getElementById('quickAddBar').classList.remove('open');}
+document.getElementById('quickAddInput').addEventListener('keydown',function(e){
+  if(e.key==='Enter'){
+    const t=this.value.trim();
+    if(t){boards[currentBoard].push({id:generateId(),title:t,desc:'',owner:'',due:'',status:statuses[0]||'',ampel:'grün',tags:[],source:'',links:[],attachments:[],timeEntries:[]});render();autoSave();}
+    closeQuickAdd();
+  }
+  if(e.key==='Escape')closeQuickAdd();
+});
+
+// ── KEYBOARD ──
+document.addEventListener('keydown',function(e){
+  const tag=document.activeElement.tagName;
+  const isInp=tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT';
+  const mOpen=document.getElementById('taskModal').classList.contains('open');
+  const cOpen=document.getElementById('colModal').classList.contains('open');
+  const pOpen=document.getElementById('projModal').classList.contains('open');
+  const sOpen=document.getElementById('startModal').classList.contains('open');
+  const qOpen=document.getElementById('quickAddBar').classList.contains('open');
+  const lvOpen=document.getElementById('previewLightbox').classList.contains('open');
+  if(e.key==='Escape'){
+    if(lvOpen){closePreview();return;}
+    if(mOpen){closeModal();return;}
+    if(cOpen){closeColManager();return;}
+    if(pOpen){closeProjManager();return;}
+    if(qOpen){closeQuickAdd();return;}
+    closeAllDropdowns();return;
+  }
+  if(isInp||mOpen||cOpen||pOpen||qOpen||sOpen)return;
+  if(e.key==='n'||e.key==='N'){e.preventDefault();openQuickAdd();}
+  if(e.key==='/'){e.preventDefault();document.getElementById('searchInput').focus();}
+});
+document.addEventListener('click',function(e){if(!e.target.closest('.filter-wrapper'))closeAllDropdowns();});
+
+// ── INIT ──
+boards={};render();
+
+// ══════════════════════════════════════════════
+// ── BAUDOKU-ÜBERGABE ──
+// ══════════════════════════════════════════════
+function openBaudokuApp(){
+  const taskId=document.getElementById('taskId')&&document.getElementById('taskId').value;
+  if(!taskId){alert('Bitte zuerst einen Auftrag öffnen.');return;}
+  const task=(boards[currentBoard]||[]).find(t=>t.id===taskId);
+  if(!task){alert('Auftrag nicht gefunden.');return;}
+  const ks=(task.tags&&task.tags[0])||'';
+  const kontakte=task.kontakte||[];
+  const mieter=kontakte.find(k=>k.rolle==='mieter')||{};
+  const eigentuemer=kontakte.find(k=>k.rolle==='eigentuemer')||{};
+  const ag=kontakte.find(k=>k.rolle==='ag')||{};
+  const payload={
+    _quelle:'ptp',
+    _zeitstempel:new Date().toISOString(),
+    ks,
+    rep:'',
+    datum:new Date().toISOString().split('T')[0],
+    hv:task.hausverwaltung||'',
+    ag:ag.name||task.hausverwaltung||'',
+    adresse:task.adresse||'',
+    schaden:task.schadensbild||'',
+    ausführungsdatum:task.ausführungsdatum||'',
+    notizen:task.desc||'',
+    gdrive:task.gdrive||'',
+    nas:task.nas||'',
+    emailOrdner:task.emailOrdner||'',
+    agKontaktName:ag.name||'',
+    agKontaktTel:ag.tel||'',
+    agKontaktEmail:ag.email||'',
+    mieterName:mieter.name||task.mieterName||'',
+    mieterTel:mieter.tel||task.mieterTel||'',
+    mieterEmail:mieter.email||task.mieterEmail||'',
+    eigentuemer:eigentuemer.name||'',
+    eigTel:eigentuemer.tel||'',
+    eigEmail:eigentuemer.email||'',
+    kontakte:kontakte
+  };
+  localStorage.setItem('bau_ptp_import',JSON.stringify(payload));
+  const isGithub=window.location.hostname.includes('github.io');
+  const bauUrl=isGithub?'https://ddmbraun.github.io/bau-doku/':'../bau/index.html';
+  window.open(bauUrl,'_blank');
+}
+
+// ══════════════════════════════════════════════
+// ── SYNC-MODUL (ptp_bau_sync.json) – PTP ──
+// ══════════════════════════════════════════════
+const SYNC_FILE_NAME='ptp_bau_sync.json';
+const SYNC_SOURCE='ptp';
+let syncFileId=null;
+let syncData={version:1,lastUpdated:'',updatedBy:'',termine:[],zeiterfassung:[],activeTimer:null};
+let lastSyncTimestamp='';
+let syncPollingId=null;
+// stabile Geräte-ID
+const DEVICE_ID=(function(){let d=localStorage.getItem('device_id');if(!d){d='dev_'+Math.random().toString(36).slice(2,10)+'_'+Date.now();localStorage.setItem('device_id',d);}return d;})();
+
+async function syncInit(){
+  if(!gdriveToken)return;
+  try{
+    const r=await fetch("https://www.googleapis.com/drive/v3/files?q=name%3D'ptp_bau_sync.json'%20and%20trashed%3Dfalse&fields=files(id,modifiedTime)&orderBy=modifiedTime%20desc",
+      {headers:{Authorization:'Bearer '+gdriveToken}});
+    if(r.status===401){_handleDrive401();return;}
+    const d=await r.json();
+    if(d.files&&d.files.length>0){
+      syncFileId=d.files[0].id;
+      await syncRead(true);
+    }else if(!syncFileId){
+      // Datei existiert noch nicht → erstmalig anlegen.
+      // Wenn syncFileId bereits gesetzt ist, hat der Nutzer die Datei selbst gelöscht
+      // → nicht automatisch neu erstellen.
+      await syncCreate();
+    }
+    startSyncPolling();updateSyncUI();
+    try{maybeDailySyncBackup();}catch(e){console.warn('[PTP]',e);}
+  }catch(e){console.warn('Sync init:',e);}
+}
+// ── Tägliches Backup der Sync-Datei in Google Drive ──
+async function maybeDailySyncBackup(){
+  if(!syncFileId||!gdriveToken)return;
+  const today=new Date().toISOString().split('T')[0];
+  const last=localStorage.getItem('sync_backup_last')||'';
+  if(last===today)return; // heute bereits erledigt
+  try{
+    const r=await fetch('https://www.googleapis.com/drive/v3/files/'+syncFileId+'?alt=media',
+      {headers:{Authorization:'Bearer '+gdriveToken}});
+    if(!r.ok)return;
+    const body=await r.text();
+    const name='ptp_bau_sync_'+today+'.json';
+    // prüfen ob heute schon Backup da ist
+    const q="name%3D'"+name+"'%20and%20trashed%3Dfalse";
+    const chk=await fetch('https://www.googleapis.com/drive/v3/files?q='+q+'&fields=files(id)',
+      {headers:{Authorization:'Bearer '+gdriveToken}});
+    const chkJ=await chk.json();
+    if(chkJ.files&&chkJ.files.length>0){localStorage.setItem('sync_backup_last',today);return;}
+    const b='bu_'+Date.now();
+    const mp='--'+b+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'
+      +JSON.stringify({name,mimeType:'application/json'})
+      +'\r\n--'+b+'\r\nContent-Type: application/json\r\n\r\n'+body+'\r\n--'+b+'--';
+    await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+      {method:'POST',headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'multipart/related; boundary='+b},body:mp});
+    localStorage.setItem('sync_backup_last',today);
+    // Backups älter als 30 Tage aufräumen
+    try{
+      const listResp=await fetch("https://www.googleapis.com/drive/v3/files?q=name%20contains%20'ptp_bau_sync_'%20and%20trashed%3Dfalse&fields=files(id,name,createdTime)&orderBy=createdTime",
+        {headers:{Authorization:'Bearer '+gdriveToken}});
+      const listJ=await listResp.json();
+      const cutoff=Date.now()-30*24*3600*1000;
+      for(const f of (listJ.files||[])){
+        if(f.name&&f.name.startsWith('ptp_bau_sync_')&&f.name.endsWith('.json')){
+          const ct=new Date(f.createdTime||0).getTime();
+          if(ct&&ct<cutoff){
+            fetch('https://www.googleapis.com/drive/v3/files/'+f.id,
+              {method:'DELETE',headers:{Authorization:'Bearer '+gdriveToken}}).catch(()=>{});
+          }
+        }
+      }
+    }catch(e){console.warn('[PTP]',e);}
+  }catch(e){console.warn('Backup:',e);}
+}
+async function syncCreate(){
+  const empty={version:1,lastUpdated:new Date().toISOString(),updatedBy:SYNC_SOURCE,termine:[],zeiterfassung:[]};
+  const content=JSON.stringify(empty,null,2);
+  const b='sb_'+Date.now();
+  const syncMeta={name:SYNC_FILE_NAME,mimeType:'application/json'};
+  if(workspaceFolderId)syncMeta.parents=[workspaceFolderId];
+  const body='--'+b+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(syncMeta)+'\r\n--'+b+'\r\nContent-Type: application/json\r\n\r\n'+content+'\r\n--'+b+'--';
+  const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+    {method:'POST',headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'multipart/related; boundary='+b},body});
+  const f=await r.json();
+  syncFileId=f.id;syncData=empty;lastSyncTimestamp=empty.lastUpdated;
+}
+async function syncRead(initial=false){
+  if(!syncFileId||!gdriveToken)return;
+  try{
+    // Cache-Buster + no-store verhindert, dass der Browser eine alte Kopie liefert
+    const r=await fetch('https://www.googleapis.com/drive/v3/files/'+syncFileId+'?alt=media&_='+Date.now(),
+      {headers:{Authorization:'Bearer '+gdriveToken,'Cache-Control':'no-cache','Pragma':'no-cache'},cache:'no-store'});
+    if(!r.ok)return;
+    _ptpLastSyncReadAt=Date.now();
+    const d=await r.json();
+    if(d.lastUpdated&&d.lastUpdated!==lastSyncTimestamp){
+      const isFromOther=d.updatedBy&&d.updatedBy!==SYNC_SOURCE;
+      syncData=d;lastSyncTimestamp=d.lastUpdated;
+      if(isFromOther&&!initial){
+        const cnt=(d.termine||[]).filter(t=>t.source==='bau').length+(d.zeiterfassung||[]).filter(z=>z.source==='bau').length;
+        updateSyncUI();
+        if(cnt>0)showSyncToast(cnt);
+      } else if(initial){updateSyncUI();}
+      // offene Board-Ansicht + offenes Task-Modal neu zeichnen
+      try{render();}catch(e){console.warn('[PTP]',e);}
+      try{
+        const openTaskId=document.getElementById('taskId')&&document.getElementById('taskId').value;
+        if(openTaskId){
+          // Sync-Sections im offenen Modal neu zeichnen (ohne Formular zurückzusetzen)
+          if(typeof renderAusserhausTermine==='function')renderAusserhausTermine();
+          if(typeof renderZeiterfassung==='function')renderZeiterfassung();
+          if(typeof renderTimerSection==='function')renderTimerSection();
+        }
+      }catch(e){console.warn('[PTP]',e);}
+    }
+  }catch(e){console.warn('syncRead:',e);}
+}
+async function syncWrite(){
+  if(!syncFileId||!gdriveToken)return;
+  try{
+    await fetch('https://www.googleapis.com/upload/drive/v3/files/'+syncFileId+'?uploadType=media',
+      {method:'PATCH',headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'application/json'},
+       body:JSON.stringify(syncData,null,2)});
+  }catch(e){console.warn('syncWrite:',e);}
+}
+function startSyncPolling(){
+  if(syncPollingId)clearInterval(syncPollingId);
+  syncPollingId=setInterval(()=>syncRead(),10000);
+  // Cross-Tab Sync: Wenn ein anderer Tab ins localStorage schreibt, sofort lesen
+  if(!window._ptpStorageHooked){
+    window.addEventListener('storage',e=>{
+      if(e.key==='ptp_sync_ping'||e.key==='bau_sync_ping'){syncRead();}
+    });
+    window._ptpStorageHooked=true;
+  }
+  // Bei Sichtbarkeitswechsel sofort aktualisieren
+  if(!window._ptpVisHooked){
+    document.addEventListener('visibilitychange',()=>{
+      if(document.visibilityState==='visible')syncRead();
+    });
+    window._ptpVisHooked=true;
+  }
+  if(!window._ptpNetHooked){
+    window.addEventListener('online',()=>{updateSyncUI();syncRead();});
+    window.addEventListener('offline',()=>updateSyncUI());
+    setInterval(()=>{try{updateSyncUI();}catch(e){console.warn('[PTP]',e);}},5000);
+    window._ptpNetHooked=true;
+  }
+}
+function _syncHashTermin(t){return [t.kostenstelle||'',t.datum||'',t.von||'',t.bis||'',(t.beschreibung||'').trim().toLowerCase()].join('|');}
+function _syncHashZeit(z){return [z.kostenstelle||'',z.datum||'',z.von||'',z.bis||'',(z.beschreibung||'').trim().toLowerCase()].join('|');}
+function pushToSync(){
+  if(!syncFileId||!gdriveToken)return;
+  const termine=[];const zeiten=[];
+  Object.entries(boards).forEach(([bn,tasks])=>{
+    (tasks||[]).forEach(task=>{
+      if(!task||!task.title)return;
+      const ks=(((task.tags&&task.tags[0])||(task.title?task.title.split(/[–-]/)[0]:'')||'')+'').trim();
+      (task.ausserhausTermine||[]).forEach((t,i)=>{
+        if(!t.date&&!t.von)return;
+        termine.push({syncId:'ptp_'+task.id+'_t'+i,source:'ptp',kostenstelle:ks,auftragTitle:task.title||'',
+          datum:t.date||'',von:t.von||'',bis:t.bis||'',beschreibung:t.beschreibung||''});
+      });
+      (task.zeitEntries||[]).forEach((z,i)=>{
+        if(!z.date&&!z.von)return;
+        const min=parseMinutes(z.von,z.bis);
+        zeiten.push({syncId:'ptp_'+task.id+'_z'+i,source:'ptp',kostenstelle:ks,auftragTitle:task.title||'',
+          datum:z.date||'',von:z.von||'',bis:z.bis||'',beschreibung:z.beschreibung||'',minuten:min});
+      });
+    });
+  });
+  // Merge per syncId: eigene überschreiben, fremde behalten, Duplikate per Hash entfernen
+  const mySyncIds=new Set(termine.map(x=>x.syncId));
+  const myZSyncIds=new Set(zeiten.map(x=>x.syncId));
+  const otherT=(syncData.termine||[]).filter(x=>x&&x.syncId&&!mySyncIds.has(x.syncId));
+  const otherZ=(syncData.zeiterfassung||[]).filter(x=>x&&x.syncId&&!myZSyncIds.has(x.syncId));
+  const seenT=new Set();const seenZ=new Set();
+  const mergedT=[...otherT,...termine].filter(x=>{const h=_syncHashTermin(x);if(seenT.has(h))return false;seenT.add(h);return true;});
+  const mergedZ=[...otherZ,...zeiten].filter(x=>{const h=_syncHashZeit(x);if(seenZ.has(h))return false;seenZ.add(h);return true;});
+  syncData.termine=mergedT;
+  syncData.zeiterfassung=mergedZ;
+  syncData.lastUpdated=new Date().toISOString();
+  syncData.updatedBy='ptp';
+  lastSyncTimestamp=syncData.lastUpdated;
+  syncWrite();
+  // Andere offene Tabs sofort informieren
+  try{localStorage.setItem('ptp_sync_ping',String(Date.now()));}catch(e){console.warn('[PTP]',e);}
+}
+let _ptpLastSyncReadAt=0;
+function _ptpSyncStateTooltip(){
+  let base='';
+  if(!gdriveToken)base='Nicht angemeldet';
+  else if(!syncFileId)base='Sync-Datei nicht verbunden';
+  else if(!navigator.onLine)base='Offline – Änderungen werden später übertragen';
+  else if(_ptpLastSyncReadAt){
+    const sec=Math.max(0,Math.round((Date.now()-_ptpLastSyncReadAt)/1000));
+    if(sec<15)base='Synchron vor '+sec+' s';
+    else if(sec<90)base='Zuletzt synchronisiert vor '+sec+' s';
+    else base='Zuletzt synchronisiert vor '+Math.round(sec/60)+' min';
+  } else base='Noch nicht synchronisiert';
+  try{
+    const at=syncData&&syncData.activeTimer;
+    if(at&&at.deviceId&&at.deviceId!==DEVICE_ID){
+      const mins=Math.round((Date.now()-(at.startMs||Date.now()))/60000);
+      base+='\n⏱ Fremder Timer läuft: '+(at.auftragTitle||'')+' ('+at.source+', seit '+mins+' min)';
+    }
+  }catch(e){console.warn('[PTP]',e);}
+  return base;
+}
+function updateSyncUI(){
+  const btn=document.getElementById('syncBtn');
+  if(!btn)return;
+  const bauTermine=(syncData.termine||[]).filter(t=>t.source==='bau');
+  const bauZeiten=(syncData.zeiterfassung||[]).filter(z=>z.source==='bau');
+  const total=bauTermine.length+bauZeiten.length;
+  if(total>0){
+    btn.textContent='📡 Bau ('+total+')';
+    btn.style.color='#e67e22';btn.style.borderColor='#e67e22';btn.style.background='rgba(230,126,34,.1)';
+  }else{
+    if(!navigator.onLine){
+      btn.textContent='📡 Offline';
+      btn.style.color='var(--red)';btn.style.borderColor='var(--red)';btn.style.background='transparent';
+    }else{
+      btn.textContent='📡 Sync';
+      btn.style.color=syncFileId?'var(--green)':'var(--red)';
+      btn.style.borderColor=syncFileId?'var(--green)':'var(--red)';
+      btn.style.background='transparent';
+    }
+  }
+  btn.title=_ptpSyncStateTooltip();
+  render();
+}
+function showSyncToast(count){
+  const d=document.createElement('div');
+  d.style.cssText='position:fixed;bottom:24px;right:24px;background:#1a1a2e;color:#fff;padding:12px 18px;border-radius:8px;font-size:13px;z-index:5000;box-shadow:0 4px 16px rgba(0,0,0,.3);cursor:pointer';
+  d.textContent='📡 '+count+' neue Einträge von Bau Doku';
+  d.onclick=()=>{d.remove();openSyncPanel();};
+  document.body.appendChild(d);
+  setTimeout(()=>d.remove(),5000);
+}
+function openSyncPanel(){
+  const bauTermine=(syncData.termine||[]).filter(t=>t.source==='bau');
+  const bauZeiten=(syncData.zeiterfassung||[]).filter(z=>z.source==='bau');
+  let html='<div style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)this.remove()">';
+  html+='<div style="background:var(--bg);border-radius:12px;padding:24px;width:600px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px var(--shadow);color:var(--text)">';
+  html+='<h3 style="margin:0 0 16px;font-size:16px">📡 Sync – Daten von Bau Doku App</h3>';
+  if(bauTermine.length){
+    html+='<h4 style="font-size:11px;text-transform:uppercase;color:var(--text2);margin:0 0 8px">Außerhaus-Termine ('+bauTermine.length+')</h4>';
+    html+='<div style="overflow-x:auto;margin-bottom:16px"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+    html+='<tr style="background:var(--bg2)"><th style="padding:5px 8px;text-align:left;color:var(--text2)">Datum</th><th style="color:var(--text2)">Von</th><th style="color:var(--text2)">Bis</th><th style="color:var(--text2)">Beschreibung</th><th style="color:var(--text2)">Ausf.Datum</th><th style="color:var(--text2)">Auftrag</th></tr>';
+    bauTermine.forEach(t=>{html+='<tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 8px">'+(t.datum||'–')+'</td><td>'+(t.von||'–')+'</td><td>'+(t.bis||'–')+'</td><td>'+(t.beschreibung||'')+'</td><td style="color:var(--text2);font-size:11px">'+(t.ausführungsdatum||'–')+'</td><td style="color:var(--text2);font-size:11px">'+(t.auftragTitle||'')+'</td></tr>';});
+    html+='</table></div>';
+  }
+  if(bauZeiten.length){
+    html+='<h4 style="font-size:11px;text-transform:uppercase;color:var(--text2);margin:0 0 8px">Zeiterfassung ('+bauZeiten.length+')</h4>';
+    html+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+    html+='<tr style="background:var(--bg2)"><th style="padding:5px 8px;text-align:left;color:var(--text2)">Datum</th><th style="color:var(--text2)">Von</th><th style="color:var(--text2)">Bis</th><th style="color:var(--text2)">Min.</th><th style="color:var(--text2)">Beschreibung</th><th style="color:var(--text2)">Ausf.Datum</th><th style="color:var(--text2)">Auftrag</th></tr>';
+    bauZeiten.forEach(z=>{html+='<tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 8px">'+(z.datum||'–')+'</td><td>'+(z.von||'–')+'</td><td>'+(z.bis||'–')+'</td><td>'+(z.minuten||0)+'</td><td>'+(z.beschreibung||'')+'</td><td style="color:var(--text2);font-size:11px">'+(z.ausführungsdatum||'–')+'</td><td style="color:var(--text2);font-size:11px">'+(z.auftragTitle||'')+'</td></tr>';});
+    html+='</table></div>';
+  }
+  if(!bauTermine.length&&!bauZeiten.length){html+='<p style="color:var(--text2);font-size:13px">Noch keine synchronisierten Einträge von der Bau Doku App.</p>';}
+  html+='<div style="margin-top:16px;text-align:right"><button onclick="this.closest(\'div[style*=position]\').remove()" style="padding:7px 16px;border-radius:6px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:13px;font-weight:500">Schließen</button></div>';
+  html+='</div></div>';
+  const overlay=document.createElement('div');
+  overlay.innerHTML=html;
+  document.body.appendChild(overlay);
+}
+
+// ── KARTENGRÖSSE (Schieberegler) ──
+function setCardSize(pct){
+  const v=Math.max(60,Math.min(200,parseInt(pct,10)||100));
+  document.documentElement.style.setProperty('--card-scale',(v/100).toFixed(2));
+  const lbl=document.getElementById('cardSizeVal');if(lbl)lbl.textContent=v+'%';
+  try{localStorage.setItem('ptp_card_size',String(v));}catch(e){console.warn('[PTP]',e);}
+}
+(function initCardSize(){
+  try{
+    const s=parseInt(localStorage.getItem('ptp_card_size')||'100',10);
+    const inp=document.getElementById('cardSizeSlider');
+    if(inp){inp.value=String(s);setCardSize(s);}
+  }catch(e){console.warn('[PTP]',e);}
+})();
+
+// ── MODAL-GRÖSSE (Schieberegler im Task-Modal) ──
+function setModalSize(pct){
+  const v=Math.max(70,Math.min(200,parseInt(pct,10)||100));
+  const box=document.getElementById('taskModalBox');
+  if(box)box.style.setProperty('--modal-scale',(v/100).toFixed(2));
+  const lbl=document.getElementById('modalSizeVal');if(lbl)lbl.textContent=v+'%';
+  const sl=document.getElementById('modalSizeSlider');if(sl&&String(sl.value)!==String(v))sl.value=String(v);
+  try{localStorage.setItem('ptp_modal_size',String(v));}catch(e){console.warn('[PTP]',e);}
+}
+function applyStoredModalSize(){
+  try{
+    const s=parseInt(localStorage.getItem('ptp_modal_size')||'100',10);
+    setModalSize(s);
+  }catch(e){console.warn('[PTP]',e);}
+  // Gespeicherte Abmessungen (Breite × Höhe) wiederherstellen
+  try{
+    const d=JSON.parse(localStorage.getItem('ptp_modal_dims')||'null');
+    const box=document.getElementById('taskModalBox');
+    if(d&&box){box.style.width=d.w+'px';box.style.height=d.h+'px';}
+  }catch(e){console.warn('[PTP]',e);}
+}
+// ResizeObserver: speichert Modal-Größe nach dem Ziehen
+(function(){
+  let _roSaveTimer=null;
+  function _initModalRO(){
+    const box=document.getElementById('taskModalBox');
+    if(!box||box._roAttached)return;
+    box._roAttached=true;
+    new ResizeObserver(()=>{
+      clearTimeout(_roSaveTimer);
+      _roSaveTimer=setTimeout(()=>{
+        try{localStorage.setItem('ptp_modal_dims',JSON.stringify({w:Math.round(box.offsetWidth),h:Math.round(box.offsetHeight)}));}catch(e){console.warn('[PTP]',e);}
+      },300);
+    }).observe(box);
+  }
+  // Sobald DOM bereit ist initialisieren
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',_initModalRO);
+  else _initModalRO();
+})();
+
+</script>
+</body>
+</html>
