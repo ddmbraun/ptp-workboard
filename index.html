@@ -321,7 +321,8 @@ input,select,textarea{font-family:inherit;}
 .ampel-green{background:var(--green);}
 .ampel-orange{background:var(--orange);}
 .ampel-red{background:var(--red);}
-.task-tag{font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(108,99,255,0.13);color:var(--accent2);border:1px solid rgba(108,99,255,0.22);font-weight:500;}
+.task-tag{font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(108,99,255,0.15);color:var(--accent2);border:1px solid rgba(108,99,255,0.3);font-weight:600;}
+body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color:rgba(58,100,220,0.35);}
 .task-source{font-size:10px;color:var(--text2);font-style:italic;}
 .task-card-icons{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap;}
 .task-icon-badge{font-size:10px;color:var(--text2);background:var(--bg);padding:1px 5px;border-radius:3px;display:flex;align-items:center;gap:3px;}
@@ -2509,16 +2510,12 @@ function removeLink(i){taskLinks.splice(i,1);renderLinksList();}
 // ── FILE ATTACHMENTS ──
 function triggerFileInput(){document.getElementById('fileAttachInput').click();}
 function _getDriveFotoFolderId(){
-  // Wie Mobile: direkt aus Task-Objekt lesen (nicht aus DOM-Feldern die abweichen könnten)
+  // Wie Mobile: nur task.gdrive (Foto-Ordner), KEIN Fallback auf gdriveOrdner (Projektordner)
   const taskId=document.getElementById('taskId')?.value;
   const task=taskId?findTaskById(taskId):null;
-  if(task){
-    return _extractFolderIdFromUrl(task.gdrive||'')
-        || _extractFolderIdFromUrl(task.gdriveOrdner||'');
-  }
-  // Fallback auf DOM-Felder falls Task noch nicht gespeichert
-  return _extractFolderIdFromUrl(document.getElementById('tGD')?.value||'')
-      || _extractFolderIdFromUrl(document.getElementById('tGDOrdner')?.value||'');
+  if(task) return _extractFolderIdFromUrl(task.gdrive||'');
+  // Fallback auf DOM-Feld falls Task noch nicht gespeichert
+  return _extractFolderIdFromUrl(document.getElementById('tGD')?.value||'');
 }
 function _tauscheDriveOrdner(){
   const f1=document.getElementById('tGDOrdner');
@@ -2566,8 +2563,7 @@ function triggerFotoUploadToDrive(){
     setTimeout(()=>{const el=document.getElementById('tGD');if(el){el.focus();el.style.outline='2px solid var(--accent)';}},300);
     return;
   }
-  const hatFotoOrdner=!!_extractFolderIdFromUrl(document.getElementById('tGD')?.value||'');
-  showToast(hatFotoOrdner?'📷 Lade hoch in Foto-Ordner …':'📷 Lade hoch in Projektordner (kein sep. Foto-Ordner)','info',3000);
+  showToast('📷 Lade hoch in Foto-Ordner …','info',3000);
   document.getElementById('fotoDriveInput').click();
 }
 async function handleFotoUploadToDrive(e){
@@ -3713,8 +3709,11 @@ function openNewTaskModal(){
 }
 
 function openEditTaskModal(id){
-  const task=(boards[currentBoard]||[]).find(t=>t.id===id);
-  if(!task)return;
+  try{
+  // In allen Boards suchen, nicht nur im aktiven (Task könnte verschoben worden sein)
+  let task=null;
+  for(const bk of Object.keys(boards)){const f=(boards[bk]||[]).find(t=>t.id===id);if(f){task=f;break;}}
+  if(!task){showToast('Task nicht gefunden (ID: '+id+')','error');return;}
   document.getElementById('modalTitle').textContent='Task bearbeiten';
   document.getElementById('taskId').value=task.id;
   document.getElementById('taskTitleInput').value=task.title;
@@ -3758,6 +3757,10 @@ function openEditTaskModal(id){
   renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();
   const _ni=document.getElementById('newTaskNotizInput');if(_ni)_ni.value='';
   openModal();
+  }catch(err){
+    console.error('openEditTaskModal Fehler:',err);
+    showToast('⚠ Fehler beim Öffnen: '+err.message,'error',6000);
+  }
 }
 
 function saveTask(){
