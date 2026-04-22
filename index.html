@@ -1444,6 +1444,7 @@ function showToast(msg, type='info', duration=3000){
 const GDRIVE_CLIENT_ID = '56419258975-2ri3eujer9p6saph1mesa5hihlcae1pl.apps.googleusercontent.com';
 const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly';
 const WORKSPACE_FOLDER_NAME = 'PTP-BAU Daten';
+const PC_TOKEN_KEY = 'ptp_gdrive_token_v1';
 let workspaceFolderId = localStorage.getItem('workspace_folder_id') || null;
 
 let gdriveToken = null;
@@ -1462,7 +1463,29 @@ function gdriveInit() {
     scope: GDRIVE_SCOPE,
     callback: gdriveTokenCallback,
   });
-  // Stille Auto-Anmeldung versuchen (klappt wenn Google-Session noch aktiv)
+  // Gespeichertes Token aus localStorage wiederherstellen
+  try {
+    const stored = JSON.parse(localStorage.getItem(PC_TOKEN_KEY) || 'null');
+    if (stored && stored.token && stored.exp && Date.now() < stored.exp - 30000) {
+      gdriveToken = stored.token;
+      gdriveTokenExpires = stored.exp;
+      // Direkt loslegen ohne erneuten Auth-Aufruf
+      const lastAction = localStorage.getItem('gdrive_last_action');
+      if (lastAction) {
+        gdrivePendingAction = lastAction;
+        localStorage.removeItem('gdrive_last_action');
+        ensureWorkspaceFolder().then(() => {
+          if (gdrivePendingAction === 'load') { gdrivePendingAction = null; gdrivePickAndLoad(); }
+          else if (gdrivePendingAction === 'new') { gdrivePendingAction = null; gdriveCreateFile(); }
+          else if (gdrivePendingAction === 'save') { gdrivePendingAction = null; gdriveSaveData(); }
+          else { gdrivePendingAction = null; }
+          syncInit();
+        }).catch(() => { gdrivePendingAction = null; syncInit(); });
+      }
+      return;
+    }
+  } catch(e) {}
+  // Kein gültiges gespeichertes Token → stille Anmeldung versuchen (klappt wenn Google-Session noch aktiv)
   const lastAction = localStorage.getItem('gdrive_last_action');
   if (lastAction) {
     gdrivePendingAction = lastAction;
@@ -1495,8 +1518,8 @@ async function ensureWorkspaceFolder() {
 
 async function gdriveTokenCallback(resp) {
   if (resp.error) {
-    // Bei stiller Anmeldung (prompt:none) einfach ignorieren – kein Alert
-    if (resp.error === 'interaction_required' || resp.error === 'access_denied') {
+    // Bei stiller Anmeldung (prompt:none) oder geblockte Popups – einfach ignorieren
+    if (['interaction_required','access_denied','popup_failed_to_open','popup_closed'].includes(resp.error)) {
       gdrivePendingAction = null;
       return;
     }
@@ -1505,7 +1528,9 @@ async function gdriveTokenCallback(resp) {
   }
   gdriveToken = resp.access_token;
   gdriveTokenExpires = Date.now() + (Number(resp.expires_in || 3600) - 60) * 1000;
-  _scheduleGdriveRefresh(Number(resp.expires_in || 3600));
+  // Token in localStorage speichern (übersteht Seitenreload)
+  try { localStorage.setItem(PC_TOKEN_KEY, JSON.stringify({token: gdriveToken, exp: gdriveTokenExpires})); } catch(e) {}
+  clearTimeout(_gdriveRefreshTimer); // kein Timer mehr – visibilitychange übernimmt
   const action = gdrivePendingAction;
   gdrivePendingAction = null;
   if (action) localStorage.setItem('gdrive_last_action', action);
@@ -1523,28 +1548,27 @@ async function gdriveTokenCallback(resp) {
   }catch(e){console.warn('[PTP]',e);}
 }
 
-// Automatischer Hintergrund-Refresh: 5 Min vor Ablauf still erneuern
-function _scheduleGdriveRefresh(expiresIn) {
-  clearTimeout(_gdriveRefreshTimer);
-  const delay = Math.max(10000, (expiresIn - 300)) * 1000;
-  _gdriveRefreshTimer = setTimeout(() => {
-    if (!gdriveTokenClient) return;
-    try {
-      // Stil erneuern ohne Popup
-      const prev = gdriveTokenClient.callback;
-      gdriveTokenClient.callback = (r) => {
-        gdriveTokenClient.callback = prev;
-        if (r && r.access_token) {
-          gdriveToken = r.access_token;
-          gdriveTokenExpires = Date.now() + (Number(r.expires_in || 3600) - 60) * 1000;
-          _scheduleGdriveRefresh(Number(r.expires_in || 3600));
-          console.info('[PTP] Drive-Token still erneuert ✓');
-        }
-      };
-      gdriveTokenClient.requestAccessToken({ prompt: 'none' });
-    } catch(e) { console.warn('[PTP] Token-Refresh:', e); }
-  }, delay);
-}
+// Token-Refresh via visibilitychange (Tab-Wechsel = Nutzeraktion → Popup erlaubt)
+// Timer-basierter Refresh entfernt: Browser blockiert Popups aus Timern heraus
+function _scheduleGdriveRefresh() { /* nicht mehr verwendet – wird durch visibilitychange ersetzt */ }
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  if (!gdriveTokenClient || !gdriveToken) return;
+  const remaining = gdriveTokenExpires - Date.now();
+  if (remaining > 600000) return; // mehr als 10 Min übrig → kein Bedarf
+  // Token abgelaufen oder weniger als 10 Min übrig → still erneuern
+  const prev = gdriveTokenClient.callback;
+  gdriveTokenClient.callback = (r) => {
+    gdriveTokenClient.callback = prev;
+    if (r && r.access_token) {
+      gdriveToken = r.access_token;
+      gdriveTokenExpires = Date.now() + (Number(r.expires_in || 3600) - 60) * 1000;
+      try { localStorage.setItem(PC_TOKEN_KEY, JSON.stringify({token: gdriveToken, exp: gdriveTokenExpires})); } catch(e) {}
+      console.info('[PTP] Drive-Token bei Tab-Wechsel erneuert ✓');
+    }
+  };
+  try { gdriveTokenClient.requestAccessToken({ prompt: 'none' }); } catch(e) { gdriveTokenClient.callback = prev; }
+});
 function gdriveTokenValid() { return !!gdriveToken && Date.now() < gdriveTokenExpires; }
 
 function gdriveRequestToken(action) {
@@ -4316,10 +4340,31 @@ function renderEmailOriginals(){
       <span style="font-size:16px;flex-shrink:0;">📨</span>
       <span class="eo-name" title="${esc(e.name)}">${esc(e.name)}</span>
       <span class="eo-date">${esc(e.uploadedAt||'')}</span>
-      <a class="eo-open" href="https://drive.google.com/uc?id=${esc(e.fileId)}&export=download" title="Datei herunterladen → in Outlook öffnen &amp; antworten">⬇ Herunterladen</a>
+      <button type="button" class="eo-open" onclick="_downloadEmailOrig('${esc(e.fileId)}','${esc(e.name)}')" title="Datei herunterladen → in Outlook öffnen &amp; antworten">⬇ Herunterladen</button>
       <a class="eo-open" href="${esc(e.url)}" target="_blank" title="In Google Drive anzeigen" style="background:transparent;border-color:var(--border);color:var(--text2);">📂</a>
       <button type="button" class="eo-del" onclick="taskEmailOriginals.splice(${i},1);renderEmailOriginals();scheduleTaskFieldSave();" title="Eintrag entfernen (Datei bleibt in Drive)">✕</button>
     </div>`).join('');
+}
+
+// Direkter Download via Drive API (kein Browser-Login nötig, kein Virus-Warn-Popup)
+async function _downloadEmailOrig(fileId,filename){
+  if(!gdriveToken){showToast('⚠ Bitte zuerst mit Google Drive verbinden.','error');return;}
+  try{
+    showToast('⏳ Download läuft…','info');
+    const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(fileId)+'?alt=media',{
+      headers:{Authorization:'Bearer '+gdriveToken}
+    });
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const blob=await r.blob();
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download=filename;a.style.display='none';
+    document.body.appendChild(a);a.click();
+    setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},5000);
+    showToast('✅ '+filename+' heruntergeladen','success');
+  }catch(e){
+    showToast('⚠ Download Fehler: '+e.message,'error');
+  }
 }
 
 // Generischer Drive-Upload (beliebiger MIME-Typ)
@@ -4368,8 +4413,13 @@ async function _uploadEmailOriginal(file){
   }
 }
 function _handleEmailOrigDrop(dt){
-  const files=[...(dt.files||[])].filter(f=>/\.(msg|eml)$/i.test(f.name));
-  if(!files.length){showToast('Nur .msg oder .eml Dateien','error');return;}
+  const allFiles=[...(dt.files||[])];
+  const files=allFiles.filter(f=>/\.(msg|eml)$/i.test(f.name));
+  if(!files.length){
+    // Neue Outlook ist eine Web-App und unterstützt kein Drag&Drop von E-Mails
+    showToast('Kein .msg/.eml erkannt. Bei Outlook Neu: Datei → Speichern unter → .eml, dann hier hochladen.','error');
+    return;
+  }
   files.forEach(f=>_uploadEmailOriginal(f));
 }
 function _handleEmailOrigSelect(evt){
