@@ -883,20 +883,20 @@ input,select,textarea{font-family:inherit;}
       <div class="form-collapse-body">
         <div class="modal-grid">
           <div class="modal-field full">
+            <label>📷 Google Drive – Foto-Ordner <span style="font-size:10px;color:var(--accent);font-weight:600;">← 📷 Drive-Foto Button nutzt DIESEN Ordner</span></label>
+            <div class="link-row-2">
+              <input type="url" id="tGD" placeholder="https://drive.google.com/drive/folders/…" oninput="_updateFotoOrdnerHint()">
+              <button class="link-btn-2" onclick="tDriveOeffnen()" title="Ordner öffnen">📁</button>
+            </div>
+          </div>
+          <div style="text-align:center;margin:4px 0">
+            <button type="button" onclick="_tauscheDriveOrdner()" title="URLs der beiden Ordner tauschen – falls sie vertauscht eingetragen wurden" style="font-size:12px;padding:5px 14px;border-radius:6px;border:1.5px solid var(--accent);background:rgba(108,99,255,0.08);color:var(--accent);cursor:pointer;font-weight:600">⇄ URLs tauschen</button>
+          </div>
+          <div class="modal-field full">
             <label>📁 Google Drive – Projektordner</label>
             <div class="link-row-2">
               <input type="url" id="tGDOrdner" placeholder="https://drive.google.com/drive/folders/…" oninput="_updateFotoOrdnerHint()">
               <button class="link-btn-2" onclick="tDriveOrdnerOeffnen()" title="Ordner öffnen">📁</button>
-            </div>
-          </div>
-          <div style="text-align:center;margin:2px 0">
-            <button type="button" onclick="_tauscheDriveOrdner()" title="URLs der beiden Ordner tauschen" style="font-size:11px;padding:3px 10px;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer">⇄ Tauschen</button>
-          </div>
-          <div class="modal-field full">
-            <label>📷 Google Drive – Foto-Ordner <span style="font-size:10px;color:var(--accent);font-weight:600;">(📷 Drive-Foto Button nutzt diesen Ordner)</span></label>
-            <div class="link-row-2">
-              <input type="url" id="tGD" placeholder="https://drive.google.com/drive/folders/…" oninput="_updateFotoOrdnerHint()">
-              <button class="link-btn-2" onclick="tDriveOeffnen()" title="Ordner öffnen">📁</button>
             </div>
           </div>
           <div class="modal-field full">
