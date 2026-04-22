@@ -133,7 +133,7 @@ async function _ezProcess(info,fid,zone){
     var fname=stamp+'_'+_ezClean(info.subject)+'.pdf';
     await _ezUpload(pdf,fname,fid);
     _ezMsg(zone,'success','Gespeichert: '+fname);
-    setTimeout(function(){document.getElementById('emailDropZoneMsg')&&(_ezMsg(zone,'',''),document.getElementById('emailDropZone').innerHTML=document.getElementById('emailDropZone').innerHTML);},4000);
+    setTimeout(function(){document.getElementById('emailDropZoneMsg')&&_ezMsg(zone,'','');},4000);
   }catch(err){
     _ezMsg(zone,'error','Fehler: '+err.message);
   }
@@ -1210,13 +1210,13 @@ let activeTimerIntervalId = null;
   try{
     const raw=localStorage.getItem('ptp_timer');
     if(raw){const t=JSON.parse(raw);if(t&&t.taskId){activeTimerTaskId=t.taskId;}}
-  }catch(e){}
+  }catch(e){console.warn('[PTP]',e);}
 })();
 function persistTimerState(){
   try{
     if(activeTimerTaskId){localStorage.setItem('ptp_timer',JSON.stringify({taskId:activeTimerTaskId,startMs:Date.now()}));}
     else{localStorage.removeItem('ptp_timer');}
-  }catch(e){}
+  }catch(e){console.warn('[PTP]',e);}
 }
 function resumeRunningTimer(){
   // Läuft ein Timer aus vorheriger Session? Wir erkennen ihn am offenen timeEntries-Eintrag (end:null)
@@ -1229,7 +1229,7 @@ function resumeRunningTimer(){
   if(activeTimerIntervalId)clearInterval(activeTimerIntervalId);
   const tid=activeTimerTaskId;
   activeTimerIntervalId=setInterval(()=>{
-    try{renderTimerDisplay();updateCardTimerBadge(tid);}catch(e){}
+    try{renderTimerDisplay();updateCardTimerBadge(tid);}catch(e){console.warn('[PTP]',e);}
   },1000);
 }
 
@@ -1332,7 +1332,7 @@ async function gdriveTokenCallback(resp) {
       img.dataset.hydrated='';// Reset so sie neu geladen werden
     });
     if(typeof hydrateDesktopFotoThumbs==='function')hydrateDesktopFotoThumbs();
-  }catch(e){}
+  }catch(e){console.warn('[PTP]',e);}
 }
 
 function gdriveRequestToken(action) {
@@ -1507,8 +1507,8 @@ async function pollWorkboardFile(){
     try{
       const ind=document.getElementById('fileStatus');
       if(ind)ind.textContent='↻ Aktualisiert vom Handy '+new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
-    }catch(e){}
-  }catch(e){}
+    }catch(e){console.warn('[PTP]',e);}
+  }catch(e){console.warn('[PTP]',e);}
 }
 function startWorkboardPolling(){
   if(workboardPollTimer)clearInterval(workboardPollTimer);
@@ -1562,7 +1562,7 @@ async function gdriveCreateFile(keepCurrentData) {
     syncFileId = null;
     syncData = {version:1,lastUpdated:'',updatedBy:'',termine:[],zeiterfassung:[],activeTimer:null};
     lastSyncTimestamp = '';
-    try{syncInit();}catch(e){}
+    try{syncInit();}catch(e){console.warn('[PTP]',e);}
     updateFileStatus('ok', '☁️ ' + gdriveFileName, '✓ Neue Datei in Google Drive erstellt');
     updateDriveBtnBar();
     startWorkboardPolling();
@@ -1671,19 +1671,19 @@ async function gdriveSaveData() {
             if(modalTaskId){
               const refreshed=findTaskById(modalTaskId);
               if(refreshed){
-                try{taskAusserhausTermine=JSON.parse(JSON.stringify(refreshed.ausserhausTermine||[]));}catch(e){}
-                try{taskZeitEntries=JSON.parse(JSON.stringify(refreshed.zeitEntries||[]));}catch(e){}
-                try{taskNotizVerlauf=JSON.parse(JSON.stringify(refreshed.notizVerlauf||[]));}catch(e){}
-                try{taskLinks=JSON.parse(JSON.stringify(refreshed.links||[]));}catch(e){}
-                try{taskAttachments=JSON.parse(JSON.stringify(refreshed.attachments||[]));}catch(e){}
-                try{taskFotos=JSON.parse(JSON.stringify(refreshed.fotos||[]));}catch(e){}
-                try{if(typeof renderZeiterfassung==='function')renderZeiterfassung();}catch(e){}
-                try{if(typeof renderAusserhausTermine==='function')renderAusserhausTermine();}catch(e){}
-                try{if(typeof renderTaskNotizen==='function')renderTaskNotizen();}catch(e){}
-                try{if(typeof renderLinksList==='function')renderLinksList();}catch(e){}
-                try{if(typeof renderAttachList==='function')renderAttachList();}catch(e){}
-                try{if(typeof renderFotoListDesktop==='function')renderFotoListDesktop();}catch(e){}
-                try{if(typeof renderTimerSection==='function')renderTimerSection();}catch(e){}
+                try{taskAusserhausTermine=JSON.parse(JSON.stringify(refreshed.ausserhausTermine||[]));}catch(e){console.warn('[PTP]',e);}
+                try{taskZeitEntries=JSON.parse(JSON.stringify(refreshed.zeitEntries||[]));}catch(e){console.warn('[PTP]',e);}
+                try{taskNotizVerlauf=JSON.parse(JSON.stringify(refreshed.notizVerlauf||[]));}catch(e){console.warn('[PTP]',e);}
+                try{taskLinks=JSON.parse(JSON.stringify(refreshed.links||[]));}catch(e){console.warn('[PTP]',e);}
+                try{taskAttachments=JSON.parse(JSON.stringify(refreshed.attachments||[]));}catch(e){console.warn('[PTP]',e);}
+                try{taskFotos=JSON.parse(JSON.stringify(refreshed.fotos||[]));}catch(e){console.warn('[PTP]',e);}
+                try{if(typeof renderZeiterfassung==='function')renderZeiterfassung();}catch(e){console.warn('[PTP]',e);}
+                try{if(typeof renderAusserhausTermine==='function')renderAusserhausTermine();}catch(e){console.warn('[PTP]',e);}
+                try{if(typeof renderTaskNotizen==='function')renderTaskNotizen();}catch(e){console.warn('[PTP]',e);}
+                try{if(typeof renderLinksList==='function')renderLinksList();}catch(e){console.warn('[PTP]',e);}
+                try{if(typeof renderAttachList==='function')renderAttachList();}catch(e){console.warn('[PTP]',e);}
+                try{if(typeof renderFotoListDesktop==='function')renderFotoListDesktop();}catch(e){console.warn('[PTP]',e);}
+                try{if(typeof renderTimerSection==='function')renderTimerSection();}catch(e){console.warn('[PTP]',e);}
               }
             }
           }
@@ -1705,7 +1705,7 @@ async function gdriveSaveData() {
     );
     if (r.ok) {
       // Nach eigenem Speichern den neuen modifiedTime übernehmen, damit der Poller nicht selbst triggert
-      try{const meta=await r.json();if(meta&&meta.modifiedTime)workboardLastModified=meta.modifiedTime;}catch(e){}
+      try{const meta=await r.json();if(meta&&meta.modifiedTime)workboardLastModified=meta.modifiedTime;}catch(e){console.warn('[PTP]',e);}
       updateFileStatus('ok', '☁️ ' + gdriveFileName,
         '✓ Gespeichert ' + new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}));
     } else if (r.status === 404) {
@@ -1787,10 +1787,10 @@ function loadFromObject(data){
   }
   const keys=Object.keys(boards);
   // Zuletzt gewähltes Projekt aus localStorage wiederherstellen
-  try{const saved=localStorage.getItem('ptp_lastBoard');if(saved&&boards[saved])currentBoard=saved;}catch(e){}
+  try{const saved=localStorage.getItem('ptp_lastBoard');if(saved&&boards[saved])currentBoard=saved;}catch(e){console.warn('[PTP]',e);}
   if(!currentBoard||!boards[currentBoard])currentBoard=keys.length?keys[0]:'';
   // laufenden Timer aus Vorgänger-Session fortsetzen, sobald die Tasks geladen sind
-  try{resumeRunningTimer();}catch(e){}
+  try{resumeRunningTimer();}catch(e){console.warn('[PTP]',e);}
 }
 function buildSaveObject(){
   const out={_statuses:statuses};
@@ -2082,7 +2082,7 @@ function onBoardTabDrop(e){
 }
 function switchBoard(name){
   currentBoard=name;
-  try{localStorage.setItem('ptp_lastBoard',name);}catch(e){}
+  try{localStorage.setItem('ptp_lastBoard',name);}catch(e){console.warn('[PTP]',e);}
   render();
 }
 function switchView(view){currentView=view;document.querySelectorAll('.view-tab').forEach(t=>t.classList.toggle('active',t.dataset.view===view));render();}
@@ -2499,8 +2499,8 @@ function renderLinksList(){
   if(!taskLinks.length){el.innerHTML=`<div class="no-items-hint">Noch keine Links — oben hinzufügen</div>`;return;}
   el.innerHTML=taskLinks.map((l,i)=>`
     <div class="link-row">
-      <input type="text" value="${esc(l.label)}" placeholder="Bezeichnung" oninput="taskLinks[${i}].label=this.value">
-      <input type="url" class="url-input" value="${esc(l.url)}" placeholder="https://…" oninput="taskLinks[${i}].url=this.value">
+      <input type="text" value="${esc(l.label)}" placeholder="Bezeichnung" oninput="if(taskLinks && taskLinks[${i}])taskLinks[${i}].label=this.value">
+      <input type="url" class="url-input" value="${esc(l.url)}" placeholder="https://…" oninput="if(taskLinks && taskLinks[${i}])taskLinks[${i}].url=this.value">
       <button class="link-remove-btn" onclick="removeLink(${i})">✕</button>
     </div>`).join('');
 }
@@ -2939,7 +2939,7 @@ async function createPdfFromSelected(){
   }
   if(!doc){showToast('Keine Bilder geladen','error');return;}
   // Dateiname aus Task-Titel
-  const taskTitle=(document.getElementById('tTitle')?.value||'fotos').replace(/[^\w\-]/g,'_');
+  const taskTitle=(document.getElementById('taskTitleInput')?.value||'fotos').replace(/[^\w\-]/g,'_');
   doc.save(taskTitle+'_fotos.pdf');
   showToast('✓ PDF erstellt','success');
   cancelFotoSelectMode();
@@ -3002,7 +3002,7 @@ function _deskInitPannellum(blobUrl){
   }
 }
 function _deskClosePannellum(){
-  if(_deskPannellumViewer){try{_deskPannellumViewer.destroy();}catch(e){}_deskPannellumViewer=null;}
+  if(_deskPannellumViewer){try{_deskPannellumViewer.destroy();}catch(e){console.warn('[PTP]',e);}_deskPannellumViewer=null;}
   const c=document.getElementById('desktopPannellumContainer');
   if(c){c.classList.remove('active');c.innerHTML='';}
   const cnt=document.getElementById('previewContent');
@@ -3094,9 +3094,11 @@ function embedExifCaption(dataUrl,caption){
 }
 async function _embedExifInDriveDesktop(driveId,caption){
   if(!driveId||!caption||!window.piexif)return;
-  const blobUrl=await _fetchDesktopFotoBlob(driveId);
-  if(!blobUrl)return;
-  const blob=await fetch(blobUrl).then(r=>r.blob());
+  if(!gdriveToken)return;
+  const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(driveId)+'?alt=media',
+    {headers:{Authorization:'Bearer '+gdriveToken}});
+  if(!r.ok)return;
+  const blob=await r.blob();
   const dataUrl=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=e=>res(e.target.result);fr.onerror=rej;fr.readAsDataURL(blob);});
   if(!dataUrl.startsWith('data:image/jpeg')&&!dataUrl.startsWith('data:image/jpg'))return;
   const newDataUrl=embedExifCaption(dataUrl,caption);
@@ -3249,7 +3251,7 @@ async function createAbschlussakte(){
         head:[['Datum','Von','Bis','Dauer','Beschreibung']],
         body:taskZeitEntries.map(z=>{
           let dur='';
-          try{const[vh,vm]=z.von.split(':').map(Number);const[bh,bm]=z.bis.split(':').map(Number);const d=(bh*60+bm)-(vh*60+vm);if(d>0)dur=Math.floor(d/60)+'h '+(d%60)+'min';}catch(e){}
+          try{const[vh,vm]=z.von.split(':').map(Number);const[bh,bm]=z.bis.split(':').map(Number);const d=(bh*60+bm)-(vh*60+vm);if(d>0)dur=Math.floor(d/60)+'h '+(d%60)+'min';}catch(e){console.warn('[PTP]',e);}
           return[z.date||'',z.von||'',z.bis||'',dur,z.beschreibung||''];
         }),
         foot:[['','','','Gesamt:',zeitH+'h '+zeitM+'min']],
@@ -3413,9 +3415,9 @@ function startTimer(taskId){
       syncData.activeTimer={deviceId:DEVICE_ID,source:'ptp',taskId,kostenstelle:ks,auftragTitle:task.title||'',startMs:Date.now()};
       syncData.lastUpdated=new Date().toISOString();syncData.updatedBy='ptp';
       syncWrite();
-      try{localStorage.setItem('ptp_sync_ping',String(Date.now()));}catch(e){}
+      try{localStorage.setItem('ptp_sync_ping',String(Date.now()));}catch(e){console.warn('[PTP]',e);}
     }
-  }catch(e){}
+  }catch(e){console.warn('[PTP]',e);}
   autoSave();
 }
 function stopTimer(){
@@ -3447,7 +3449,7 @@ function stopTimer(){
     if(syncData&&syncData.activeTimer&&syncData.activeTimer.deviceId===DEVICE_ID){
       syncData.activeTimer=null;
     }
-  }catch(e){}
+  }catch(e){console.warn('[PTP]',e);}
   scheduleSave();  // includes pushToSync()
   updateCardTimerBadge(stoppedId);
 }
@@ -3492,7 +3494,7 @@ function renderTimerEntries(task){
     <div class="timer-entry">
       <span class="timer-entry-time">${new Date(e.start).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span>
       <span class="timer-entry-dur">${formatDuration(e.end-e.start)}</span>
-      <button class="timer-entry-del" onclick="deleteTimerEntry('${task.id}',${i})" title="Eintrag löschen">✕</button>
+      <button class="timer-entry-del" onclick="deleteTimerEntry('${esc(task.id)}',${i})" title="Eintrag löschen">✕</button>
     </div>`).join('')+
     `<div class="timer-total-row"><span>Gesamt (abgeschlossen)</span><span class="timer-total-val">${formatDuration(total)}</span></div>`;
 }
@@ -3543,7 +3545,7 @@ function openPreview(i){
       cnt.innerHTML='<img src="'+a.data+'" alt="'+esc(a.name)+'" id="deskLbImg" onload="_check360Local(this)">';
     }
   } else if(a.type==='application/pdf'){
-    cnt.innerHTML='<iframe src="'+a.data+'" title="'+esc(a.name)+'"></iframe>';
+    cnt.innerHTML='<iframe src="'+esc(a.data)+'" title="'+esc(a.name)+'"></iframe>';
   } else if(a.type==='text/plain'||a.name.toLowerCase().endsWith('.txt')){
     try{
       const b64=a.data.split(',')[1]||'';
@@ -4041,7 +4043,7 @@ async function syncInit(){
       await syncCreate();
     }
     startSyncPolling();updateSyncUI();
-    try{maybeDailySyncBackup();}catch(e){}
+    try{maybeDailySyncBackup();}catch(e){console.warn('[PTP]',e);}
   }catch(e){console.warn('Sync init:',e);}
 }
 // ── Tägliches Backup der Sync-Datei in Google Drive ──
@@ -4084,7 +4086,7 @@ async function maybeDailySyncBackup(){
           }
         }
       }
-    }catch(e){}
+    }catch(e){console.warn('[PTP]',e);}
   }catch(e){console.warn('Backup:',e);}
 }
 async function syncCreate(){
@@ -4117,7 +4119,7 @@ async function syncRead(initial=false){
         if(cnt>0)showSyncToast(cnt);
       } else if(initial){updateSyncUI();}
       // offene Board-Ansicht + offenes Task-Modal neu zeichnen
-      try{render();}catch(e){}
+      try{render();}catch(e){console.warn('[PTP]',e);}
       try{
         const openTaskId=document.getElementById('taskId')&&document.getElementById('taskId').value;
         if(openTaskId){
@@ -4126,7 +4128,7 @@ async function syncRead(initial=false){
           if(typeof renderZeiterfassung==='function')renderZeiterfassung();
           if(typeof renderTimerSection==='function')renderTimerSection();
         }
-      }catch(e){}
+      }catch(e){console.warn('[PTP]',e);}
     }
   }catch(e){console.warn('syncRead:',e);}
 }
@@ -4158,7 +4160,7 @@ function startSyncPolling(){
   if(!window._ptpNetHooked){
     window.addEventListener('online',()=>{updateSyncUI();syncRead();});
     window.addEventListener('offline',()=>updateSyncUI());
-    setInterval(()=>{try{updateSyncUI();}catch(e){}},5000);
+    setInterval(()=>{try{updateSyncUI();}catch(e){console.warn('[PTP]',e);}},5000);
     window._ptpNetHooked=true;
   }
 }
@@ -4199,7 +4201,7 @@ function pushToSync(){
   lastSyncTimestamp=syncData.lastUpdated;
   syncWrite();
   // Andere offene Tabs sofort informieren
-  try{localStorage.setItem('ptp_sync_ping',String(Date.now()));}catch(e){}
+  try{localStorage.setItem('ptp_sync_ping',String(Date.now()));}catch(e){console.warn('[PTP]',e);}
 }
 let _ptpLastSyncReadAt=0;
 function _ptpSyncStateTooltip(){
@@ -4219,7 +4221,7 @@ function _ptpSyncStateTooltip(){
       const mins=Math.round((Date.now()-(at.startMs||Date.now()))/60000);
       base+='\n⏱ Fremder Timer läuft: '+(at.auftragTitle||'')+' ('+at.source+', seit '+mins+' min)';
     }
-  }catch(e){}
+  }catch(e){console.warn('[PTP]',e);}
   return base;
 }
 function updateSyncUI(){
@@ -4286,14 +4288,14 @@ function setCardSize(pct){
   const v=Math.max(60,Math.min(200,parseInt(pct,10)||100));
   document.documentElement.style.setProperty('--card-scale',(v/100).toFixed(2));
   const lbl=document.getElementById('cardSizeVal');if(lbl)lbl.textContent=v+'%';
-  try{localStorage.setItem('ptp_card_size',String(v));}catch(e){}
+  try{localStorage.setItem('ptp_card_size',String(v));}catch(e){console.warn('[PTP]',e);}
 }
 (function initCardSize(){
   try{
     const s=parseInt(localStorage.getItem('ptp_card_size')||'100',10);
     const inp=document.getElementById('cardSizeSlider');
     if(inp){inp.value=String(s);setCardSize(s);}
-  }catch(e){}
+  }catch(e){console.warn('[PTP]',e);}
 })();
 
 // ── MODAL-GRÖSSE (Schieberegler im Task-Modal) ──
@@ -4303,19 +4305,19 @@ function setModalSize(pct){
   if(box)box.style.setProperty('--modal-scale',(v/100).toFixed(2));
   const lbl=document.getElementById('modalSizeVal');if(lbl)lbl.textContent=v+'%';
   const sl=document.getElementById('modalSizeSlider');if(sl&&String(sl.value)!==String(v))sl.value=String(v);
-  try{localStorage.setItem('ptp_modal_size',String(v));}catch(e){}
+  try{localStorage.setItem('ptp_modal_size',String(v));}catch(e){console.warn('[PTP]',e);}
 }
 function applyStoredModalSize(){
   try{
     const s=parseInt(localStorage.getItem('ptp_modal_size')||'100',10);
     setModalSize(s);
-  }catch(e){}
+  }catch(e){console.warn('[PTP]',e);}
   // Gespeicherte Abmessungen (Breite × Höhe) wiederherstellen
   try{
     const d=JSON.parse(localStorage.getItem('ptp_modal_dims')||'null');
     const box=document.getElementById('taskModalBox');
     if(d&&box){box.style.width=d.w+'px';box.style.height=d.h+'px';}
-  }catch(e){}
+  }catch(e){console.warn('[PTP]',e);}
 }
 // ResizeObserver: speichert Modal-Größe nach dem Ziehen
 (function(){
@@ -4327,7 +4329,7 @@ function applyStoredModalSize(){
     new ResizeObserver(()=>{
       clearTimeout(_roSaveTimer);
       _roSaveTimer=setTimeout(()=>{
-        try{localStorage.setItem('ptp_modal_dims',JSON.stringify({w:Math.round(box.offsetWidth),h:Math.round(box.offsetHeight)}));}catch(e){}
+        try{localStorage.setItem('ptp_modal_dims',JSON.stringify({w:Math.round(box.offsetWidth),h:Math.round(box.offsetHeight)}));}catch(e){console.warn('[PTP]',e);}
       },300);
     }).observe(box);
   }
