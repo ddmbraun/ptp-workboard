@@ -407,8 +407,8 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .link-row-2 input:focus{border-color:var(--accent);}
 .link-btn-2{padding:8px 12px;border-radius:6px;font-size:14px;background:var(--bg3);color:var(--text2);border:1px solid var(--border);flex-shrink:0;cursor:pointer;transition:all .15s;}
 .link-btn-2:hover{background:var(--accent);color:#fff;border-color:var(--accent);}
-.kontakt-entry{background:var(--bg3);border-radius:10px;padding:12px;margin-bottom:8px;border:1px solid var(--border);}
-.kontakt-entry-header{display:flex;align-items:center;gap:6px;margin-bottom:10px;}
+.kontakt-entry{background:var(--bg3);border-radius:8px;padding:7px 9px;margin-bottom:5px;border:1px solid var(--border);}
+.kontakt-entry-header{display:flex;align-items:center;gap:5px;margin-bottom:6px;}
 .k-rolle{flex:1;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;font-weight:600;outline:none;cursor:pointer;}
 .k-rolle:focus{border-color:var(--accent);}
 .tel-call-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:38px;border-radius:7px;background:rgba(46,204,113,.1);color:var(--green);font-size:16px;text-decoration:none;flex-shrink:0;border:1px solid rgba(46,204,113,.3);}
@@ -2298,6 +2298,11 @@ function _gcalUrl(z){
   const details=encodeURIComponent(((task.titel||task.title)?((task.titel||task.title)+'\n'):'')+(z.beschreibung||''));
   return 'https://calendar.google.com/calendar/r/eventedit?text='+title+'&dates='+toT(z.von)+'/'+toT(z.bis)+'&details='+details;
 }
+function _openGcalZeitPC(i){
+  const e=taskZeitEntries[i];if(!e)return;
+  const url=_gcalUrl(e);
+  if(url)window.open(url,'_blank');
+}
 function addZeitEntry(date='',von='',bis='',beschreibung=''){
   taskZeitEntries.push({date,von,bis,beschreibung});
   renderZeiterfassung();
@@ -2343,8 +2348,8 @@ function renderZeiterfassung(){
     html+='<div class="no-items-hint">Noch keine Eintr\u00e4ge — oben hinzufügen</div>';
   }else{
     html+=taskZeitEntries.map((e,i)=>{
-      const gcUrl=_gcalUrl(e);
-      const calBtn=gcUrl?`<button class="termin-row-btn" title="In Google Kalender eintragen" onclick="window.open('${gcUrl}','_blank')" style="background:#1a73e8;color:#fff;border:none;border-radius:5px;padding:0 8px;cursor:pointer;font-size:14px;">📅</button>`:'<span></span>';
+      const hasTime=e.date&&e.von&&e.bis;
+      const calBtn=hasTime?`<button class="termin-row-btn" title="In Google Kalender eintragen" onclick="_openGcalZeitPC(${i})" style="background:#1a73e8;color:#fff;border:none;border-radius:5px;padding:0 8px;cursor:pointer;font-size:14px;">📅</button>`:'<span></span>';
       return `
     <div class="termin-row">
       <input type="date" value="${e.date||''}" oninput="syncZeitEntry(${i},'date',this.value)">
@@ -3525,6 +3530,8 @@ async function _pickDriveFolder(fieldId){
   const existingUrl=el?el.value.trim():'';
   const existingId=existingUrl?_extractFolderIdFromUrl(existingUrl):'';
   if(existingId){
+    // Root als Ausgangspunkt in History legen → Zurück-Button funktioniert
+    _dfbHistory=[{id:'root',name:'Mein Drive'}];
     await _dfbLoad(existingId,'Aktueller Ordner');
   }else{
     await _dfbLoad('root','Mein Drive');
@@ -4059,19 +4066,20 @@ function addKontaktPTP(rolle,name,tel,email){
   const rolleLabel={ag:'👔 AG Kontakt',mieter:'🏠 Mieter',eigentuemer:'👤 Eigentümer',sonstiges:'👥 Sonstiges'};
   name=name||'';tel=tel||'';email=email||'';
   const div=document.createElement('div');div.className='kontakt-entry';
+  const fs='font-size:11px;padding:3px 6px;';
   div.innerHTML='<div class="kontakt-entry-header">'
-    +'<select class="k-rolle">'
+    +'<select class="k-rolle" style="font-size:11px;padding:2px 4px;">'
     +rolleOpts.map(r=>'<option value="'+r+'"'+(r===rolle?' selected':'')+'>'+rolleLabel[r]+'</option>').join('')
     +'</select>'
-    +'<button type="button" class="rm-btn" onclick="this.closest(\'.kontakt-entry\').remove();updateKontaktePTPTitle()" title="Entfernen">✕</button>'
+    +'<button type="button" class="rm-btn" style="padding:2px 6px;font-size:11px;" onclick="this.closest(\'.kontakt-entry\').remove();updateKontaktePTPTitle()" title="Entfernen">✕</button>'
     +'</div>'
-    +'<div class="modal-grid">'
-    +'<div class="modal-field"><label>Name</label><input type="text" class="k-name" value="'+name.replace(/"/g,'&quot;')+'" placeholder="Max Mustermann"></div>'
-    +'<div class="modal-field"><label>Telefon</label><div style="display:flex;gap:4px;">'
-    +'<input type="tel" class="k-tel" value="'+tel.replace(/"/g,'&quot;')+'" style="flex:1;" placeholder="0361 / 123456">'
-    +'<a class="tel-call-btn'+(tel?'':' disabled')+'" href="'+(tel?'tel:'+tel:'#')+'"><span style="font-size:18px">📞</span></a>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">'
+    +'<div class="modal-field" style="margin:0"><label style="font-size:10px">Name</label><input type="text" class="k-name" value="'+name.replace(/"/g,'&quot;')+'" placeholder="Max Mustermann" style="'+fs+'"></div>'
+    +'<div class="modal-field" style="margin:0"><label style="font-size:10px">Telefon</label><div style="display:flex;gap:3px;">'
+    +'<input type="tel" class="k-tel" value="'+tel.replace(/"/g,'&quot;')+'" style="flex:1;'+fs+'" placeholder="0361 / 123456">'
+    +'<a class="tel-call-btn'+(tel?'':' disabled')+'" href="'+(tel?'tel:'+tel:'#')+'"><span style="font-size:15px">📞</span></a>'
     +'</div></div>'
-    +'<div class="modal-field full"><label>E-Mail</label><input type="email" class="k-email" value="'+email.replace(/"/g,'&quot;')+'" placeholder="max@beispiel.de"></div>'
+    +'<div class="modal-field" style="margin:0;grid-column:1/-1"><label style="font-size:10px">E-Mail</label><input type="email" class="k-email" value="'+email.replace(/"/g,'&quot;')+'" placeholder="max@beispiel.de" style="'+fs+'"></div>'
     +'</div>';
   const telInput=div.querySelector('.k-tel');
   const telLink=div.querySelector('.tel-call-btn');
