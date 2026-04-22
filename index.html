@@ -883,16 +883,16 @@ input,select,textarea{font-family:inherit;}
       <div class="form-collapse-body">
         <div class="modal-grid">
           <div class="modal-field full">
-            <label>Google Drive – Ordner</label>
+            <label>📁 Google Drive – Projektordner</label>
             <div class="link-row-2">
               <input type="url" id="tGDOrdner" placeholder="https://drive.google.com/drive/folders/…">
               <button class="link-btn-2" onclick="tDriveOrdnerOeffnen()" title="Ordner öffnen">📁</button>
             </div>
           </div>
           <div class="modal-field full">
-            <label>Google Drive – Foto-Ordner</label>
+            <label>📷 Google Drive – Foto-Ordner <span style="font-size:10px;color:var(--accent);font-weight:600;">(wird vom 📷 Drive-Foto Button genutzt)</span></label>
             <div class="link-row-2">
-              <input type="url" id="tGD" placeholder="https://drive.google.com/drive/folders/…">
+              <input type="url" id="tGD" placeholder="https://drive.google.com/drive/folders/…  ← Fotos-Unterordner">
               <button class="link-btn-2" onclick="tDriveOeffnen()" title="Ordner öffnen">📁</button>
             </div>
           </div>
@@ -2505,14 +2505,21 @@ function removeLink(i){taskLinks.splice(i,1);renderLinksList();}
 // ── FILE ATTACHMENTS ──
 function triggerFileInput(){document.getElementById('fileAttachInput').click();}
 function _getDriveFotoFolderId(){
-  // Erst Foto-Ordner, dann allg. Drive-Ordner als Fallback
-  return _extractFolderIdFromUrl(document.getElementById('tGD')?.value||'')
-      || _extractFolderIdFromUrl(document.getElementById('tGDOrdner')?.value||'');
+  // Nur Foto-Ordner (tGD) – bewusst KEIN Fallback auf tGDOrdner (Projektordner)
+  return _extractFolderIdFromUrl(document.getElementById('tGD')?.value||'');
 }
 function triggerFotoUploadToDrive(){
   if(!gdriveToken){showToast('Bitte zuerst mit Google Drive verbinden (oben rechts)','error');return;}
   const folderId=_getDriveFotoFolderId();
-  if(!folderId){showToast('Bitte unter "Verknüpfungen" einen Google Drive-Ordner eintragen (Foto-Ordner oder Drive-Ordner)','error');return;}
+  if(!folderId){
+    // Verknüpfungen-Sektion öffnen damit der User sieht wo er die URL eintragen muss
+    const sect=document.getElementById('tVerkSect');
+    if(sect&&!sect.classList.contains('open'))toggleFormSection('tVerkSect');
+    showToast('⚠ Bitte unter "Verknüpfungen" den 📷 Foto-Ordner-Link eintragen!','error',5000);
+    // Foto-Ordner-Feld highlighten
+    setTimeout(()=>{const el=document.getElementById('tGD');if(el){el.focus();el.style.outline='2px solid var(--accent)';}},300);
+    return;
+  }
   document.getElementById('fotoDriveInput').click();
 }
 async function handleFotoUploadToDrive(e){
