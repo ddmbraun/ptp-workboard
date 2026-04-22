@@ -1498,7 +1498,7 @@ async function ensureWorkspaceFolder() {
   const q = encodeURIComponent("name='" + WORKSPACE_FOLDER_NAME + "' and mimeType='application/vnd.google-apps.folder' and trashed=false");
   const r = await fetch('https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=files(id,name)&orderBy=createdTime',
     { headers: { Authorization: 'Bearer ' + gdriveToken } });
-  if (!r.ok) throw new Error('Ordner-Suche: HTTP ' + r.status);
+  _driveCheckResponse(r);
   const d = await r.json();
   if (d.files && d.files.length > 0) {
     workspaceFolderId = d.files[0].id;
@@ -1508,7 +1508,7 @@ async function ensureWorkspaceFolder() {
       headers: { Authorization: 'Bearer ' + gdriveToken, 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: WORKSPACE_FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' })
     });
-    if (!cr.ok) throw new Error('Ordner-Erstellung: HTTP ' + cr.status);
+    _driveCheckResponse(cr);
     const f = await cr.json();
     workspaceFolderId = f.id;
   }
@@ -1571,6 +1571,19 @@ document.addEventListener('visibilitychange', () => {
 });
 function gdriveTokenValid() { return !!gdriveToken && Date.now() < gdriveTokenExpires; }
 
+// Zentraler 401-Handler: Token wegwerfen, localStorage leeren, sanfte Reconnect-Aufforderung
+function _handleDrive401(){
+  gdriveToken=null;gdriveTokenExpires=0;
+  try{localStorage.removeItem(PC_TOKEN_KEY);}catch(e){}
+  updateFileStatus('unsaved','⚠ Drive-Verbindung abgelaufen','Bitte neu verbinden →');
+  showToast('Drive-Token abgelaufen – bitte neu verbinden.','error');
+}
+// Hilfsfunktion: wirft einen sprechenden Fehler bei HTTP-Fehlerstatus, behandelt 401 direkt
+function _driveCheckResponse(r){
+  if(r.status===401){_handleDrive401();throw new Error('TOKEN_EXPIRED');}
+  if(!r.ok)throw new Error('HTTP '+r.status);
+}
+
 function gdriveRequestToken(action) {
   gdrivePendingAction = action;
   if (!gdriveTokenClient) {
@@ -1629,7 +1642,7 @@ async function gdrivePickAndLoad() {
       'https://www.googleapis.com/drive/v3/files?q=' + encodeURIComponent(q) + '&fields=files(id%2Cname%2CmodifiedTime)&orderBy=modifiedTime%20desc',
       { headers: { Authorization: 'Bearer ' + gdriveToken } }
     );
-    if (!r.ok) throw new Error('HTTP ' + r.status);
+    _driveCheckResponse(r);
     const data = await r.json();
     let files = data.files || [];
     // Fallback: Datei noch im Drive-Root (vor Migration)
@@ -1666,8 +1679,9 @@ async function gdrivePickAndLoad() {
 
     await gdriveLoadFile(chosenFile.id, chosenFile.name);
   } catch(e) {
+    if(e.message==='TOKEN_EXPIRED')return; // _handleDrive401 hat bereits Status gesetzt
     updateFileStatus('unsaved','Drive-Fehler','⚠ ' + e.message);
-    alert('Google Drive Fehler: ' + e.message);
+    showToast('Google Drive Fehler: ' + e.message,'error');
   }
 }
 
@@ -1676,7 +1690,7 @@ async function gdriveLoadFile(fileId, fileName) {
     'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media',
     { headers: { Authorization: 'Bearer ' + gdriveToken } }
   );
-  if (!r.ok) throw new Error('Laden fehlgeschlagen: HTTP ' + r.status);
+  _driveCheckResponse(r);
   const data = await r.json();
   gdriveFileId = fileId;
   gdriveFileName = fileName;
@@ -4902,6 +4916,7 @@ async function syncInit(){
   try{
     const r=await fetch("https://www.googleapis.com/drive/v3/files?q=name%3D'ptp_bau_sync.json'%20and%20trashed%3Dfalse&fields=files(id,modifiedTime)&orderBy=modifiedTime%20desc",
       {headers:{Authorization:'Bearer '+gdriveToken}});
+    if(r.status===401){_handleDrive401();return;}
     const d=await r.json();
     if(d.files&&d.files.length>0){
       syncFileId=d.files[0].id;
