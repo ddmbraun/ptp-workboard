@@ -2510,11 +2510,12 @@ function removeLink(i){taskLinks.splice(i,1);renderLinksList();}
 // ── FILE ATTACHMENTS ──
 function triggerFileInput(){document.getElementById('fileAttachInput').click();}
 function _getDriveFotoFolderId(){
-  // Wie Mobile: nur task.gdrive (Foto-Ordner), KEIN Fallback auf gdriveOrdner (Projektordner)
+  // Nur Foto-Ordner (task.gdrive / tGD), KEIN Fallback auf Projektordner (gdriveOrdner)
   const taskId=document.getElementById('taskId')?.value;
   const task=taskId?findTaskById(taskId):null;
-  if(task) return _extractFolderIdFromUrl(task.gdrive||'');
-  // Fallback auf DOM-Feld falls Task noch nicht gespeichert
+  // Erst aus Task-Objekt (gespeicherter Stand), dann DOM-Feld (noch nicht gespeicherte Eingabe)
+  const fromTask=task?_extractFolderIdFromUrl(task.gdrive||''):'';
+  if(fromTask)return fromTask;
   return _extractFolderIdFromUrl(document.getElementById('tGD')?.value||'');
 }
 function _tauscheDriveOrdner(){
@@ -2755,6 +2756,7 @@ function hydrateDesktopFotoThumbs(){
 }
 let _fotoSelectMode=false;
 let _fotoSelected=new Set();
+let _fotoExpanded=false;
 function renderFotoListDesktop(){
   const el=document.getElementById('fotoListDesktop');
   if(!el)return;
