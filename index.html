@@ -826,10 +826,10 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
         <span class="form-collapse-arrow" style="margin-left:6px;">▾</span>
       </div>
       <div class="form-collapse-body">
-        <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr 1.3fr 1fr;gap:6px;margin-bottom:6px;">
+        <div style="display:grid;grid-template-columns:1.4fr 0.85fr 0.85fr 1.7fr 0.75fr;gap:6px;margin-bottom:6px;">
           <div class="modal-field" style="margin:0"><label>Bearbeiter</label><input type="text" id="taskOwnerInput" placeholder="Name" oninput="scheduleTaskFieldSave();_updateStammSummary()"></div>
           <div class="modal-field" style="margin:0"><label>Fälligkeit</label><input type="date" id="taskDueInput" onchange="scheduleTaskFieldSave();_updateStammSummary()"></div>
-          <div class="modal-field" style="margin:0"><label>Ausf.-Datum</label><input type="date" id="taskAusfInput" onchange="scheduleTaskFieldSave()"></div>
+          <div class="modal-field" style="margin:0"><label>Auftrag erteilt</label><input type="date" id="taskAusfInput" onchange="scheduleTaskFieldSave()"></div>
           <div class="modal-field" style="margin:0"><label>Status</label><select id="taskStatusInput" onchange="updateGcalModalBtn();scheduleTaskFieldSave();_updateStammSummary()"></select></div>
           <div class="modal-field" style="margin:0"><label>Ampel</label><select id="taskAmpelInput" onchange="scheduleTaskFieldSave();_updateStammSummary()"><option value="grün">🟢</option><option value="orange">🟠</option><option value="rot">🔴</option></select></div>
         </div>
@@ -1055,7 +1055,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
   <div class="preview-close" onclick="closePreview()">✕</div>
   <div id="previewContent" onclick="event.stopPropagation()"></div>
   <div id="desktopPannellumContainer" onclick="event.stopPropagation()"></div>
-  <canvas id="desktopDrawCanvas"></canvas>
+  <canvas id="desktopDrawCanvas" onclick="event.stopPropagation()" onmousedown="event.stopPropagation()" onpointerdown="event.stopPropagation()"></canvas>
   <!-- Zeichen-Toolbar -->
   <div class="desk-draw-bar" id="deskDrawBar" onclick="event.stopPropagation()">
     <input type="color" class="desk-draw-color" id="deskDrawColor" value="#ff0000" title="Farbe">
@@ -3396,34 +3396,36 @@ function deskDiscardDraw(){
 async function deskSaveDraw(){
   const img=document.getElementById('deskLbImg');
   const canvas=document.getElementById('desktopDrawCanvas');
-  if(!img||!canvas){return;}
-  if(_currentFotoLbIdx<0||!taskFotos||!taskFotos[_currentFotoLbIdx]){showToast('Kein Foto gewählt','error');return;}
+  if(!img||!canvas){deskDiscardDraw();return;}
+  if(_currentFotoLbIdx<0||!taskFotos||!taskFotos[_currentFotoLbIdx]){showToast('Kein Foto gewählt','error');deskDiscardDraw();return;}
   const f=taskFotos[_currentFotoLbIdx];
   const mc=document.createElement('canvas');
-  mc.width=img.naturalWidth;mc.height=img.naturalHeight;
+  mc.width=img.naturalWidth||canvas.width;
+  mc.height=img.naturalHeight||canvas.height;
   const mCtx=mc.getContext('2d');
   mCtx.drawImage(img,0,0,mc.width,mc.height);
   mCtx.drawImage(canvas,0,0,mc.width,mc.height);
   const blob=await new Promise(r=>mc.toBlob(r,'image/jpeg',0.92));
-  if(!blob){showToast('Fehler beim Erstellen','error');return;}
+  if(!blob){showToast('Fehler beim Erstellen','error');deskDiscardDraw();return;}
   const folderId=_getDriveFotoFolderId();
-  if(!folderId){showToast('Kein Drive-Ordner verknüpft – bitte unter Verknüpfungen eintragen','error');return;}
+  if(!folderId){showToast('Kein Drive-Ordner verknüpft – bitte unter Verknüpfungen eintragen','error');deskDiscardDraw();return;}
   const base=(f.name||'foto.jpg').replace(/\.[^.]+$/,'');
   const copyName=base+'_zeichnung.jpg';
   const body=new FormData();
   body.append('metadata',new Blob([JSON.stringify({name:copyName,parents:[folderId]})],{type:'application/json'}));
   body.append('file',blob,'blob.jpg');
   showToast('⬆ Zeichnung wird gespeichert…','info');
-  const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType',{method:'POST',headers:{Authorization:'Bearer '+gdriveToken},body});
-  if(!r.ok){showToast('Fehler beim Speichern','error');deskDiscardDraw();return;}
+  let r;
+  try{
+    r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType',{method:'POST',headers:{Authorization:'Bearer '+gdriveToken},body});
+  }catch(e){showToast('Netzwerkfehler','error');deskDiscardDraw();return;}
+  if(!r.ok){showToast('Fehler beim Speichern ('+r.status+')','error');deskDiscardDraw();return;}
   const meta=await r.json().catch(()=>null);
   showToast('✓ Zeichnung in Drive gespeichert','success');
   if(meta&&meta.id){
     if(!taskFotos)taskFotos=[];
     const blobUrl=URL.createObjectURL(blob);
     _desktopFotoBlobCache.set(meta.id,blobUrl);
-    // Bearbeitetes Bild auf dem Original-Eintrag vermerken statt neuen Eintrag anzulegen
-    // → das Thumbnail zeigt ab sofort die bearbeitete Version
     const origFoto=taskFotos[_currentFotoLbIdx];
     if(origFoto){
       origFoto.editedDriveId=meta.id;
