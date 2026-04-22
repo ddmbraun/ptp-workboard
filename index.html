@@ -2135,8 +2135,8 @@ function taskCardHTML(task){
   const hasFotos=(task.fotos||[]).length>0;
   const isAH=isAusserhaus(task);
   const isNotizBoard=(boardTypes[currentBoard]||'baustelle')==='notiz';
-  return`<div class="task-card" draggable="true" data-id="${task.id}"
-    ondragstart="onDragStart(event)" ondragend="onDragEnd(event)" onclick="openEditTaskModal('${task.id}')">
+  return`<div class="task-card" draggable="true" data-id="${esc(task.id)}"
+    ondragstart="onDragStart(event)" ondragend="onDragEnd(event)" onclick="openEditTaskModal('${esc(task.id)}')">
     <div class="task-card-title">${isNotizBoard?'📋 ':''}${esc(task.title)}</div>
     <div class="task-card-meta">
       ${isNotizBoard?'':'<span class="ampel ampel-'+(task.ampel==='grün'?'green':task.ampel==='orange'?'orange':'red')+'"></span>'}
@@ -2211,7 +2211,7 @@ function renderList(){
   for(const t of tasks){
     const overdue=isOverdue(t.due);
     const badges=[(t.links||[]).length>0?`🔗${(t.links||[]).length}`:'',(t.attachments||[]).length>0?`📎${(t.attachments||[]).length}`:'',(t.fotos||[]).length>0?`📷${(t.fotos||[]).length}`:''].filter(Boolean).join(' ');
-    html+=`<div class="list-item" onclick="openEditTaskModal('${t.id}')">
+    html+=`<div class="list-item" onclick="openEditTaskModal('${esc(t.id)}')">
       <span class="ampel ampel-${t.ampel==='grün'?'green':t.ampel==='orange'?'orange':'red'}"></span>
       <span class="list-item-title">${esc(t.title)}${badges?` <span style="font-size:10px;color:var(--text2)">${badges}</span>`:''}</span>
       <span class="list-item-owner">${esc(t.owner)}</span>
@@ -2241,7 +2241,7 @@ function renderTable(){
   for(const t of sorted){
     const overdue=isOverdue(t.due);
     const lc=(t.links||[]).length,ac=(t.attachments||[]).length,fc=(t.fotos||[]).length;
-    html+=`<tr onclick="openEditTaskModal('${t.id}')">
+    html+=`<tr onclick="openEditTaskModal('${esc(t.id)}')">
       <td>${esc(t.title)}</td>
       <td><span class="list-item-status">${esc(t.status)}</span></td>
       <td>${esc(t.owner)}</td>
@@ -2458,7 +2458,8 @@ function _gcalUrl(z){
   const d=(z.date||'').replace(/-/g,'');
   if(!d||!z.von||!z.bis)return null;
   function toT(hhmm){const[h,m]=(hhmm+':00').split(':');return d+'T'+(h||'00').padStart(2,'0')+(m||'00').padStart(2,'0')+'00';}
-  const task=tasks.find(t=>t.id===openId)||{};
+  const openId=document.getElementById('taskId')&&document.getElementById('taskId').value;
+  const task=findTaskById(openId)||{};
   const title=encodeURIComponent(z.beschreibung||task.titel||task.title||'Zeiteintrag');
   const details=encodeURIComponent(((task.titel||task.title)?((task.titel||task.title)+'\n'):'')+(z.beschreibung||''));
   return 'https://calendar.google.com/calendar/r/eventedit?text='+title+'&dates='+toT(z.von)+'/'+toT(z.bis)+'&details='+details;
@@ -3504,6 +3505,10 @@ function deskStartDraw(){
   document.querySelectorAll('.desk-tool-btn').forEach(b=>b.classList.toggle('on',b.dataset.tool==='freihand'));
   canvas.classList.add('active');
   document.getElementById('deskDrawBar').classList.add('visible');
+  canvas.removeEventListener('pointerdown',_deskOnDown);
+  canvas.removeEventListener('pointermove',_deskOnMove);
+  canvas.removeEventListener('pointerup',_deskOnUp);
+  canvas.removeEventListener('pointercancel',_deskOnUp);
   canvas.addEventListener('pointerdown',_deskOnDown);
   canvas.addEventListener('pointermove',_deskOnMove);
   canvas.addEventListener('pointerup',_deskOnUp);
@@ -4103,10 +4108,10 @@ function renderTimerSection(){
   const task=taskId?findTaskById(taskId):null;
   const running=isTaskTimerRunning(taskId);
   renderTimerDisplay();
-  const btn=document.getElementById('timerBtn');
+  const btn=document.getElementById('timerBtnTop');
   if(btn){
-    if(running){btn.className='timer-stop-btn';btn.innerHTML='⏹ Aufzeichnung beenden';}
-    else{btn.className='timer-start-btn';btn.innerHTML='▶ Aufzeichnung starten';}
+    if(running){btn.className='timer-toggle-btn stop';btn.innerHTML='⏹ Stopp';}
+    else{btn.className='timer-toggle-btn';btn.innerHTML='▶ Start';}
     btn.disabled=!taskId;
   }
   // Top-Timer-Bar (immer sichtbar oben im Modal)
@@ -4893,7 +4898,7 @@ function openBaudokuApp(){
     eigEmail:eigentuemer.email||'',
     kontakte:kontakte
   };
-  localStorage.setItem('bau_ptp_import',JSON.stringify(payload));
+  try{localStorage.setItem('bau_ptp_import',JSON.stringify(payload));}catch(e){console.warn('[PTP]',e);}
   const isGithub=window.location.hostname.includes('github.io');
   const bauUrl=isGithub?'https://ddmbraun.github.io/bau-doku/':'../bau/index.html';
   window.open(bauUrl,'_blank');
@@ -4917,6 +4922,7 @@ async function syncInit(){
     const r=await fetch("https://www.googleapis.com/drive/v3/files?q=name%3D'ptp_bau_sync.json'%20and%20trashed%3Dfalse&fields=files(id,modifiedTime)&orderBy=modifiedTime%20desc",
       {headers:{Authorization:'Bearer '+gdriveToken}});
     if(r.status===401){_handleDrive401();return;}
+    if(!r.ok){console.warn('[PTP] Sync init HTTP '+r.status);return;}
     const d=await r.json();
     if(d.files&&d.files.length>0){
       syncFileId=d.files[0].id;
