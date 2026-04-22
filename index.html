@@ -303,6 +303,8 @@ input,select,textarea{font-family:inherit;}
 .kanban-col-count{font-size:11px;color:var(--text2);background:var(--bg4);padding:1px 7px;border-radius:10px;}
 .kanban-col-body{flex:1;overflow-y:auto;padding:6px 10px 10px;display:flex;flex-direction:column;gap:8px;}
 .kanban-col-body.drag-over{background:rgba(108,99,255,0.08);border-radius:0 0 10px 10px;}
+.task-card.drag-above{border-top:2px solid var(--accent);margin-top:-1px;}
+.task-card.drag-below{border-bottom:2px solid var(--accent);margin-bottom:-1px;}
 .col-collapse-btn{background:none;border:none;color:var(--text2);font-size:13px;cursor:pointer;padding:2px 5px;border-radius:4px;line-height:1;flex-shrink:0;}
 .col-collapse-btn:hover{color:var(--accent);background:var(--bg3);}
 
@@ -370,8 +372,8 @@ input,select,textarea{font-family:inherit;}
 /* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;}
 .modal-overlay.open{opacity:1;pointer-events:all;}
-.modal{position:relative;background:var(--bg2);border-radius:12px;padding:calc(24px * var(--modal-scale, 1));width:540px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px var(--shadow);resize:horizontal;overflow:auto;user-select:none;}
-.modal::after{content:'';position:absolute;bottom:0;right:0;width:20px;height:20px;cursor:nwse-resize;background:linear-gradient(135deg, transparent 50%, var(--accent) 50%);border-radius:0 0 12px 0;pointer-events:auto;}
+.modal{position:relative;background:var(--bg2);border-radius:12px;padding:calc(24px * var(--modal-scale, 1));width:540px;min-width:380px;min-height:300px;max-width:95vw;max-height:92vh;overflow:auto;box-shadow:0 20px 60px var(--shadow);resize:both;user-select:none;}
+.modal::after{content:'⤡';position:absolute;bottom:3px;right:6px;font-size:14px;color:var(--accent);opacity:.5;pointer-events:none;line-height:1;}
 .modal h2{font-size:calc(18px * var(--modal-scale, 1));margin-bottom:16px;}
 .modal-header-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;}
 .modal-header-row h2{margin-bottom:0;}
@@ -497,8 +499,21 @@ input,select,textarea{font-family:inherit;}
 .timer-badge.running{color:var(--green);}
 
 /* PREVIEW */
-.attach-thumb{display:block;max-height:80px;max-width:100%;border-radius:5px;cursor:zoom-in;object-fit:contain;background:var(--bg4);border:1px solid var(--border);margin-top:6px;transition:opacity .15s;}
+.attach-thumb{width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in;transition:opacity .15s;}
 .attach-thumb:hover{opacity:.8;}
+/* Ausklappbare Fotovorschau in Dateianhängen */
+.attach-imgs-toggle{display:flex;align-items:center;gap:8px;padding:6px 10px;margin-top:8px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;font-size:12px;color:var(--text2);user-select:none;transition:background .12s;}
+.attach-imgs-toggle:hover{background:var(--bg4);}
+.attach-imgs-toggle .ait-arrow{transition:transform .2s;font-size:10px;}
+.attach-imgs-toggle.open .ait-arrow{transform:rotate(180deg);}
+.attach-imgs-body{display:none;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-top:8px;}
+.attach-imgs-body.open{display:grid;}
+.attach-img-cell{position:relative;aspect-ratio:1;border-radius:7px;overflow:hidden;background:var(--bg3);border:1px solid var(--border);cursor:pointer;}
+.attach-img-cell:hover .attach-img-overlay{opacity:1;}
+.attach-img-overlay{position:absolute;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;gap:8px;opacity:0;transition:opacity .15s;}
+.attach-img-overlay button{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);color:#fff;width:28px;height:28px;border-radius:50%;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.attach-img-overlay button:hover{background:rgba(255,255,255,.35);}
+.attach-img-label{position:absolute;left:0;right:0;bottom:0;font-size:10px;color:#fff;background:rgba(0,0,0,.55);padding:2px 5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .preview-lightbox{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:3000;display:none;align-items:center;justify-content:center;cursor:zoom-out;flex-direction:column;gap:12px;}
 .preview-lightbox.open{display:flex;}
 .preview-lightbox img{max-width:90vw;max-height:78vh;border-radius:10px;box-shadow:0 24px 80px rgba(0,0,0,.6);cursor:default;}
@@ -544,7 +559,7 @@ input,select,textarea{font-family:inherit;}
 .foto-gallery-thumb .gal-check{position:absolute;top:7px;left:7px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.65);border:2px solid rgba(255,255,255,.6);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;}
 .foto-gallery-thumb .gal-name{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);color:#fff;font-size:11px;padding:4px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 /* ── 360° & Zeichen-Tool (Desktop) ── */
-#desktopPannellumContainer{display:none;width:86vw;height:78vh;border-radius:10px;overflow:hidden;}
+#desktopPannellumContainer{display:none;width:78vw;height:60vh;border-radius:10px;overflow:hidden;}
 #desktopPannellumContainer.active{display:block;}
 #desktopDrawCanvas{display:none;position:fixed;cursor:crosshair;touch-action:none;z-index:3100;}
 #desktopDrawCanvas.active{display:block;}
@@ -782,22 +797,19 @@ input,select,textarea{font-family:inherit;}
         </label>
       </div>
     </div>
-    <div class="modal-field"><label>Titel *</label><input type="text" id="taskTitleInput" placeholder="Task-Titel eingeben…" oninput="scheduleTaskFieldSave()"></div>
-    <div style="display:flex;gap:12px;">
-      <div class="modal-field" style="flex:1"><label>Bearbeiter</label><input type="text" id="taskOwnerInput" placeholder="Name" oninput="scheduleTaskFieldSave()"></div>
-      <div class="modal-field" style="flex:1"><label>Fälligkeit</label><input type="date" id="taskDueInput" onchange="scheduleTaskFieldSave()"></div>
+    <!-- STAMMDATEN kompakt -->
+    <div class="modal-field" style="margin-bottom:6px"><label>Titel *</label><input type="text" id="taskTitleInput" placeholder="Task-Titel eingeben…" oninput="scheduleTaskFieldSave()"></div>
+    <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr 1.3fr 1fr;gap:6px;margin-bottom:6px;">
+      <div class="modal-field" style="margin:0"><label>Bearbeiter</label><input type="text" id="taskOwnerInput" placeholder="Name" oninput="scheduleTaskFieldSave()"></div>
+      <div class="modal-field" style="margin:0"><label>Fälligkeit</label><input type="date" id="taskDueInput" onchange="scheduleTaskFieldSave()"></div>
+      <div class="modal-field" style="margin:0"><label>Ausf.-Datum</label><input type="date" id="taskAusfInput" onchange="scheduleTaskFieldSave()"></div>
+      <div class="modal-field" style="margin:0"><label>Status</label><select id="taskStatusInput" onchange="updateGcalModalBtn();scheduleTaskFieldSave()"></select></div>
+      <div class="modal-field" style="margin:0"><label>Ampel</label><select id="taskAmpelInput" onchange="scheduleTaskFieldSave()"><option value="grün">🟢 Grün</option><option value="orange">🟠 Orange</option><option value="rot">🔴 Rot</option></select></div>
     </div>
-    <div style="display:flex;gap:12px;">
-      <div class="modal-field" style="flex:1"><label>Status</label><select id="taskStatusInput" onchange="updateGcalModalBtn();scheduleTaskFieldSave()"></select></div>
-      <div class="modal-field" style="flex:1"><label>Ampel</label>
-        <select id="taskAmpelInput" onchange="scheduleTaskFieldSave()"><option value="grün">🟢 Grün</option><option value="orange">🟠 Orange</option><option value="rot">🔴 Rot</option></select>
-      </div>
-      <div class="modal-field" style="flex:1"><label>Ausführungsdatum</label><input type="date" id="taskAusfInput" onchange="scheduleTaskFieldSave()"></div>
-    </div>
-    <div style="display:flex;gap:12px;">
-      <div class="modal-field" style="flex:1"><label>Tags / Kostenstelle</label><input type="text" id="taskTagsInput" placeholder="z.B. 260036, Report" oninput="scheduleTaskFieldSave()"></div>
-      <div class="modal-field" style="flex:1"><label>Quelle</label><input type="text" id="taskSourceInput" placeholder="z.B. E-Mail, Meeting" oninput="scheduleTaskFieldSave()"></div>
-      <button type="button" id="openBauBtn" class="topbar-btn btn-primary" style="align-self:flex-end;padding:8px 14px;border-radius:6px;font-size:12px;font-weight:600;" onclick="openBaudokuApp()" title="Zur Baudoku App mit dieser Kostenstelle">📋 Bau</button>
+    <div style="display:flex;gap:6px;margin-bottom:6px;align-items:flex-end;">
+      <div class="modal-field" style="flex:1;margin:0"><label>Tags / Kostenstelle</label><input type="text" id="taskTagsInput" placeholder="z.B. 260036, Report" oninput="scheduleTaskFieldSave()"></div>
+      <div class="modal-field" style="flex:1;margin:0"><label>Quelle</label><input type="text" id="taskSourceInput" placeholder="z.B. E-Mail, Meeting" oninput="scheduleTaskFieldSave()"></div>
+      <button type="button" id="openBauBtn" class="topbar-btn btn-primary" style="flex-shrink:0;padding:7px 12px;border-radius:6px;font-size:12px;font-weight:600;" onclick="openBaudokuApp()" title="Zur Baudoku App mit dieser Kostenstelle">📋 Bau</button>
     </div>
 
     <!-- OBJEKT -->
@@ -871,6 +883,13 @@ input,select,textarea{font-family:inherit;}
       <div class="form-collapse-body">
         <div class="modal-grid">
           <div class="modal-field full">
+            <label>Google Drive – Ordner</label>
+            <div class="link-row-2">
+              <input type="url" id="tGDOrdner" placeholder="https://drive.google.com/drive/folders/…">
+              <button class="link-btn-2" onclick="tDriveOrdnerOeffnen()" title="Ordner öffnen">📁</button>
+            </div>
+          </div>
+          <div class="modal-field full">
             <label>Google Drive – Foto-Ordner</label>
             <div class="link-row-2">
               <input type="url" id="tGD" placeholder="https://drive.google.com/drive/folders/…">
@@ -909,10 +928,14 @@ input,select,textarea{font-family:inherit;}
       <div class="form-collapse-body">
         <div id="fotoListDesktop"></div>
         <div id="attachList"></div>
-        <div class="attach-drop-zone" id="dropZone" onclick="triggerFileInput()">
-          Datei hier hineinziehen oder klicken zum Auswählen
+        <div style="display:flex;gap:6px;margin-bottom:0;align-items:stretch;">
+          <div class="attach-drop-zone" id="dropZone" onclick="triggerFileInput()" style="flex:1;margin-bottom:0">
+            📎 Datei hier hineinziehen oder klicken
+          </div>
+          <button onclick="triggerFotoUploadToDrive()" title="Foto zu Google Drive hochladen (erscheint in Galerie, unterstützt 360°)" style="flex-shrink:0;padding:8px 12px;border-radius:6px;border:1.5px dashed var(--accent);background:rgba(108,99,255,0.06);color:var(--accent);font-size:12px;cursor:pointer;white-space:nowrap;">📷 Drive-Foto</button>
         </div>
         <input type="file" id="fileAttachInput" style="display:none" multiple onchange="handleFileAttach(event)">
+        <input type="file" id="fotoDriveInput" style="display:none" accept="image/*" multiple onchange="handleFotoUploadToDrive(event)">
       </div>
     </div>
 
@@ -1152,6 +1175,7 @@ function saveTaskData(){
     adresse:document.getElementById('tAdr').value.trim(),
     schadensbild:document.getElementById('tSch').value.trim(),
     kontakte:getKontaktePTP(),
+    gdriveOrdner:document.getElementById('tGDOrdner').value.trim(),
     gdrive:document.getElementById('tGD').value.trim(),
     nas:document.getElementById('tNAS').value.trim(),
     emailOrdner:document.getElementById('tEmailOrdner')?document.getElementById('tEmailOrdner').value.trim():'',
@@ -1280,6 +1304,13 @@ async function gdriveTokenCallback(resp) {
   else if (action === 'new') gdriveCreateFile();
   else if (action === 'save') gdriveSaveData();
   syncInit();
+  // Thumbnails für Drive-Fotos nachladen, falls ein Task offen ist
+  try{
+    document.querySelectorAll('#fotoListDesktop img[data-foto-id]').forEach(img=>{
+      img.dataset.hydrated='';// Reset so sie neu geladen werden
+    });
+    if(typeof hydrateDesktopFotoThumbs==='function')hydrateDesktopFotoThumbs();
+  }catch(e){}
 }
 
 function gdriveRequestToken(action) {
@@ -1421,7 +1452,13 @@ async function pollWorkboardFile(){
   try{
     const mr=await fetch('https://www.googleapis.com/drive/v3/files/'+gdriveFileId+'?fields=modifiedTime&_='+Date.now(),
       {headers:{Authorization:'Bearer '+gdriveToken},cache:'no-store'});
-    if(!mr.ok)return;
+    if(!mr.ok){
+      if(mr.status===404){
+        gdriveFileId=null;
+        updateFileStatus('unsaved','☁️ Datei gelöscht','⚠ workboard.json wurde in Drive gelöscht – bitte neu verbinden');
+      }
+      return;
+    }
     const meta=await mr.json();
     if(!workboardLastModified){workboardLastModified=meta.modifiedTime;return;}
     if(meta.modifiedTime===workboardLastModified)return;
@@ -1483,8 +1520,15 @@ async function gdriveCreateFile() {
     if (!file.id) throw new Error('Keine Datei-ID erhalten');
     gdriveFileId = file.id;
     gdriveFileName = file.name || 'workboard.json';
+    workboardLastModified = null;
+    // Sync-Datei-Verbindung zurücksetzen, damit syncInit eine neue anlegt
+    syncFileId = null;
+    syncData = {version:1,lastUpdated:'',updatedBy:'',termine:[],zeiterfassung:[],activeTimer:null};
+    lastSyncTimestamp = '';
+    try{syncInit();}catch(e){}
     updateFileStatus('ok', '☁️ ' + gdriveFileName, '✓ Neue Datei in Google Drive erstellt');
     updateDriveBtnBar();
+    startWorkboardPolling();
     render();
   } catch(e) {
     updateFileStatus('unsaved','Drive-Fehler','⚠ ' + e.message);
@@ -1626,6 +1670,10 @@ async function gdriveSaveData() {
       try{const meta=await r.json();if(meta&&meta.modifiedTime)workboardLastModified=meta.modifiedTime;}catch(e){}
       updateFileStatus('ok', '☁️ ' + gdriveFileName,
         '✓ Gespeichert ' + new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}));
+    } else if (r.status === 404) {
+      // Datei wurde in Drive gelöscht – Verbindung trennen, damit keine weiteren Fehlversuche
+      gdriveFileId = null;
+      updateFileStatus('unsaved', '☁️ Datei gelöscht', '⚠ workboard.json wurde in Drive gelöscht – bitte neu verbinden');
     } else {
       updateFileStatus('unsaved', '☁️ ' + gdriveFileName, '⚠ Speichern fehlgeschlagen (HTTP ' + r.status + ')');
     }
@@ -1695,6 +1743,8 @@ function loadFromObject(data){
     if(Array.isArray(v))boards[k]=v;
   }
   const keys=Object.keys(boards);
+  // Zuletzt gewähltes Projekt aus localStorage wiederherstellen
+  try{const saved=localStorage.getItem('ptp_lastBoard');if(saved&&boards[saved])currentBoard=saved;}catch(e){}
   if(!currentBoard||!boards[currentBoard])currentBoard=keys.length?keys[0]:'';
   // laufenden Timer aus Vorgänger-Session fortsetzen, sobald die Tasks geladen sind
   try{resumeRunningTimer();}catch(e){}
@@ -1987,7 +2037,11 @@ function onBoardTabDrop(e){
   _boardDragKey=null;
   renderBoardTabs();scheduleSave();
 }
-function switchBoard(name){currentBoard=name;render();}
+function switchBoard(name){
+  currentBoard=name;
+  try{localStorage.setItem('ptp_lastBoard',name);}catch(e){}
+  render();
+}
 function switchView(view){currentView=view;document.querySelectorAll('.view-tab').forEach(t=>t.classList.toggle('active',t.dataset.view===view));render();}
 function toggleColCollapse(status){collapsedCols[status]=!collapsedCols[status];renderKanban();}
 
@@ -2335,15 +2389,65 @@ function clearFilters(){filters={owner:null,ampel:null,tag:null};render();}
 document.getElementById('searchInput').addEventListener('input',function(){searchQuery=this.value;render();});
 
 // ── DRAG & DROP ──
-function onDragStart(e){draggedTaskId=e.target.dataset.id;e.target.classList.add('dragging');e.dataTransfer.effectAllowed='move';}
-function onDragEnd(e){e.target.classList.remove('dragging');draggedTaskId=null;}
-function onDragOver(e){e.preventDefault();e.currentTarget.classList.add('drag-over');}
-function onDragLeave(e){e.currentTarget.classList.remove('drag-over');}
+function onDragStart(e){
+  draggedTaskId=e.target.dataset.id;
+  e.target.classList.add('dragging');
+  e.dataTransfer.effectAllowed='move';
+  e.dataTransfer.setData('text/plain',draggedTaskId||''); // Firefox benötigt setData
+}
+function onDragEnd(e){
+  e.target.classList.remove('dragging');
+  draggedTaskId=null;
+  document.querySelectorAll('.drag-above,.drag-below').forEach(el=>el.classList.remove('drag-above','drag-below'));
+}
+function _clearInsertMarkers(){
+  document.querySelectorAll('.drag-above,.drag-below').forEach(el=>el.classList.remove('drag-above','drag-below'));
+}
+function onDragOver(e){
+  e.preventDefault();
+  e.dataTransfer.dropEffect='move';
+  e.currentTarget.classList.add('drag-over');
+  _clearInsertMarkers();
+  // Einfüge-Markierung auf der Task-Karte direkt unter dem Cursor
+  const card=e.target.closest('.task-card');
+  if(card&&card.dataset.id!==draggedTaskId){
+    const mid=card.getBoundingClientRect().top+card.offsetHeight/2;
+    card.classList.add(e.clientY<mid?'drag-above':'drag-below');
+  }
+}
+function onDragLeave(e){
+  // Nur entfernen wenn das Ziel außerhalb der Spalte liegt
+  if(!e.currentTarget.contains(e.relatedTarget)){
+    e.currentTarget.classList.remove('drag-over');
+    _clearInsertMarkers();
+  }
+}
 function onDrop(e){
-  e.preventDefault();e.currentTarget.classList.remove('drag-over');
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  _clearInsertMarkers();
   const ns=e.currentTarget.dataset.status;
-  const task=(boards[currentBoard]||[]).find(t=>t.id===draggedTaskId);
-  if(task&&statuses.includes(ns)){task.status=ns;render();scheduleSave();}
+  if(!ns)return;
+  const id=draggedTaskId||e.dataTransfer.getData('text/plain');
+  const brd=boards[currentBoard]||[];
+  const fromIdx=brd.findIndex(t=>t.id===id);
+  if(fromIdx<0)return;
+  // Task aus aktueller Position herausnehmen
+  const [task]=brd.splice(fromIdx,1);
+  task.status=ns;
+  // Einfügeposition bestimmen: über/unter einer Karte oder ans Ende
+  const card=e.target.closest('.task-card');
+  if(card&&card.dataset.id!==id){
+    const targetId=card.dataset.id;
+    let toIdx=brd.findIndex(t=>t.id===targetId);
+    if(toIdx<0)toIdx=brd.length;
+    const insertBefore=e.clientY<card.getBoundingClientRect().top+card.offsetHeight/2;
+    brd.splice(insertBefore?toIdx:toIdx+1,0,task);
+  } else {
+    // Ans Ende der Spalte hängen
+    brd.push(task);
+  }
+  render();scheduleSave();
 }
 
 // ── LINKS ──
@@ -2362,11 +2466,52 @@ function removeLink(i){taskLinks.splice(i,1);renderLinksList();}
 
 // ── FILE ATTACHMENTS ──
 function triggerFileInput(){document.getElementById('fileAttachInput').click();}
+function _getDriveFotoFolderId(){
+  // Erst Foto-Ordner, dann allg. Drive-Ordner als Fallback
+  return _extractFolderIdFromUrl(document.getElementById('tGD')?.value||'')
+      || _extractFolderIdFromUrl(document.getElementById('tGDOrdner')?.value||'');
+}
+function triggerFotoUploadToDrive(){
+  if(!gdriveToken){showToast('Bitte zuerst mit Google Drive verbinden (oben rechts)','error');return;}
+  const folderId=_getDriveFotoFolderId();
+  if(!folderId){showToast('Bitte unter "Verknüpfungen" einen Google Drive-Ordner eintragen (Foto-Ordner oder Drive-Ordner)','error');return;}
+  document.getElementById('fotoDriveInput').click();
+}
+async function handleFotoUploadToDrive(e){
+  const files=[...e.target.files];
+  e.target.value='';
+  if(!files.length)return;
+  if(!gdriveToken){showToast('Bitte zuerst mit Google Drive verbinden','error');return;}
+  const folderId=_getDriveFotoFolderId();
+  if(!folderId){showToast('Kein Drive-Ordner verknüpft','error');return;}
+  if(!taskFotos)taskFotos=[];
+  for(const file of files){
+    if(!file.type.startsWith('image/')){showToast(file.name+' ist kein Bild – übersprungen','error');continue;}
+    showToast('⬆ '+file.name+' wird hochgeladen…','info');
+    try{
+      const body=new FormData();
+      body.append('metadata',new Blob([JSON.stringify({name:file.name,parents:[folderId]})],{type:'application/json'}));
+      body.append('file',file,file.name);
+      const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType',
+        {method:'POST',headers:{Authorization:'Bearer '+gdriveToken},body});
+      if(!r.ok){showToast('Fehler beim Hochladen ('+r.status+')','error');continue;}
+      const meta=await r.json().catch(()=>null);
+      if(meta&&meta.id){
+        const blobUrl=URL.createObjectURL(file);
+        _desktopFotoBlobCache.set(meta.id,blobUrl);
+        taskFotos.push({driveId:meta.id,name:meta.name||file.name,mimeType:meta.mimeType||file.type,caption:''});
+        showToast('✓ '+file.name+' hochgeladen','success');
+      }
+    }catch(err){showToast('Fehler: '+err.message,'error');}
+  }
+  renderFotoListDesktop();
+  scheduleTaskFieldSave();
+}
 function handleFileAttach(e){
   const files=[...e.target.files];
-  const MAX=10*1024*1024;
+  const MAX=50*1024*1024; // 50 MB – reicht für 360°-Fotos
   files.forEach(file=>{
-    if(file.size>MAX){alert(`"${file.name}" ist zu groß (max. 10 MB).`);return;}
+    if(file.size>MAX){alert(`"${file.name}" ist zu groß (max. 50 MB).`);return;}
     const reader=new FileReader();
     reader.onload=ev=>{
       taskAttachments.push({name:file.name,type:file.type,size:file.size,data:ev.target.result});
@@ -2376,24 +2521,52 @@ function handleFileAttach(e){
   });
   e.target.value='';
 }
+let _attachImgsOpen=false;
+function toggleAttachImgs(){
+  _attachImgsOpen=!_attachImgsOpen;
+  const toggle=document.querySelector('.attach-imgs-toggle');
+  const body=document.querySelector('.attach-imgs-body');
+  if(toggle)toggle.classList.toggle('open',_attachImgsOpen);
+  if(body)body.classList.toggle('open',_attachImgsOpen);
+}
 function renderAttachList(){
   const el=document.getElementById('attachList');
   if(!taskAttachments.length){el.innerHTML='';return;}
-  el.innerHTML=taskAttachments.map((a,i)=>{
+  const imgItems=taskAttachments.map((a,i)=>({a,i})).filter(({a})=>a.type&&a.type.startsWith('image/'));
+  const otherItems=taskAttachments.map((a,i)=>({a,i})).filter(({a})=>!a.type||!a.type.startsWith('image/'));
+  // Dateiliste (alle Anhänge als Zeilen)
+  const fileRows=taskAttachments.map((a,i)=>{
     const isImg=a.type&&a.type.startsWith('image/');
     const isPdf=a.type==='application/pdf';
     const canPreview=isImg||isPdf;
-    return`<div class="attach-row" style="flex-direction:column;align-items:stretch;gap:0">
-      <div style="display:flex;align-items:center;gap:8px">
-        <span class="attach-icon">${attachIcon(a.type)}</span>
-        <div class="attach-info"><div class="attach-name" title="${esc(a.name)}">${esc(a.name)}</div><div class="attach-size">${formatBytes(a.size)}</div></div>
-        ${canPreview?`<button class="attach-download" onclick="openPreview(${i})" style="background:var(--bg3)">👁 Vorschau</button>`:''}
-        <button class="attach-download" onclick="downloadAttach(${i})">↓ Download</button>
-        <button class="attach-remove" onclick="removeAttach(${i})">✕</button>
-      </div>
-      ${isImg?`<img class="attach-thumb" src="${a.data}" onclick="openPreview(${i})" title="Klicken für Vollbild">`:''}
+    return`<div class="attach-row">
+      <span class="attach-icon">${attachIcon(a.type)}</span>
+      <div class="attach-info"><div class="attach-name" title="${esc(a.name)}">${esc(a.name)}</div><div class="attach-size">${formatBytes(a.size)}</div></div>
+      ${canPreview?`<button class="attach-download" onclick="openPreview(${i})" style="background:var(--bg3)">👁</button>`:''}
+      <button class="attach-download" onclick="downloadAttach(${i})">↓</button>
+      <button class="attach-remove" onclick="removeAttach(${i})">✕</button>
     </div>`;
   }).join('');
+  // Ausklappbarer Fotobereich
+  let imgSection='';
+  if(imgItems.length){
+    const thumbs=imgItems.map(({a,i})=>
+      `<div class="attach-img-cell" onclick="openPreview(${i})">
+        <img class="attach-thumb" src="${a.data}" alt="${esc(a.name)}" loading="lazy">
+        <div class="attach-img-overlay">
+          <button onclick="event.stopPropagation();openPreview(${i})" title="Vollbild">🔍</button>
+          <button onclick="event.stopPropagation();removeAttach(${i})" title="Entfernen">✕</button>
+        </div>
+        <div class="attach-img-label">${esc(a.name)}</div>
+      </div>`).join('');
+    imgSection=`<div class="attach-imgs-toggle${_attachImgsOpen?' open':''}" onclick="toggleAttachImgs()">
+      <span>🖼️ Foto-Vorschau (${imgItems.length} Bild${imgItems.length===1?'':'er'})</span>
+      <span style="flex:1"></span>
+      <span class="ait-arrow">▾</span>
+    </div>
+    <div class="attach-imgs-body${_attachImgsOpen?' open':''}">${thumbs}</div>`;
+  }
+  el.innerHTML=fileRows+imgSection;
 }
 function attachIcon(type){
   if(!type)return'📄';
@@ -2476,8 +2649,9 @@ function renderFotoListDesktop(){
       +'</div>'
     :'';
   el.innerHTML='<div class="foto-desktop-wrap'+(_fotoExpanded?' expanded':'')+'">'
-    +'<div class="foto-desktop-wrap-label" style="position:sticky;top:0;background:var(--bg3);z-index:1;padding-bottom:6px;">📷 Fotos vom Handy ('+taskFotos.length+' Stück)'
+    +'<div class="foto-desktop-wrap-label" style="position:sticky;top:0;background:var(--bg3);z-index:1;padding-bottom:6px;">📷 Drive-Fotos ('+taskFotos.length+' Stück)'
       +'<button onclick="startFotoSelectMode()" style="margin-left:10px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:11px;cursor:pointer">☑ Auswahl / PDF</button>'
+      +(gdriveToken?'':'<span style="margin-left:8px;font-size:10px;color:var(--red);opacity:.8">⚠ Drive verbinden für Vorschau</span>')
     +'</div>'
     +pdfBar
     +'<div class="foto-desktop-grid'+(_fotoExpanded?' expanded':'')+(_fotoSelectMode?' foto-select-mode':'')+'">'+items+'</div>'
@@ -2734,17 +2908,26 @@ async function deskSaveDraw(){
   mCtx.drawImage(canvas,0,0,mc.width,mc.height);
   const blob=await new Promise(r=>mc.toBlob(r,'image/jpeg',0.92));
   if(!blob){showToast('Fehler beim Erstellen','error');return;}
-  const folderId=_extractFolderIdFromUrl(document.getElementById('tGD')?.value||'');
-  if(!folderId){showToast('Kein Drive-Ordner verknüpft','error');return;}
+  const folderId=_getDriveFotoFolderId();
+  if(!folderId){showToast('Kein Drive-Ordner verknüpft – bitte unter Verknüpfungen eintragen','error');return;}
   const base=(f.name||'foto.jpg').replace(/\.[^.]+$/,'');
   const copyName=base+'_zeichnung.jpg';
   const body=new FormData();
   body.append('metadata',new Blob([JSON.stringify({name:copyName,parents:[folderId]})],{type:'application/json'}));
   body.append('file',blob,'blob.jpg');
   showToast('⬆ Zeichnung wird gespeichert…','info');
-  const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',headers:{Authorization:'Bearer '+gdriveToken},body});
-  if(r.ok)showToast('✓ Zeichnung in Drive gespeichert','success');
-  else showToast('Fehler beim Speichern','error');
+  const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType',{method:'POST',headers:{Authorization:'Bearer '+gdriveToken},body});
+  if(!r.ok){showToast('Fehler beim Speichern','error');deskDiscardDraw();return;}
+  const meta=await r.json().catch(()=>null);
+  showToast('✓ Zeichnung in Drive gespeichert','success');
+  if(meta&&meta.id){
+    if(!taskFotos)taskFotos=[];
+    const blobUrl=URL.createObjectURL(blob);
+    _desktopFotoBlobCache.set(meta.id,blobUrl);
+    taskFotos.push({driveId:meta.id,name:meta.name||copyName,mimeType:meta.mimeType||'image/jpeg',caption:'Zeichnung'});
+    scheduleTaskFieldSave();
+    renderFotoListDesktop();
+  }
   deskDiscardDraw();
 }
 // EXIF-Hilfsfunktionen für Desktop
@@ -3179,16 +3362,34 @@ function updateCardTimerBadge(taskId){
 }
 
 // ── PREVIEW ──
+function _check360Local(imgEl){
+  // Nach dem Laden prüfen ob 360°-Panorama → Pannellum
+  if(!imgEl||!imgEl.naturalWidth||!imgEl.naturalHeight)return;
+  if((imgEl.naturalWidth/imgEl.naturalHeight)>=1.8){
+    const src=imgEl.src;
+    const cnt=document.getElementById('previewContent');
+    if(cnt){cnt.innerHTML='';cnt.style.display='none';}
+    _deskInitPannellum(src);
+  }
+}
 function openPreview(i){
   const a=taskAttachments[i];
   const lb=document.getElementById('previewLightbox');
   const cnt=document.getElementById('previewContent');
   const lbl=document.getElementById('previewLabel');
+  const capBar=document.getElementById('fotoLbCapBar');
+  _deskClosePannellum();
   lbl.textContent=a.name;
+  if(capBar)capBar.classList.remove('visible');
+  _currentFotoLbIdx=-1;
+  cnt.style.display='';
   if(a.type&&a.type.startsWith('image/')){
-    cnt.innerHTML=`<img src="${a.data}" alt="${esc(a.name)}">`;
+    // Bild sofort anzeigen; 360°-Check per onload
+    cnt.innerHTML='<img src="'+a.data+'" alt="'+esc(a.name)+'" id="deskLbImg" onload="_check360Local(this)">';
   } else if(a.type==='application/pdf'){
-    cnt.innerHTML=`<iframe src="${a.data}" title="${esc(a.name)}"></iframe>`;
+    cnt.innerHTML='<iframe src="'+a.data+'" title="'+esc(a.name)+'"></iframe>';
+  } else {
+    cnt.innerHTML='<div style="color:#fff;padding:30px;font-size:14px;">'+esc(a.name)+'<br><span style="opacity:.6;font-size:12px;">Keine Vorschau für diesen Dateityp</span></div>';
   }
   lb.classList.add('open');
 }
@@ -3287,6 +3488,11 @@ function tDriveOeffnen(){
   if(url)window.open(url,'_blank');
   else alert('Bitte zuerst einen Google Drive Link eingeben.');
 }
+function tDriveOrdnerOeffnen(){
+  const url=document.getElementById('tGDOrdner').value.trim();
+  if(url)window.open(url,'_blank');
+  else alert('Bitte zuerst einen Google Drive Link eingeben.');
+}
 function tNasKopieren(){
   const v=document.getElementById('tNAS').value.trim();
   if(!v){alert('Kein NAS-Pfad eingetragen.');return;}
@@ -3328,12 +3534,13 @@ function openNewTaskModal(){
   document.getElementById('taskAusfInput').value='';
   document.getElementById('taskTagsInput').value='';
   document.getElementById('taskSourceInput').value='';
-  ['tHV','tAdr','tSch','tGD','tNAS','tEmailOrdner'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['tHV','tAdr','tSch','tGDOrdner','tGD','tNAS','tEmailOrdner'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const kc=document.getElementById('tKontakteContainer');if(kc)kc.innerHTML='';
   updateKontaktePTPTitle();
   document.getElementById('deleteTaskBtn').style.display='none';
   document.getElementById('abschlussBtn').style.display='none';
   taskLinks=[];taskAttachments=[];taskAusserhausTermine=[];taskZeitEntries=[];taskNotizVerlauf=[];taskFotos=[];
+  _attachImgsOpen=false;
   renderLinksList();renderAttachList();renderFotoListDesktop();
   renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();
   const _ni=document.getElementById('newTaskNotizInput');if(_ni)_ni.value='';
@@ -3369,6 +3576,7 @@ function openEditTaskModal(id){
       _kontakte.push({rolle:'eigentuemer',name:task.eigentuemerName||'',tel:task.eigentuemerTel||'',email:task.eigentuemerEmail||''});
   }
   renderKontaktePTP(_kontakte);
+  document.getElementById('tGDOrdner').value=task.gdriveOrdner||'';
   document.getElementById('tGD').value=task.gdrive||'';
   document.getElementById('tNAS').value=task.nas||'';
   document.getElementById('tEmailOrdner').value=task.emailOrdner||'';
@@ -3380,6 +3588,7 @@ function openEditTaskModal(id){
   taskZeitEntries=JSON.parse(JSON.stringify(task.zeitEntries||[]));
   taskNotizVerlauf=JSON.parse(JSON.stringify(task.notizVerlauf||[]));
   taskFotos=JSON.parse(JSON.stringify(task.fotos||[]));
+  _attachImgsOpen=false;
   renderLinksList();renderAttachList();renderFotoListDesktop();
   renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();
   const _ni=document.getElementById('newTaskNotizInput');if(_ni)_ni.value='';
@@ -3652,8 +3861,15 @@ async function syncInit(){
     const r=await fetch("https://www.googleapis.com/drive/v3/files?q=name%3D'ptp_bau_sync.json'%20and%20trashed%3Dfalse&fields=files(id,modifiedTime)&orderBy=modifiedTime%20desc",
       {headers:{Authorization:'Bearer '+gdriveToken}});
     const d=await r.json();
-    if(d.files&&d.files.length>0){syncFileId=d.files[0].id;await syncRead(true);}
-    else{await syncCreate();}
+    if(d.files&&d.files.length>0){
+      syncFileId=d.files[0].id;
+      await syncRead(true);
+    }else if(!syncFileId){
+      // Datei existiert noch nicht → erstmalig anlegen.
+      // Wenn syncFileId bereits gesetzt ist, hat der Nutzer die Datei selbst gelöscht
+      // → nicht automatisch neu erstellen.
+      await syncCreate();
+    }
     startSyncPolling();updateSyncUI();
     try{maybeDailySyncBackup();}catch(e){}
   }catch(e){console.warn('Sync init:',e);}
@@ -3924,7 +4140,31 @@ function applyStoredModalSize(){
     const s=parseInt(localStorage.getItem('ptp_modal_size')||'100',10);
     setModalSize(s);
   }catch(e){}
+  // Gespeicherte Abmessungen (Breite × Höhe) wiederherstellen
+  try{
+    const d=JSON.parse(localStorage.getItem('ptp_modal_dims')||'null');
+    const box=document.getElementById('taskModalBox');
+    if(d&&box){box.style.width=d.w+'px';box.style.height=d.h+'px';}
+  }catch(e){}
 }
+// ResizeObserver: speichert Modal-Größe nach dem Ziehen
+(function(){
+  let _roSaveTimer=null;
+  function _initModalRO(){
+    const box=document.getElementById('taskModalBox');
+    if(!box||box._roAttached)return;
+    box._roAttached=true;
+    new ResizeObserver(()=>{
+      clearTimeout(_roSaveTimer);
+      _roSaveTimer=setTimeout(()=>{
+        try{localStorage.setItem('ptp_modal_dims',JSON.stringify({w:Math.round(box.offsetWidth),h:Math.round(box.offsetHeight)}));}catch(e){}
+      },300);
+    }).observe(box);
+  }
+  // Sobald DOM bereit ist initialisieren
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',_initModalRO);
+  else _initModalRO();
+})();
 
 </script>
 </body>
