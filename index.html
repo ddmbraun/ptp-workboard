@@ -1293,7 +1293,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
               <button class="link-btn-2" id="tNasBtn" onclick="tNasKopieren()" title="Pfad kopieren">📋</button>
             </div>
           </div>
-          <div class="modal-field full baustelle-only">
+          <div class="modal-field full">
             <label>📧 E-Mail-Ablageordner (Google Drive)</label>
             <div class="link-row-2">
               <input type="url" id="tEmailOrdner" placeholder="https://drive.google.com/drive/folders/…">
@@ -1923,10 +1923,13 @@ function _showDriveWarnBanner(secondsLeft){
   if(!banner){
     banner = document.createElement('div');
     banner.id = '_driveWarnBanner';
-    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999999;background:#e67e22;color:#fff;display:flex;align-items:center;justify-content:center;gap:12px;padding:10px 16px;font-size:13px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.3);';
+    banner.style.cssText = 'position:relative;z-index:999;background:#e67e22;color:#fff;display:flex;align-items:center;justify-content:center;gap:12px;padding:10px 16px;font-size:13px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.3);';
     banner.innerHTML = '<span id="_driveWarnMsg">⚠ Google Drive Verbindung läuft ab</span>'
       + '<button onclick="_renewDriveTokenSilent()" style="background:#fff;color:#e67e22;border:none;border-radius:6px;padding:5px 14px;font-size:13px;font-weight:700;cursor:pointer;">🔄 Jetzt erneuern</button>';
-    document.body.prepend(banner);
+    // Vor der Topbar einfügen, damit er den Inhalt nach unten schiebt statt zu überdecken
+    const topbar=document.querySelector('.topbar');
+    if(topbar)topbar.parentNode.insertBefore(banner,topbar);
+    else document.body.prepend(banner);
   }
   banner.style.display = 'flex';
   if(secondsLeft != null){
@@ -1940,29 +1943,20 @@ function _hideDriveWarnBanner(){
   clearTimeout(_driveWarnBannerTimer);
 }
 
-// Stille Token-Erneuerung ohne Account-Auswahl (für den Banner-Button)
+// Token-Erneuerung für Banner-Button: login_hint verhindert Account-Auswahl
 function _renewDriveTokenSilent(){
   if(!gdriveTokenClient){_showDriveWarnBanner(0);return;}
   const hint=localStorage.getItem('ptp_user_email_v1')||'';
-  const prev=gdriveTokenClient.callback;
-  gdriveTokenClient.callback=(r)=>{
-    gdriveTokenClient.callback=prev;
-    if(r&&r.access_token){
-      gdriveToken=r.access_token;
-      gdriveTokenExpires=Date.now()+(Number(r.expires_in||3600)-60)*1000;
-      try{localStorage.setItem(PC_TOKEN_KEY,JSON.stringify({token:gdriveToken,exp:gdriveTokenExpires}));}catch(e){}
-      _hideDriveWarnBanner();
-    } else {
-      // Stilles Login hat nicht geklappt → mit Account-Auswahl versuchen
-      gdriveTokenClient.callback=prev;
-      try{gdriveTokenClient.requestAccessToken({prompt:'select_account',login_hint:hint});}catch(e){}
-    }
-  };
+  // Kein prompt-Override → Google nutzt aktive Session ohne Auswahldialog
+  // login_hint sorgt dafür dass direkt das richtige Konto verwendet wird
   try{
-    gdriveTokenClient.requestAccessToken({prompt:'none',login_hint:hint});
+    if(hint){
+      gdriveTokenClient.requestAccessToken({login_hint:hint});
+    }else{
+      gdriveTokenClient.requestAccessToken({});
+    }
   }catch(e){
-    gdriveTokenClient.callback=prev;
-    try{gdriveTokenClient.requestAccessToken({prompt:'select_account',login_hint:hint});}catch(e2){}
+    console.warn('[PTP] Token-Erneuerung fehlgeschlagen:',e);
   }
 }
 
