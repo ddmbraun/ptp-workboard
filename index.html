@@ -908,15 +908,17 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .attach-imgs-toggle:hover{background:var(--bg4);}
 .attach-imgs-toggle .ait-arrow{transition:transform .2s;font-size:10px;}
 .attach-imgs-toggle.open .ait-arrow{transform:rotate(180deg);}
-.attach-imgs-body{display:none;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-top:8px;}
+.attach-imgs-body{display:none;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:8px;}
 .attach-imgs-body.open{display:grid;}
-.attach-img-cell{position:relative;aspect-ratio:1;border-radius:7px;overflow:hidden;background:var(--bg3);border:1px solid var(--border);cursor:pointer;}
+.attach-img-cell{position:relative;aspect-ratio:1;border-radius:7px;overflow:hidden;background:var(--bg3);border:1px solid var(--border);cursor:zoom-in;}
 .attach-img-cell:hover .attach-img-overlay{opacity:1;}
+.attach-img-cell:hover .attach-img-zoom-hint{opacity:0;}
 .attach-img-overlay{position:absolute;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;gap:8px;opacity:0;transition:opacity .15s;}
-.attach-img-overlay button{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);color:#fff;width:28px;height:28px;border-radius:50%;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.attach-img-overlay button{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);color:#fff;width:32px;height:32px;border-radius:50%;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 .attach-img-overlay button:hover{background:rgba(255,255,255,.35);}
+.attach-img-zoom-hint{position:absolute;bottom:22px;right:4px;background:rgba(0,0,0,.55);color:#fff;font-size:13px;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;pointer-events:none;transition:opacity .15s;}
 .attach-img-label{position:absolute;left:0;right:0;bottom:0;font-size:10px;color:#fff;background:rgba(0,0,0,.55);padding:2px 5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.preview-lightbox{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:3000;display:none;align-items:center;justify-content:center;cursor:zoom-out;flex-direction:column;gap:12px;}
+.preview-lightbox{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;display:none;align-items:center;justify-content:center;cursor:zoom-out;flex-direction:column;gap:12px;}
 .preview-lightbox.open{display:flex;}
 .preview-lightbox img{max-width:90vw;max-height:78vh;border-radius:10px;box-shadow:0 24px 80px rgba(0,0,0,.6);cursor:default;}
 .preview-lightbox iframe{width:100%;height:100%;border:none;display:block;}
@@ -926,7 +928,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .pdf-preview-drag span{font-size:12px;font-weight:600;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80%;}
 .pdf-preview-drag button{background:none;border:none;font-size:18px;cursor:pointer;color:#666;flex-shrink:0;line-height:1;padding:0 4px;}
 .pdf-preview-drag button:hover{color:#333;}
-.preview-close{position:fixed;top:16px;right:20px;color:#fff;font-size:22px;cursor:pointer;z-index:3001;background:rgba(0,0,0,.55);width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:background .15s;}
+.preview-close{position:fixed;top:16px;right:20px;color:#fff;font-size:22px;cursor:pointer;z-index:10000;background:rgba(0,0,0,.55);width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:background .15s;}
 .preview-close:hover{background:var(--red);}
 .preview-label{color:#fff;font-size:12px;background:rgba(0,0,0,.55);padding:4px 14px;border-radius:20px;z-index:3001;max-width:80vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 /* Caption-Bar im Foto-Lightbox */
@@ -4058,6 +4060,7 @@ function renderAttachList(){
         <img class="attach-thumb" src="${a.data}" alt="${esc(a.name)}" loading="lazy"
           onload="_markIf360(this,${i})">
         ${badge}
+        <div class="attach-img-zoom-hint">🔍</div>
         <div class="attach-img-overlay">
           <button onclick="event.stopPropagation();openPreview(${i})" title="Vollbild">🔍</button>
           <button onclick="event.stopPropagation();removeAttach(${i})" title="Entfernen">✕</button>
