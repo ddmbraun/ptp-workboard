@@ -1260,6 +1260,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <div class="modal-header-row">
       <h2 id="modalTitle">Neuer Task</h2>
       <span id="_taskTypeIndicator" class="task-type-badge baustelle">🏗 Baustelle</span>
+      <button type="button" id="modalSaveSize" onclick="_saveModalDefault()" title="Aktuelle Größe als Standard speichern" style="flex-shrink:0;padding:2px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:13px;cursor:pointer;line-height:1.4;">💾</button>
     </div>
     <div class="modal-size-bar">
       <label>🔍 Schriftgröße:</label>
@@ -1716,16 +1717,36 @@ let collapsedCols = {};
 
   function _mb(){return document.getElementById('taskModalBox');}
 
+  const MODAL_DEFAULT_KEY='ptp_modal_default_v1';
+
+  // Gespeicherte Größe laden (Fallback: 945×756)
+  function _getDefault(){
+    try{const s=JSON.parse(localStorage.getItem(MODAL_DEFAULT_KEY)||'null');if(s&&s.w&&s.h)return s;}catch(e){}
+    return {w:MODAL_W,h:MODAL_H};
+  }
+
   // Standardgröße anwenden (zentriert)
   function _applyDefault(box){
-    box.style.width=MODAL_W+'px';
-    box.style.height=MODAL_H+'px';
-    box.style.left=Math.max(0,Math.round((window.innerWidth-MODAL_W)/2))+'px';
-    box.style.top=Math.max(0,Math.round((window.innerHeight-MODAL_H)/2))+'px';
+    const d=_getDefault();
+    box.style.width=d.w+'px';
+    box.style.height=d.h+'px';
+    box.style.left=Math.max(0,Math.round((window.innerWidth-d.w)/2))+'px';
+    box.style.top=Math.max(0,Math.round((window.innerHeight-d.h)/2))+'px';
     box.classList.add('is-placed');
   }
 
-  // Beim Öffnen immer Standardgröße
+  // 💾 Knopf → aktuelle Größe als Standard speichern
+  window._saveModalDefault=function(){
+    const box=_mb();if(!box)return;
+    const w=box.offsetWidth,h=box.offsetHeight;
+    try{localStorage.setItem(MODAL_DEFAULT_KEY,JSON.stringify({w,h}));}catch(e){}
+    if(typeof showToast==='function')showToast('💾 Standardgröße gespeichert ('+w+' × '+h+' px)','success',2500);
+    // Knopf kurz grün aufleuchten
+    const btn=document.getElementById('modalSaveSize');
+    if(btn){btn.style.color='var(--green)';btn.style.borderColor='var(--green)';setTimeout(()=>{btn.style.color='';btn.style.borderColor='';},1500);}
+  };
+
+  // Beim Öffnen immer auf Standardgröße
   window._applyStoredModalSize2=function(){
     const box=_mb();if(!box)return;
     _applyDefault(box);
@@ -1734,6 +1755,7 @@ let collapsedCols = {};
   // Doppelklick auf Titelleiste → zurück auf Standardgröße
   document.addEventListener('dblclick',function(e){
     if(!e.target.closest('.modal-header-row'))return;
+    if(e.target.closest('#modalSaveSize'))return; // nicht beim 💾-Knopf
     const box=_mb();if(!box)return;
     _applyDefault(box);
   });
