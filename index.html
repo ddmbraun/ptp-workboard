@@ -5108,37 +5108,41 @@ function _check360Local(imgEl){
 }
 function openPreview(i){
   const a=taskAttachments[i];
-  const lb=document.getElementById('previewLightbox');
-  const cnt=document.getElementById('previewContent');
-  const lbl=document.getElementById('previewLabel');
-  const capBar=document.getElementById('fotoLbCapBar');
-  _deskClosePannellum();
-  lbl.textContent=a.name;
-  if(capBar)capBar.classList.remove('visible');
-  _currentFotoLbIdx=-1;
-  cnt.style.display='';
+  if(!a){console.warn('[PTP] openPreview: kein Anhang bei Index',i);return;}
+  // Eigene robuste Vollbild-Vorschau – direkt an body, kein z-index-Konflikt möglich
+  _openAttachLightbox(a);
+}
+function _openAttachLightbox(a){
+  // Altes Popup entfernen falls vorhanden
+  const old=document.getElementById('_attachLbOverlay');
+  if(old)old.remove();
+  const ov=document.createElement('div');
+  ov.id='_attachLbOverlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:zoom-out;gap:10px;';
+  // Schließen per Klick auf Hintergrund oder Escape
+  ov.addEventListener('click',function(e){if(e.target===ov||e.target.id==='_attachLbClose')ov.remove();});
+  document.addEventListener('keydown',function _lbEsc(e){if(e.key==='Escape'){ov.remove();document.removeEventListener('keydown',_lbEsc);}});
+  // Inhalt
+  let inner='';
   if(a.type&&a.type.startsWith('image/')){
-    // .insp (Insta360) und andere bekannte 360°-Formate sofort als Panorama öffnen
-    const force360=/\.insp$/i.test(a.name)||a.is360||/360|panorama|pano/i.test(a.name);
-    if(force360){
-      cnt.style.display='none';
-      _deskInitPannellum(a.data);
-    } else {
-      // Normales Bild sofort anzeigen; 360°-Check per onload (Aspect-Ratio)
-      cnt.innerHTML='<img src="'+a.data+'" alt="'+esc(a.name)+'" id="deskLbImg" onload="_check360Local(this)">';
-    }
-  } else if(a.type==='application/pdf'){
-    cnt.innerHTML='<iframe src="'+esc(a.data)+'" title="'+esc(a.name)+'"></iframe>';
+    inner='<img src="'+a.data+'" style="max-width:90vw;max-height:82vh;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.7);cursor:default;object-fit:contain;" onclick="event.stopPropagation()">';
+  } else if(a.type==='application/pdf'||a.name.toLowerCase().endsWith('.pdf')){
+    inner='<iframe src="'+a.data+'" style="width:85vw;height:85vh;border:none;border-radius:8px;background:#fff;" onclick="event.stopPropagation()"></iframe>';
   } else if(a.type==='text/plain'||a.name.toLowerCase().endsWith('.txt')){
     try{
-      const b64=a.data.split(',')[1]||'';
-      const text=decodeURIComponent(escape(atob(b64)));
-      cnt.innerHTML='<div style="color:#e0e0e0;background:rgba(0,0,0,.6);border-radius:8px;padding:20px;max-width:80vw;max-height:70vh;overflow:auto;text-align:left;font-family:monospace;font-size:13px;white-space:pre-wrap;line-height:1.6;">'+esc(text)+'</div>';
-    }catch(e){cnt.innerHTML='<div style="color:#fff;padding:30px">Text konnte nicht geladen werden</div>';}
+      const b64=(a.data||'').split(',')[1]||'';
+      const text=b64?decodeURIComponent(escape(atob(b64))):a.data||'';
+      inner='<div style="color:#e0e0e0;background:rgba(20,20,20,.95);border-radius:8px;padding:20px 24px;max-width:80vw;max-height:78vh;overflow:auto;font-family:monospace;font-size:13px;white-space:pre-wrap;line-height:1.6;cursor:default;" onclick="event.stopPropagation()">'+esc(text)+'</div>';
+    }catch(e){inner='<div style="color:#fff;padding:30px">Text konnte nicht geladen werden</div>';}
   } else {
-    cnt.innerHTML='<div style="color:#fff;padding:30px;font-size:14px;">'+esc(a.name)+'<br><span style="opacity:.6;font-size:12px;">Keine Vorschau für diesen Dateityp</span></div>';
+    inner='<div style="color:#fff;padding:40px;text-align:center;font-size:15px;">'+esc(a.name)+'<br><span style="opacity:.55;font-size:12px;margin-top:8px;display:block;">Keine Vorschau für diesen Dateityp</span></div>';
   }
-  lb.classList.add('open');
+  // Name-Label oben
+  const nameLabel='<div style="color:rgba(255,255,255,.75);font-size:12px;background:rgba(0,0,0,.5);padding:4px 14px;border-radius:20px;max-width:80vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(a.name)+'</div>';
+  // Schließen-Button oben rechts
+  const closeBtn='<div id="_attachLbClose" style="position:fixed;top:14px;right:18px;color:#fff;font-size:20px;cursor:pointer;background:rgba(0,0,0,.6);width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;z-index:1000000;">✕</div>';
+  ov.innerHTML=closeBtn+nameLabel+inner;
+  document.body.appendChild(ov);
 }
 function closePreview(){
   _deskClosePannellum();deskDiscardDraw();
