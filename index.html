@@ -16,8 +16,8 @@ function handleEmailFileSelect(evt){
   var file=evt.target.files&&evt.target.files[0];
   if(!file)return;
   evt.target.value='';
-  var url=(document.getElementById('tEmailOrdner')||{}).value||'';
-  if(!url.trim()){_ezMsg(zone,'error','Bitte zuerst E-Mail-Ablageordner (Google Drive) eintragen!');return;}
+  var url=((document.getElementById('tEmailOrdner')||{}).value||'').trim()||((document.getElementById('tGDOrdner')||{}).value||'').trim();
+  if(!url.trim()){_ezMsg(zone,'error','Bitte zuerst E-Mail-Ablageordner oder Projektordner in den Verknüpfungen eintragen!');return;}
   var fid=_ezFolderId(url);
   if(!fid){_ezMsg(zone,'error','Ungueltige Google Drive Ordner-URL.');return;}
   if(!gdriveToken){_ezMsg(zone,'error','Bitte zuerst mit Google Drive verbinden (oben).');return;}
@@ -39,15 +39,9 @@ function handleEmailFileSelect(evt){
   if(file.name.toLowerCase().endsWith('.eml')){
     var reader=new FileReader();
     reader.onload=function(e){
-      var text=e.target.result||'';
-      var lines=text.split(/\r?\n/);
-      lines.slice(0,30).forEach(function(l){
-        if(/^Subject:/i.test(l))info.subject=l.replace(/^Subject:\s*/i,'').trim();
-        if(/^From:/i.test(l))info.sender=l.replace(/^From:\s*/i,'').trim();
-        if(/^Date:/i.test(l)){try{var d=new Date(l.replace(/^Date:\s*/i,''));if(!isNaN(d))info.date=d;}catch(ex){}}
-      });
-      info.bodyText=text.substring(0,4000);
-      _ezProcess(info,fid,zone);
+      var parsed=_parseEmlText(e.target.result||'');
+      if(!parsed.subject)parsed.subject=file.name.replace(/\.eml$/i,'');
+      _ezProcess(parsed,fid,zone);
     };
     reader.readAsText(file);
   } else {
@@ -56,8 +50,8 @@ function handleEmailFileSelect(evt){
 }
 
 async function handleEmailDrop(dt,zone){
-  var url=(document.getElementById('tEmailOrdner')||{}).value||'';
-  if(!url.trim()){_ezMsg(zone,'error','Bitte zuerst E-Mail-Ablageordner eintragen!');return;}
+  var url=((document.getElementById('tEmailOrdner')||{}).value||'').trim()||((document.getElementById('tGDOrdner')||{}).value||'').trim();
+  if(!url.trim()){_ezMsg(zone,'error','Bitte zuerst E-Mail-Ablageordner oder Projektordner in den Verknüpfungen eintragen!');return;}
   var fid=_ezFolderId(url);
   if(!fid){_ezMsg(zone,'error','Ungueltige Google Drive Ordner-URL.');return;}
   if(!gdriveToken){_ezMsg(zone,'error','⚠ Bitte zuerst mit Google Drive verbinden (oben rechts: ☁️ Google Drive).');return;}
@@ -92,13 +86,8 @@ async function handleEmailDrop(dt,zone){
     if(f){
       if(f.name.toLowerCase().endsWith('.eml')){
         var text=await new Promise(function(res){var r=new FileReader();r.onload=function(e){res(e.target.result);};r.readAsText(f);});
-        info={subject:f.name.replace(/\.(msg|eml)$/i,''),sender:'',date:new Date(),bodyText:text.substring(0,4000)};
-        var lines=text.split(/\r?\n/);
-        lines.slice(0,30).forEach(function(l){
-          if(/^Subject:/i.test(l))info.subject=l.replace(/^Subject:\s*/i,'').trim();
-          if(/^From:/i.test(l))info.sender=l.replace(/^From:\s*/i,'').trim();
-          if(/^Date:/i.test(l)){try{var d=new Date(l.replace(/^Date:\s*/i,''));if(!isNaN(d))info.date=d;}catch(ex){}}
-        });
+        info=_parseEmlText(text);
+        if(!info.subject)info.subject=f.name.replace(/\.(msg|eml)$/i,'');
       } else {
         info={subject:f.name.replace(/\.msg$/i,''),sender:'',date:new Date(),bodyText:''};
       }
@@ -225,6 +214,76 @@ async function _ezUpload(buf,fname,fid){
 function _ezFolderId(url){if(!url)return null;var m=url.match(/\/folders\/([a-zA-Z0-9_-]+)/)||url.match(/[?&]id=([a-zA-Z0-9_-]+)/);return m?m[1]:null;}
 function _ezClean(s){return(s||'E-Mail').replace(/[\/\\:*?"<>|]/g,'-').replace(/\s+/g,'_').substring(0,80);}
 function _ez2(n){return n<10?'0'+n:String(n);}
+
+// ── EML-PARSER: MIME-Dekodierung für lesbare PDFs ──
+function _decodeEmlMimeWord(str){
+  // Dekodiert RFC-2047 encoded words: =?charset?B?base64?= und =?charset?Q?quoted-printable?=
+  return (str||'').replace(/=\?([^?*\s]+)(?:\*[^?]*)?\?([BbQq])\?([^?]*)\?=/g,function(_,cs,enc,dat){
+    try{
+      var bytes;
+      if(enc.toUpperCase()==='B'){
+        var bin=atob(dat.replace(/\s/g,''));
+        bytes=new Uint8Array(bin.length);
+        for(var i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+      }else{
+        // Q-Encoding: _ = Leerzeichen, =XX = Hex-Byte
+        var s=dat.replace(/_/g,' ').replace(/=([0-9A-Fa-f]{2})/g,function(_,h){return String.fromCharCode(parseInt(h,16));});
+        bytes=new Uint8Array(s.length);
+        for(var i=0;i<s.length;i++)bytes[i]=s.charCodeAt(i);
+      }
+      return new TextDecoder(cs).decode(bytes);
+    }catch(e){return dat;}
+  });
+}
+function _decodeQP(s){
+  // Quoted-Printable dekodieren: =\n entfernen (soft break), =XX → Zeichen
+  return s.replace(/=\r?\n/g,'').replace(/=([0-9A-Fa-f]{2})/g,function(_,h){return String.fromCharCode(parseInt(h,16));});
+}
+function _decodeB64Body(s,cs){
+  try{var bin=atob(s.replace(/\s/g,''));var b=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)b[i]=bin.charCodeAt(i);return new TextDecoder(cs||'utf-8').decode(b);}catch(e){return s;}
+}
+function _parseEmlText(rawText){
+  // Trennung Header / Body an erster Leerzeile
+  var he=rawText.search(/\r?\n\r?\n/);
+  var hdr=he>=0?rawText.substring(0,he):rawText.substring(0,2000);
+  var bdy=he>=0?rawText.substring(he).replace(/^\r?\n/,''):'';
+  // Gefaltete Header-Zeilen zusammenführen
+  var hl=hdr.replace(/\r?\n([ \t])/g,' ').split(/\r?\n/);
+  var subject='',sender='',date=new Date(),ctype='',tenc='';
+  hl.forEach(function(l){
+    if(/^Subject:/i.test(l))subject=_decodeEmlMimeWord(l.replace(/^Subject:\s*/i,'').trim());
+    if(/^From:/i.test(l))sender=_decodeEmlMimeWord(l.replace(/^From:\s*/i,'').trim());
+    if(/^Date:/i.test(l)){try{var d=new Date(l.replace(/^Date:\s*/i,''));if(!isNaN(d))date=d;}catch(e){}}
+    if(/^Content-Type:/i.test(l))ctype=l.replace(/^Content-Type:\s*/i,'');
+    if(/^Content-Transfer-Encoding:/i.test(l))tenc=l.replace(/^Content-Transfer-Encoding:\s*/i,'').trim().toLowerCase().replace(/['"]/g,'');
+  });
+  // Bei Multipart: text/plain-Teil extrahieren
+  var plain='';
+  var bm=ctype.match(/boundary="?([^";]+)"?/i);
+  if(bm){
+    var sep=bm[1].trim();
+    var safeRe=sep.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    var parts=bdy.split(new RegExp('\\r?\\n?--'+safeRe+'(?:--)?\\r?\\n?'));
+    for(var i=0;i<parts.length;i++){
+      var p=parts[i];
+      var ph=p.search(/\r?\n\r?\n/);if(ph<0)continue;
+      var phdr=p.substring(0,ph).replace(/\r?\n([ \t])/g,' ');
+      var pb=p.substring(ph).replace(/^\r?\n/,'');
+      if(/content-type:\s*text\/plain/i.test(phdr)){
+        var peArr=phdr.match(/Content-Transfer-Encoding:\s*(\S+)/i);
+        var pe=(peArr?peArr[1]:'').toLowerCase().replace(/['"]/g,'');
+        plain=pe==='quoted-printable'?_decodeQP(pb):pe==='base64'?_decodeB64Body(pb):pb;
+        break;
+      }
+    }
+  }
+  if(!plain){
+    plain=tenc==='quoted-printable'?_decodeQP(bdy):tenc==='base64'?_decodeB64Body(bdy):bdy;
+  }
+  plain=plain.replace(/\r\n/g,'\n').replace(/\r/g,'\n').trim();
+  return{subject:subject,sender:sender,date:date,bodyText:plain.substring(0,4000)};
+}
+
 function tEmailOrdnerOeffnen(){var u=(document.getElementById('tEmailOrdner')||{}).value||'';if(u.trim())window.open(u,'_blank');else alert('Bitte zuerst eine Google Drive Ordner-URL eintragen.');}
 
 </script>
@@ -4622,13 +4681,8 @@ async function _uploadEmailOriginal(file){
       try{
         if(msgEl)msgEl.textContent='⏳ PDF-Vorschau wird erstellt…';
         const text=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result||'');r.onerror=rej;r.readAsText(file);});
-        const info={subject:file.name.replace(/\.eml$/i,''),sender:'',date:new Date(),bodyText:''};
-        text.split(/\r?\n/).slice(0,50).forEach(l=>{
-          if(/^Subject:/i.test(l))info.subject=l.replace(/^Subject:\s*/i,'').trim();
-          if(/^From:/i.test(l))info.sender=l.replace(/^From:\s*/i,'').trim();
-          if(/^Date:/i.test(l)){try{const d=new Date(l.replace(/^Date:\s*/i,''));if(!isNaN(d))info.date=d;}catch(ex){}}
-        });
-        info.bodyText=text.substring(0,4000);
+        const info=_parseEmlText(text);
+        if(!info.subject)info.subject=file.name.replace(/\.eml$/i,'');
         const pdfBuf=await _ezBuildPdf(info);
         const pdfName=_ezClean(info.subject||file.name.replace(/\.eml$/i,''))+'_Protokoll.pdf';
         const pdfResult=await _ezUpload(pdfBuf,pdfName,fid);
