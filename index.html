@@ -1749,6 +1749,7 @@ async function gdriveTokenCallback(resp) {
   // Token in localStorage speichern (übersteht Seitenreload)
   try { localStorage.setItem(PC_TOKEN_KEY, JSON.stringify({token: gdriveToken, exp: gdriveTokenExpires})); } catch(e) {}
   clearTimeout(_gdriveRefreshTimer); // kein Timer mehr – visibilitychange übernimmt
+  _hideDriveWarnBanner(); // Warnbanner ausblenden (falls sichtbar)
   const action = gdrivePendingAction;
   gdrivePendingAction = null;
   if (action && action !== 'autoload') localStorage.setItem('gdrive_last_action', action);
@@ -1774,7 +1775,31 @@ async function gdriveTokenCallback(resp) {
 
 // ── Token stille Erneuerung ──
 // prompt:'none' = kein Popup → kann sicher aus Timer aufgerufen werden
-function _silentTokenRefresh(onSuccess){
+// ── Drive-Warnbanner (persistent, mit Countdown) ──
+let _driveWarnBannerTimer = null;
+function _showDriveWarnBanner(secondsLeft){
+  let banner = document.getElementById('_driveWarnBanner');
+  if(!banner){
+    banner = document.createElement('div');
+    banner.id = '_driveWarnBanner';
+    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999999;background:#e67e22;color:#fff;display:flex;align-items:center;justify-content:center;gap:12px;padding:10px 16px;font-size:13px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.3);';
+    banner.innerHTML = '<span id="_driveWarnMsg">⚠ Google Drive Verbindung läuft ab</span>'
+      + '<button onclick="gdriveConnectFromBar()" style="background:#fff;color:#e67e22;border:none;border-radius:6px;padding:5px 14px;font-size:13px;font-weight:700;cursor:pointer;">🔄 Jetzt erneuern</button>';
+    document.body.prepend(banner);
+  }
+  banner.style.display = 'flex';
+  if(secondsLeft != null){
+    const min = Math.ceil(secondsLeft/60);
+    document.getElementById('_driveWarnMsg').textContent = '⚠ Google Drive Verbindung läuft in ' + min + ' Min. ab – bitte jetzt erneuern';
+  }
+}
+function _hideDriveWarnBanner(){
+  const banner = document.getElementById('_driveWarnBanner');
+  if(banner) banner.style.display = 'none';
+  clearTimeout(_driveWarnBannerTimer);
+}
+
+function _silentTokenRefresh(onSuccess, onFail){
   if(!gdriveTokenClient||!gdriveToken)return;
   const prev=gdriveTokenClient.callback;
   gdriveTokenClient.callback=(r)=>{
@@ -1784,23 +1809,52 @@ function _silentTokenRefresh(onSuccess){
       gdriveTokenExpires=Date.now()+(Number(r.expires_in||3600)-60)*1000;
       try{localStorage.setItem(PC_TOKEN_KEY,JSON.stringify({token:gdriveToken,exp:gdriveTokenExpires}));}catch(e){}
       console.info('[PTP] Token automatisch erneuert ✓');
+      _hideDriveWarnBanner();
       if(typeof onSuccess==='function')onSuccess();
+    } else {
+      // Stille Erneuerung fehlgeschlagen → Banner zeigen
+      if(typeof onFail==='function') onFail();
     }
   };
-  try{gdriveTokenClient.requestAccessToken({prompt:'none'});}catch(e){gdriveTokenClient.callback=prev;}
+  try{gdriveTokenClient.requestAccessToken({prompt:'none'});}catch(e){
+    gdriveTokenClient.callback=prev;
+    if(typeof onFail==='function') onFail();
+  }
 }
-// Alle 5 Minuten prüfen: Token kürzer als 10 Min gültig? → still erneuern
+
+// Jede Minute prüfen: wie lange noch?
+// < 10 Min: stille Erneuerung versuchen
+// Schlägt stille Erneuerung fehl oder < 5 Min: Banner anzeigen
 setInterval(()=>{
   if(!gdriveTokenClient||!gdriveToken)return;
-  if(gdriveTokenExpires-Date.now()>600000)return;
-  _silentTokenRefresh();
-},5*60*1000);
+  const msLeft = gdriveTokenExpires - Date.now();
+  if(msLeft <= 0){
+    // Bereits abgelaufen
+    _showDriveWarnBanner(0);
+    return;
+  }
+  if(msLeft > 600000) return; // mehr als 10 Min → nichts tun
+  // Weniger als 10 Min → stille Erneuerung versuchen
+  _silentTokenRefresh(
+    ()=>{ _hideDriveWarnBanner(); }, // Erfolg
+    ()=>{ _showDriveWarnBanner(msLeft/1000); } // Fehlgeschlagen → Banner
+  );
+},60*1000);
+
 // Auch bei Tab-Wechsel (als zusätzliche Absicherung)
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   if (!gdriveTokenClient || !gdriveToken) return;
-  if (gdriveTokenExpires - Date.now() > 600000) return;
-  _silentTokenRefresh();
+  const msLeft = gdriveTokenExpires - Date.now();
+  if(msLeft <= 0){
+    _showDriveWarnBanner(0);
+    return;
+  }
+  if(msLeft > 600000) return;
+  _silentTokenRefresh(
+    ()=>{ _hideDriveWarnBanner(); },
+    ()=>{ _showDriveWarnBanner(msLeft/1000); }
+  );
 });
 function gdriveTokenValid() { return !!gdriveToken && Date.now() < gdriveTokenExpires; }
 
@@ -1819,21 +1873,22 @@ function _handleDrive401(){
         try{localStorage.setItem(PC_TOKEN_KEY,JSON.stringify({token:gdriveToken,exp:gdriveTokenExpires}));}catch(e){}
         showToast('✓ Drive-Verbindung automatisch erneuert – speichere erneut…','ok',3000);
         updateFileStatus('ok','☁️ '+gdriveFileName,'✓ Verbunden');
+        _hideDriveWarnBanner();
         // Automatisch nochmal speichern
         setTimeout(()=>gdriveSaveData(),600);
       }else{
         updateFileStatus('unsaved','⚠ Drive-Verbindung abgelaufen','☁️ Drive-Button drücken zum Neu-Verbinden');
-        showToast('⚠ Drive-Anmeldung abgelaufen – bitte ☁️-Button drücken','error',8000);
+        _showDriveWarnBanner(0);
       }
     };
     try{gdriveTokenClient.requestAccessToken({prompt:'none'});}catch(e){
       gdriveTokenClient.callback=prev;
       updateFileStatus('unsaved','⚠ Drive-Verbindung abgelaufen','☁️ Drive-Button drücken zum Neu-Verbinden');
-      showToast('⚠ Drive-Anmeldung abgelaufen – bitte ☁️-Button drücken','error',8000);
+      _showDriveWarnBanner(0);
     }
   }else{
     updateFileStatus('unsaved','⚠ Drive-Verbindung abgelaufen','☁️ Drive-Button drücken zum Neu-Verbinden');
-    showToast('⚠ Drive-Anmeldung abgelaufen – bitte ☁️-Button drücken','error',8000);
+    _showDriveWarnBanner(0);
   }
 }
 // Hilfsfunktion: wirft einen sprechenden Fehler bei HTTP-Fehlerstatus, behandelt 401 direkt
