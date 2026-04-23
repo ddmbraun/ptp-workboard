@@ -573,9 +573,16 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 /* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;opacity:0;pointer-events:none;transition:opacity .2s;}
 .modal-overlay.open{opacity:1;pointer-events:all;}
-.modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg2);border-radius:12px;padding:calc(24px * var(--modal-scale, 1));width:520px;min-width:340px;min-height:200px;max-width:98vw;max-height:94vh;overflow:auto;box-shadow:0 20px 60px var(--shadow);resize:both;user-select:none;}
+.modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg2);border-radius:12px;padding:calc(24px * var(--modal-scale, 1)) calc(24px * var(--modal-scale, 1)) 0;width:520px;min-width:340px;min-height:200px;max-width:98vw;max-height:94vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px var(--shadow);}
 .modal.is-placed{transform:none;}
-.modal::after{content:'⤡';position:absolute;bottom:3px;right:6px;font-size:14px;color:var(--accent);opacity:.5;pointer-events:none;line-height:1;}
+.modal-scroll-body{flex:1;overflow:auto;padding-bottom:8px;}
+.modal-resize-bar{flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:10px;padding:5px 10px;border-top:1px solid var(--border);background:var(--bg3);border-radius:0 0 12px 12px;cursor:ns-resize;user-select:none;}
+.modal-resize-bar .resize-grip{display:flex;flex-direction:column;gap:3px;pointer-events:none;}
+.modal-resize-bar .resize-grip span{display:block;width:28px;height:3px;border-radius:2px;background:var(--text2);opacity:.4;}
+.modal-resize-bar:hover .resize-grip span{opacity:.8;}
+.modal-resize-bar:active .resize-grip span{opacity:1;background:var(--accent);}
+.modal-size-preset{padding:2px 9px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:10px;cursor:pointer;transition:background .15s,color .15s;}
+.modal-size-preset:hover{background:var(--accent);color:#fff;border-color:var(--accent);}
 .modal h2{font-size:calc(18px * var(--modal-scale, 1));margin-bottom:16px;}
 .modal-header-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;cursor:move;user-select:none;}
 .modal-header-row h2{margin-bottom:0;pointer-events:none;}
@@ -910,6 +917,8 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .email-orig-item a.eo-open:hover{background:rgba(108,99,255,.18);}
 .email-orig-item .eo-del{padding:2px 7px;font-size:11px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;flex-shrink:0;}
 .email-orig-item .eo-del:hover{border-color:var(--red);color:var(--red);}
+.eo-icon-btn{width:28px;height:28px;padding:0;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s,border-color .15s;}
+.eo-icon-btn:hover{background:var(--accent);border-color:var(--accent);filter:brightness(1.1);}
 /* PDF-Vorschau aus E-Mail-Drop */
 .email-pdf-item{border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden;background:var(--bg3);}
 .email-pdf-header{display:flex;align-items:center;gap:7px;padding:7px 10px;cursor:pointer;font-size:12px;user-select:none;}
@@ -1056,6 +1065,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       <button type="button" class="modal-size-btn" onclick="setModalSize(Math.min(180,+(document.getElementById('modalSizeSlider').value)+10))" title="Größer">+</button>
       <input id="modalSizeSlider" type="range" min="80" max="180" step="10" value="100" oninput="setModalSize(this.value)" style="width:80px;accent-color:var(--accent);margin-left:4px;">
     </div>
+    <div class="modal-scroll-body">
     <input type="hidden" id="taskId">
     <!-- Timer-Bar oben: Stoppuhr direkt zugänglich ohne Sektion aufzuklappen -->
     <div style="display:flex;gap:10px;margin-bottom:12px;">
@@ -1326,12 +1336,20 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       </div>
     </div>
 
-    <div class="modal-actions">
-      <button class="topbar-btn btn-danger" id="deleteTaskBtn" onclick="deleteTask()" style="display:none;margin-right:auto;">Löschen</button>
-      <button class="gcal-btn-modal" id="gcalModalBtn" onclick="openGoogleCalendarFromModal()" style="display:none;margin-right:auto;">📅 In Kalender eintragen</button>
-      <button class="topbar-btn baustelle-only" id="abschlussBtn" onclick="createAbschlussakte()" style="display:none;margin-right:auto;background:var(--bg3);border:1px solid var(--border)">📁 Abschlussakte</button>
-      <button class="topbar-btn btn-secondary" onclick="saveTaskAndBack()">← Zurück</button>
-      <button class="topbar-btn btn-primary" onclick="saveTask()">Speichern</button>
+      <div class="modal-actions">
+        <button class="topbar-btn btn-danger" id="deleteTaskBtn" onclick="deleteTask()" style="display:none;margin-right:auto;">Löschen</button>
+        <button class="gcal-btn-modal" id="gcalModalBtn" onclick="openGoogleCalendarFromModal()" style="display:none;margin-right:auto;">📅 In Kalender eintragen</button>
+        <button class="topbar-btn baustelle-only" id="abschlussBtn" onclick="createAbschlussakte()" style="display:none;margin-right:auto;background:var(--bg3);border:1px solid var(--border)">📁 Abschlussakte</button>
+        <button class="topbar-btn btn-secondary" onclick="saveTaskAndBack()">← Zurück</button>
+        <button class="topbar-btn btn-primary" onclick="saveTask()">Speichern</button>
+      </div>
+    </div><!-- end .modal-scroll-body -->
+    <div class="modal-resize-bar" id="modalResizeBar">
+      <button class="modal-size-preset" onclick="_setModalPreset('s')" title="Klein">S</button>
+      <button class="modal-size-preset" onclick="_setModalPreset('m')" title="Mittel">M</button>
+      <button class="modal-size-preset" onclick="_setModalPreset('l')" title="Groß">L</button>
+      <button class="modal-size-preset" onclick="_setModalPreset('xl')" title="Fast Vollbild">XL</button>
+      <div class="resize-grip"><span></span><span></span></div>
     </div>
   </div>
 </div>
@@ -1483,6 +1501,88 @@ let taskFotos = [];
 let fileHandle = null;
 const hasFileAPI = 'showOpenFilePicker' in window;
 let collapsedCols = {};
+
+// ── MODAL DRAG & RESIZE ──
+(function(){
+  const MODAL_SIZE_STORE='ptp_modal_wh_v1';
+  let _mdDrag=false,_mdOx=0,_mdOy=0;
+  let _mdResize=false,_mdResizeStartY=0,_mdResizeStartH=0;
+
+  function _mb(){return document.getElementById('taskModalBox');}
+
+  // Drag via header row
+  document.addEventListener('mousedown',function(e){
+    const hdr=e.target.closest('.modal-header-row');
+    if(!hdr)return;
+    if(e.target.tagName==='BUTTON'||e.target.tagName==='INPUT'||e.target.tagName==='SELECT')return;
+    const box=_mb();if(!box)return;
+    const r=box.getBoundingClientRect();
+    box.style.left=r.left+'px';box.style.top=r.top+'px';
+    box.style.width=r.width+'px';box.style.height=r.height+'px';
+    box.classList.add('is-placed');
+    _mdOx=e.clientX-r.left;_mdOy=e.clientY-r.top;_mdDrag=true;
+    e.preventDefault();
+  });
+
+  // Resize via bottom bar
+  document.addEventListener('mousedown',function(e){
+    const bar=e.target.closest('#modalResizeBar');
+    if(!bar)return;
+    if(e.target.tagName==='BUTTON')return;
+    const box=_mb();if(!box)return;
+    const r=box.getBoundingClientRect();
+    box.style.left=r.left+'px';box.style.top=r.top+'px';
+    box.style.width=r.width+'px';box.style.height=r.height+'px';
+    box.classList.add('is-placed');
+    _mdResizeStartY=e.clientY;_mdResizeStartH=r.height;_mdResize=true;
+    document.body.style.cursor='ns-resize';document.body.style.userSelect='none';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove',function(e){
+    const box=_mb();if(!box)return;
+    if(_mdDrag){
+      box.style.left=Math.max(0,Math.min(window.innerWidth-120,e.clientX-_mdOx))+'px';
+      box.style.top=Math.max(0,Math.min(window.innerHeight-60,e.clientY-_mdOy))+'px';
+    }
+    if(_mdResize){
+      const newH=Math.max(300,_mdResizeStartH+(e.clientY-_mdResizeStartY));
+      box.style.height=Math.min(window.innerHeight-20,newH)+'px';
+    }
+  });
+
+  document.addEventListener('mouseup',function(){
+    if(_mdResize){
+      document.body.style.cursor='';document.body.style.userSelect='';
+      // Größe merken
+      const box=_mb();
+      if(box){try{localStorage.setItem(MODAL_SIZE_STORE,JSON.stringify({w:box.offsetWidth,h:box.offsetHeight}));}catch(e){}}
+    }
+    _mdDrag=false;_mdResize=false;
+  });
+
+  window._setModalPreset=function(p){
+    const box=_mb();if(!box)return;
+    const vw=window.innerWidth,vh=window.innerHeight;
+    const sizes={s:[480,460],m:[580,600],l:[720,760],xl:[Math.min(1100,vw-40),vh-40]};
+    const [w,h]=sizes[p]||sizes.m;
+    box.style.width=w+'px';box.style.height=h+'px';
+    // Zentrieren
+    box.style.left=Math.max(0,(vw-w)/2)+'px';
+    box.style.top=Math.max(0,(vh-h)/2)+'px';
+    box.classList.add('is-placed');
+    try{localStorage.setItem(MODAL_SIZE_STORE,JSON.stringify({w,h}));}catch(e){}
+  };
+
+  // Gespeicherte Fenstergröße beim Öffnen wiederherstellen
+  window._applyStoredModalSize2=function(){
+    const box=_mb();if(!box)return;
+    try{
+      const s=JSON.parse(localStorage.getItem(MODAL_SIZE_STORE)||'null');
+      if(s&&s.w&&s.h){box.style.width=s.w+'px';box.style.height=s.h+'px';}
+    }catch(e){}
+  };
+})();
 
 // ── MODAL DATA STATE ──
 let taskAusserhausTermine = [];
@@ -4811,8 +4911,8 @@ function renderEmailOriginals(){
       <span style="font-size:16px;flex-shrink:0;">📨</span>
       <span class="eo-name" title="${esc(e.name)}">${esc(e.name)}</span>
       <span class="eo-date">${esc(e.uploadedAt||'')}</span>
-      <button type="button" class="eo-open" onclick="_downloadEmailOrig('${esc(e.fileId)}','${esc(e.name)}')" title="In Downloads speichern → dort doppelklicken zum Öffnen in Outlook">⬇ Speichern</button>
-      <a class="eo-open" href="${esc(e.url)}" target="_blank" title="In Google Drive anzeigen" style="background:transparent;border-color:var(--border);color:var(--text2);">📂</a>
+      <button type="button" class="eo-icon-btn" onclick="_downloadEmailOrig('${esc(e.fileId)}','${esc(e.name)}')" title="In Downloads speichern → dort doppelklicken zum Öffnen in Outlook">⬇</button>
+      <a class="eo-icon-btn" href="${esc(e.url)}" target="_blank" title="In Google Drive anzeigen" style="text-decoration:none;">📂</a>
       <button type="button" class="eo-del" onclick="taskEmailOriginals.splice(${i},1);renderEmailOriginals();scheduleTaskFieldSave();" title="Eintrag entfernen (Datei bleibt in Drive)">✕</button>
     </div>`).join('');
 }
@@ -4853,8 +4953,8 @@ function renderEmailPdfs(){
         <span style="font-size:15px;flex-shrink:0;">📄</span>
         <span class="eo-name" title="${esc(p.name)}">${esc(p.name)}</span>
         <span class="eo-date">${esc(p.uploadedAt||'')}</span>
-        <button type="button" class="eo-open" onclick="openEmailPdfPreview('${esc(p.fileId)}','${esc(p.name)}')" title="Vorschau öffnen" style="background:var(--accent);color:#fff;border-color:var(--accent);">🔍 Vorschau</button>
-        <a class="eo-open" href="${esc(p.url)}" target="_blank" title="In Google Drive öffnen" style="background:transparent;border-color:var(--border);color:var(--text2);">📂</a>
+        <button type="button" class="eo-icon-btn" onclick="openEmailPdfPreview('${esc(p.fileId)}','${esc(p.name)}')" title="Vorschau öffnen">🔍</button>
+        <a class="eo-icon-btn" href="${esc(p.url)}" target="_blank" title="In Google Drive öffnen" style="text-decoration:none;">📂</a>
         <button type="button" class="eo-del" onclick="taskEmailPdfs.splice(${i},1);renderEmailPdfs();scheduleTaskFieldSave();" title="Eintrag entfernen (Datei bleibt in Drive)">✕</button>
       </div>
     </div>`).join('');
@@ -5064,6 +5164,7 @@ function openModal(){
   setTimeout(_updateStammSummary,50);
   // Gespeicherte Modal-Größe anwenden
   if(typeof applyStoredModalSize==='function')applyStoredModalSize();
+  if(typeof _applyStoredModalSize2==='function')_applyStoredModalSize2();
 }
 function closeModal(){
   saveTaskData(); // Auto-Speichern beim Schließen (kein Effekt wenn kein Titel)
