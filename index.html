@@ -3815,11 +3815,12 @@ async function openFotoDesktop(i){
   lbl.textContent=f.name||'Foto';
   cnt.innerHTML='<div style="color:#fff;font-size:13px;padding:20px">Lade Foto…</div>';
   lb.classList.add('open');
-  if(f.driveId){
-    const url=await _fetchDesktopFotoBlob(f.driveId);
+  const _viewId=f.editedDriveId||f.driveId;
+  if(_viewId){
+    const url=await _fetchDesktopFotoBlob(_viewId);
     if(url){
       // .insp und bekannte 360°-Namen sofort als Panorama öffnen
-      const force360=/\.insp$/i.test(f.name)||/360|panorama|pano/i.test(f.name);
+      const force360=/\.insp$/i.test(f.editedName||f.name)||/360|panorama|pano/i.test(f.editedName||f.name);
       if(force360){
         cnt.innerHTML='';cnt.style.display='none';
         _deskInitPannellum(url);
@@ -3840,7 +3841,8 @@ async function openFotoDesktop(i){
       testImg.src=url;return;
     }
   }
-  const fallback=f.url||(f.driveId?'https://drive.google.com/file/d/'+f.driveId+'/view':'');
+  const _fbId=f.editedDriveId||f.driveId;
+  const fallback=(_fbId?'https://drive.google.com/file/d/'+_fbId+'/view':f.url||'');
   if(fallback){cnt.innerHTML='<iframe src="'+fallback+'"></iframe>';}
   else{cnt.innerHTML='<div style="color:#fff;padding:20px">Vorschau nicht verfügbar</div>';}
 }
@@ -4785,19 +4787,26 @@ function renderEmailPdfs(){
   if(!taskEmailPdfs.length){el.innerHTML='';return;}
   el.innerHTML=taskEmailPdfs.map((p,i)=>`
     <div class="email-pdf-item">
-      <div class="email-pdf-header" onclick="this.parentElement.classList.toggle('open')">
-        <span style="font-size:15px;">📄</span>
+      <div class="email-pdf-header">
+        <span style="font-size:15px;flex-shrink:0;">📄</span>
         <span class="eo-name" title="${esc(p.name)}">${esc(p.name)}</span>
         <span class="eo-date">${esc(p.uploadedAt||'')}</span>
+        <button type="button" class="eo-open" onclick="openEmailPdfPreview('${esc(p.fileId)}','${esc(p.name)}')" title="Vorschau öffnen" style="background:var(--accent);color:#fff;border-color:var(--accent);">🔍 Vorschau</button>
         <a class="eo-open" href="${esc(p.url)}" target="_blank" title="In Google Drive öffnen" style="background:transparent;border-color:var(--border);color:var(--text2);">📂</a>
-        <button type="button" class="eo-del" onclick="event.stopPropagation();taskEmailPdfs.splice(${i},1);renderEmailPdfs();scheduleTaskFieldSave();" title="Eintrag entfernen (Datei bleibt in Drive)">✕</button>
-        <span class="email-pdf-toggle">▾</span>
-      </div>
-      <div class="email-pdf-preview">
-        <iframe src="https://drive.google.com/file/d/${esc(p.fileId)}/preview"
-          width="100%" height="480" allow="autoplay" style="border:none;border-radius:6px;display:block;"></iframe>
+        <button type="button" class="eo-del" onclick="taskEmailPdfs.splice(${i},1);renderEmailPdfs();scheduleTaskFieldSave();" title="Eintrag entfernen (Datei bleibt in Drive)">✕</button>
       </div>
     </div>`).join('');
+}
+function openEmailPdfPreview(fileId,name){
+  if(!fileId)return;
+  const lb=document.getElementById('previewLightbox');
+  const cnt=document.getElementById('previewContent');
+  const lbl=document.getElementById('previewLabel');
+  const capBar=document.getElementById('fotoLbCapBar');
+  if(capBar)capBar.classList.remove('visible');
+  if(lbl)lbl.textContent=name||'E-Mail PDF';
+  cnt.innerHTML='<iframe src="https://drive.google.com/file/d/'+encodeURIComponent(fileId)+'/preview" style="width:100%;height:100%;min-height:80vh;border:none;border-radius:6px;display:block;" allow="autoplay"></iframe>';
+  lb.classList.add('open');
 }
 
 // Generischer Drive-Upload (beliebiger MIME-Typ)
