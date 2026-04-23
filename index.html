@@ -931,6 +931,43 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     </div>
 
     <!-- ZEITERFASSUNG (manuell) -->
+    <!-- CHECKLISTE -->
+    <div class="form-collapse" id="tChecklisteSect">
+      <div class="form-collapse-header" onclick="toggleFormSection('tChecklisteSect')">
+        <span class="form-collapse-title" id="tChecklisteTitle">✅ Checkliste</span>
+        <span class="form-collapse-arrow">▾</span>
+      </div>
+      <div class="form-collapse-body">
+        <div id="checklisteList"></div>
+        <div style="display:flex;gap:6px;margin-top:4px;">
+          <input type="text" id="newChecklistInput" placeholder="Neue Aufgabe…" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();addChecklistItem();}">
+          <button type="button" class="topbar-btn btn-primary" onclick="addChecklistItem()" style="padding:6px 14px;font-size:14px;line-height:1;">+</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- NOTIZEN -->
+    <div class="form-collapse" id="tNotizenSect">
+      <div class="form-collapse-header" onclick="toggleFormSection('tNotizenSect')">
+        <span class="form-collapse-title">📝 Notizen</span>
+        <span class="form-collapse-arrow">▾</span>
+      </div>
+      <div class="form-collapse-body">
+        <div class="modal-field">
+          <label style="font-size:12px;color:var(--text-dim,#888);display:block;margin-bottom:4px;">Dauerhafte Notiz</label>
+          <textarea id="taskDescInput" placeholder="Interne Notizen…" rows="3"></textarea>
+        </div>
+        <div class="modal-field">
+          <label style="font-size:12px;color:var(--text-dim,#888);display:block;margin-bottom:4px;">Chronologische Einträge</label>
+          <div id="taskNotizList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px;"></div>
+          <div style="display:flex;gap:6px;">
+            <input type="text" id="newTaskNotizInput" placeholder="Kurze Notiz mit Zeitstempel…" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();addTaskNotiz();}">
+            <button type="button" class="topbar-btn btn-primary" onclick="addTaskNotiz()" style="padding:6px 14px;">+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="form-collapse" id="tZeitSect">
       <div class="form-collapse-header" onclick="toggleFormSection('tZeitSect')">
         <span class="form-collapse-title" id="tZeitTitle">⏱ Manuelle Zeiterfassung</span>
@@ -945,18 +982,41 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       </div>
     </div>
 
-    <!-- CHECKLISTE -->
-    <div class="form-collapse" id="tChecklisteSect">
-      <div class="form-collapse-header" onclick="toggleFormSection('tChecklisteSect')">
-        <span class="form-collapse-title" id="tChecklisteTitle">✅ Checkliste</span>
+    <!-- E-MAIL ORIGINALE -->
+    <div class="form-collapse" id="tEmailOrigSect">
+      <div class="form-collapse-header" onclick="toggleFormSection('tEmailOrigSect')">
+        <span class="form-collapse-title" id="tEmailOrigTitle">📧 E-Mail Originale</span>
         <span class="form-collapse-arrow">▾</span>
       </div>
       <div class="form-collapse-body">
-        <div id="checklisteList"></div>
-        <div style="display:flex;gap:6px;margin-top:4px;">
-          <input type="text" id="newChecklistInput" placeholder="Neue Aufgabe…" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();addChecklistItem();}">
-          <button type="button" class="topbar-btn btn-primary" onclick="addChecklistItem()" style="padding:6px 14px;font-size:14px;line-height:1;">+</button>
+        <p style="font-size:11px;color:var(--text2);margin:0 0 6px;">Outlook .msg oder .eml ablegen → direkt in Drive → von dort in Outlook öffnen &amp; antworten.</p>
+        <div id="emailOrigList"></div>
+        <div class="email-orig-drop" id="emailOrigDrop"
+          ondragenter="event.preventDefault();this.classList.add('dragover')"
+          ondragover="event.preventDefault();this.classList.add('dragover');event.dataTransfer.dropEffect='copy'"
+          ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('dragover')"
+          ondrop="event.preventDefault();this.classList.remove('dragover');_handleEmailOrigDrop(event.dataTransfer)">
+          <span id="emailOrigDropMsg" style="font-size:12px;color:var(--text2);">📨 .msg / .eml hier hineinziehen</span>
+          <label style="cursor:pointer;padding:5px 12px;border-radius:6px;border:1px solid var(--accent);background:rgba(108,99,255,.08);color:var(--accent);font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0;">
+            📁 Datei wählen
+            <input type="file" id="emailOrigInput" accept=".msg,.eml" style="display:none" onchange="_handleEmailOrigSelect(event)">
+          </label>
         </div>
+      </div>
+    </div>
+
+    <!-- DATEIHAENGE -->
+    <div class="form-collapse" id="tAnhangSect">
+      <div class="form-collapse-header" onclick="toggleFormSection('tAnhangSect')">
+        <span class="form-collapse-title">📎 Dateianhänge</span>
+        <span class="form-collapse-arrow">▾</span>
+      </div>
+      <div class="form-collapse-body">
+        <div id="attachList"></div>
+        <div class="attach-drop-zone" id="dropZone" onclick="triggerFileInput()" style="margin-bottom:0">
+          📎 Datei hier hineinziehen oder klicken
+        </div>
+        <input type="file" id="fileAttachInput" style="display:none" multiple onchange="handleFileAttach(event)">
       </div>
     </div>
 
@@ -1037,66 +1097,6 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       </div>
     </div>
 
-    <!-- DATEIHAENGE -->
-    <div class="form-collapse" id="tAnhangSect">
-      <div class="form-collapse-header" onclick="toggleFormSection('tAnhangSect')">
-        <span class="form-collapse-title">📎 Dateianhänge</span>
-        <span class="form-collapse-arrow">▾</span>
-      </div>
-      <div class="form-collapse-body">
-        <div id="attachList"></div>
-        <div class="attach-drop-zone" id="dropZone" onclick="triggerFileInput()" style="margin-bottom:0">
-          📎 Datei hier hineinziehen oder klicken
-        </div>
-        <input type="file" id="fileAttachInput" style="display:none" multiple onchange="handleFileAttach(event)">
-      </div>
-    </div>
-
-    <!-- E-MAIL ORIGINALE -->
-    <div class="form-collapse" id="tEmailOrigSect">
-      <div class="form-collapse-header" onclick="toggleFormSection('tEmailOrigSect')">
-        <span class="form-collapse-title" id="tEmailOrigTitle">📧 E-Mail Originale</span>
-        <span class="form-collapse-arrow">▾</span>
-      </div>
-      <div class="form-collapse-body">
-        <p style="font-size:11px;color:var(--text2);margin:0 0 6px;">Outlook .msg oder .eml ablegen → direkt in Drive → von dort in Outlook öffnen &amp; antworten.</p>
-        <div id="emailOrigList"></div>
-        <div class="email-orig-drop" id="emailOrigDrop"
-          ondragenter="event.preventDefault();this.classList.add('dragover')"
-          ondragover="event.preventDefault();this.classList.add('dragover');event.dataTransfer.dropEffect='copy'"
-          ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('dragover')"
-          ondrop="event.preventDefault();this.classList.remove('dragover');_handleEmailOrigDrop(event.dataTransfer)">
-          <span id="emailOrigDropMsg" style="font-size:12px;color:var(--text2);">📨 .msg / .eml hier hineinziehen</span>
-          <label style="cursor:pointer;padding:5px 12px;border-radius:6px;border:1px solid var(--accent);background:rgba(108,99,255,.08);color:var(--accent);font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0;">
-            📁 Datei wählen
-            <input type="file" id="emailOrigInput" accept=".msg,.eml" style="display:none" onchange="_handleEmailOrigSelect(event)">
-          </label>
-        </div>
-      </div>
-    </div>
-
-    <!-- NOTIZEN -->
-    <div class="form-collapse" id="tNotizenSect">
-      <div class="form-collapse-header" onclick="toggleFormSection('tNotizenSect')">
-        <span class="form-collapse-title">📝 Notizen</span>
-        <span class="form-collapse-arrow">▾</span>
-      </div>
-      <div class="form-collapse-body">
-        <div class="modal-field">
-          <label style="font-size:12px;color:var(--text-dim,#888);display:block;margin-bottom:4px;">Dauerhafte Notiz</label>
-          <textarea id="taskDescInput" placeholder="Interne Notizen…" rows="3"></textarea>
-        </div>
-        <div class="modal-field">
-          <label style="font-size:12px;color:var(--text-dim,#888);display:block;margin-bottom:4px;">Chronologische Einträge</label>
-          <div id="taskNotizList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px;"></div>
-          <div style="display:flex;gap:6px;">
-            <input type="text" id="newTaskNotizInput" placeholder="Kurze Notiz mit Zeitstempel…" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();addTaskNotiz();}">
-            <button type="button" class="topbar-btn btn-primary" onclick="addTaskNotiz()" style="padding:6px 14px;">+</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <div class="modal-actions">
       <button class="topbar-btn btn-danger" id="deleteTaskBtn" onclick="deleteTask()" style="display:none;margin-right:auto;">Löschen</button>
       <button class="gcal-btn-modal" id="gcalModalBtn" onclick="openGoogleCalendarFromModal()" style="display:none;margin-right:auto;">📅 In Kalender eintragen</button>
@@ -1134,7 +1134,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       <input class="proj-add-input" id="projAddInput" placeholder="Neues Projekt benennen…" onkeydown="if(event.key==='Enter')addProject()">
       <select id="projAddType" class="proj-type-sel" title="Projekt-Typ wählen">
         <option value="baustelle">🏗 Baustelle</option>
-        <option value="notiz">📋 Notiz</option>
+        <option value="notiz">✅ Aufgaben</option>
       </select>
       <button class="proj-add-btn" onclick="addProject()">+ Anlegen</button>
     </div>
@@ -1323,7 +1323,7 @@ function scheduleSave(){
 // Für bestehende Tasks: sofort speichern (1s Debounce)
 // Für neue Tasks: nur beim Schließen speichern
 function scheduleTaskFieldSave(){
-  const id=document.getElementById('taskId').value;
+  const id=(document.getElementById('taskId')?.value)||'';
   if(!id) return; // Neuer Task: erst beim Schließen speichern
   clearTimeout(autoSaveTimer);
   autoSaveTimer = setTimeout(()=>{saveTaskData();}, 1000);
@@ -1377,6 +1377,7 @@ function saveTaskData(){
     emailOriginals:taskEmailOriginals,
     gmailLinks:taskGmailLinks
   };
+  if(!boards[currentBoard])boards[currentBoard]=[];
   if(id){
     const idx=boards[currentBoard].findIndex(t=>t.id===id);
     if(idx>=0) boards[currentBoard][idx]=data;
@@ -2273,13 +2274,14 @@ function updateStatusSelect(){
 function renderBoardTabs(){
   const keys=Object.keys(boards);
   const sel=document.getElementById('boardTabs');
+  const _bIcon=b=>(boardTypes[b]||'baustelle')==='notiz'?'✅ ':'🏗 ';
   sel.innerHTML=
     `<button class="board-dropdown-btn" onclick="toggleBoardDropdown(event)">
-       <span class="bd-label">${esc(currentBoard||'Board wählen')}</span>
+       <span class="bd-label">${_bIcon(currentBoard)}${esc(currentBoard||'Board wählen')}</span>
        <span class="bd-arrow">▾</span>
      </button>
      <div class="board-dropdown-list">
-       ${keys.map(b=>`<button class="board-dropdown-item${b===currentBoard?' active':''}" data-board-name="${esc(b)}">${esc(b)}</button>`).join('')}
+       ${keys.map(b=>`<button class="board-dropdown-item${b===currentBoard?' active':''}" data-board-name="${esc(b)}">${_bIcon(b)}${esc(b)}</button>`).join('')}
      </div>`;
   // Klicks auf Board-Items per Event-Delegation – kein inline onclick, daher keine Probleme mit Sonderzeichen im Namen
   sel.querySelector('.board-dropdown-list')?.addEventListener('click',function(e){
@@ -4036,7 +4038,7 @@ function formatDuration(ms){const s=Math.floor(ms/1000);return[Math.floor(s/3600
 function isTaskTimerRunning(taskId){return activeTimerTaskId===taskId;}
 
 function toggleTimer(){
-  const taskId=document.getElementById('taskId').value;
+  const taskId=(document.getElementById('taskId')?.value)||'';
   if(!taskId){alert('Bitte Task zuerst speichern.');return;}
   if(isTaskTimerRunning(taskId)){stopTimer();}
   else{
@@ -4506,7 +4508,7 @@ function _applyBoardType(boardName){
   }
   const ti=document.getElementById('_taskTypeIndicator');
   if(ti){
-    if(type==='notiz'){ti.textContent='📋 Notiz';ti.className='task-type-badge notiz';}
+    if(type==='notiz'){ti.textContent='✅ Aufgaben';ti.className='task-type-badge notiz';}
     else{ti.textContent='🏗 Baustelle';ti.className='task-type-badge baustelle';}
   }
   // Abschlussakte-Button: nur sichtbar für Baustelle-Tasks (und wenn ID vorhanden)
@@ -4517,7 +4519,7 @@ function _applyBoardType(boardName){
   }
 }
 
-const TASK_SECTION_IDS=['tStammSect','tObjektSect','tAnsprchSect','tTermineSect','tZeitSect','tChecklisteSect','tVerkSect','tFotoSect','tAnhangSect','tEmailOrigSect','tNotizenSect'];
+const TASK_SECTION_IDS=['tStammSect','tObjektSect','tAnsprchSect','tTermineSect','tChecklisteSect','tNotizenSect','tZeitSect','tEmailOrigSect','tAnhangSect','tVerkSect','tFotoSect'];
 function collapseAllTaskSections(){
   TASK_SECTION_IDS.forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('open');});
 }
@@ -4525,6 +4527,11 @@ function openModal(){
   document.getElementById('taskModal').classList.add('open');
   // Alle Sektionen beim Öffnen schließen
   collapseAllTaskSections();
+  // Für Aufgaben-Boards: Notizen-Sektion immer aufgeklappt
+  if((boardTypes[currentBoard]||'baustelle')==='notiz'){
+    const s=document.getElementById('tNotizenSect');
+    if(s)s.classList.add('open');
+  }
   // Zusammenfassung in Stammdaten-Header aktualisieren
   setTimeout(_updateStammSummary,50);
   // Gespeicherte Modal-Größe anwenden
@@ -4555,8 +4562,11 @@ function openNewTaskModal(){
   document.getElementById('taskKundenNr').value='';
   ['tHV','tAdr','tSch'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const _driveDefault='https://drive.google.com/drive/u/0/folders/1GBcSWtUkKw7pJJ2CKvbTs_WZCZ1_RJ07';
+  const _aufgabenDefault='https://drive.google.com/drive/u/0/folders/18z9bRXtzUteTCf0Xu58gKti0ykHuZEGB';
   const _nasDefault='\\\\nas-ddbraun\\Kunden';
-  ['tGDOrdner','tGD','tEmailOrdner'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=_driveDefault;});
+  const _isAufgaben=(boardTypes[currentBoard]||'baustelle')==='notiz';
+  ['tGD','tEmailOrdner'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=_driveDefault;});
+  const _gdOEl=document.getElementById('tGDOrdner');if(_gdOEl)_gdOEl.value=_isAufgaben?_aufgabenDefault:_driveDefault;
   const _nasEl=document.getElementById('tNAS');if(_nasEl)_nasEl.value=_nasDefault;
   _updateFotoOrdnerHint();
   const kc=document.getElementById('tKontakteContainer');if(kc)kc.innerHTML='';
@@ -4609,9 +4619,14 @@ function openEditTaskModal(id){
       _kontakte.push({rolle:'eigentuemer',name:task.eigentuemerName||'',tel:task.eigentuemerTel||'',email:task.eigentuemerEmail||''});
   }
   renderKontaktePTP(_kontakte);
+  // Board des Tasks früh ermitteln – wird auch für Projektordner-Default gebraucht
+  let _taskBoard=currentBoard;
+  for(const bk of Object.keys(boards)){if((boards[bk]||[]).some(t=>t.id===task.id)){_taskBoard=bk;break;}}
   const _dDef='https://drive.google.com/drive/u/0/folders/1GBcSWtUkKw7pJJ2CKvbTs_WZCZ1_RJ07';
+  const _aufgabenDef='https://drive.google.com/drive/u/0/folders/18z9bRXtzUteTCf0Xu58gKti0ykHuZEGB';
   const _nDef='\\\\nas-ddbraun\\Kunden';
-  document.getElementById('tGDOrdner').value=task.gdriveOrdner||_dDef;
+  const _isAufgabenEdit=(boardTypes[_taskBoard]||'baustelle')==='notiz';
+  document.getElementById('tGDOrdner').value=task.gdriveOrdner||(_isAufgabenEdit?_aufgabenDef:_dDef);
   document.getElementById('tGD').value=task.gdrive||_dDef;
   document.getElementById('tNAS').value=task.nas||_nDef;
   _updateFotoOrdnerHint();
@@ -4634,9 +4649,6 @@ function openEditTaskModal(id){
   const _ci=document.getElementById('newChecklistInput');if(_ci)_ci.value='';
   const _gu=document.getElementById('newGmailLinkUrl');if(_gu)_gu.value='';
   const _gl=document.getElementById('newGmailLinkLabel');if(_gl)_gl.value='';
-  // Beim Bearbeiten: Board des Tasks finden, um richtigen Typ zu ermitteln
-  let _taskBoard=currentBoard;
-  for(const bk of Object.keys(boards)){if((boards[bk]||[]).some(t=>t.id===task.id)){_taskBoard=bk;break;}}
   _applyBoardType(_taskBoard);
   openModal();
   }catch(err){
@@ -4657,6 +4669,7 @@ function saveTask(){
 function deleteTask(){
   const id=document.getElementById('taskId').value;
   if(!id||!confirm('Task wirklich löschen?'))return;
+  if(!boards[currentBoard])return;
   boards[currentBoard]=boards[currentBoard].filter(t=>t.id!==id);
   closeModal();render();autoSave();
 }
@@ -4735,7 +4748,7 @@ function renderProjList(){
       <span class="proj-count">${p.count} Task${p.count!==1?'s':''}</span>
       <select id="projtype-${i}" class="proj-type-sel" title="Projekt-Typ">
         <option value="baustelle" ${(p.type||'baustelle')==='baustelle'?'selected':''}>🏗 Baustelle</option>
-        <option value="notiz" ${(p.type||'baustelle')==='notiz'?'selected':''}>📋 Notiz</option>
+        <option value="notiz" ${(p.type||'baustelle')==='notiz'?'selected':''}>✅ Aufgaben</option>
       </select>
       <label class="proj-mobile" title="Auf PTP Mobile anzeigen" style="display:flex;align-items:center;gap:4px;margin:0 6px;font-size:12px;color:var(--text2);cursor:pointer;user-select:none;">
         <input type="checkbox" id="projmob-${i}" ${p.mobile?'checked':''} onchange="toggleProjMobile(${i})" style="margin:0;cursor:pointer;">
