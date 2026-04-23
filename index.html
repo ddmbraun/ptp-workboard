@@ -136,7 +136,7 @@ async function _ezProcess(info,fid,zone){
     var result=await _ezUpload(pdf,fname,fid);
     _ezMsg(zone,'success','✅ Gespeichert: '+fname);
     setTimeout(function(){document.getElementById('emailDropZoneMsg')&&_ezMsg(zone,'','');},4000);
-    // PDF-Vorschau im Task speichern
+    // PDF-Vorschau im Task speichern und Sektion öffnen
     if(result&&result.id){
       taskEmailPdfs.push({
         name:fname,
@@ -146,6 +146,13 @@ async function _ezProcess(info,fid,zone){
       });
       if(typeof renderEmailPdfs==='function')renderEmailPdfs();
       if(typeof scheduleTaskFieldSave==='function')scheduleTaskFieldSave();
+      // E-Mail-Sektion öffnen und zur Vorschau scrollen
+      var sect=document.getElementById('tEmailOrigSect');
+      if(sect&&!sect.classList.contains('open'))sect.classList.add('open');
+      setTimeout(function(){
+        var list=document.getElementById('emailPdfList');
+        if(list)list.scrollIntoView({behavior:'smooth',block:'start'});
+      },200);
     }
   }catch(err){
     _ezMsg(zone,'error','Fehler: '+err.message);
@@ -863,7 +870,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
         <div id="timerDisplayTop" class="timer-display">00:00:00</div>
         <button id="timerBtnTop" type="button" class="timer-toggle-btn" onclick="toggleTimer()">▶ Start</button>
       </div>
-      <div class="email-drop-zone baustelle-only" id="emailDropZone"
+      <div class="email-drop-zone" id="emailDropZone"
         ondragenter="event.preventDefault();this.classList.add('dragover')"
         ondragover="event.preventDefault();this.classList.add('dragover');event.dataTransfer.dropEffect='copy'"
         ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('dragover')"
@@ -1942,9 +1949,24 @@ async function gdriveSaveData() {
             }
             // Aus Remote eine merge-Basis bauen
             const merged={_statuses:Array.isArray(remote._statuses)?remote._statuses:(localState._statuses||[])};
+            // Board-Arrays aus Remote übernehmen
             for(const[k,v]of Object.entries(remote)){
               if(k==='_statuses'||!Array.isArray(v))continue;
               merged[k]=v.slice();
+            }
+            // ── BUGFIX: Metadaten-Objekte (_boardStatuses, _boardTypes etc.) aus Remote übernehmen ──
+            // Diese sind Objekte (nicht Arrays) und wurden früher von der Schleife oben übersprungen.
+            // Ohne diesen Fix gehen Board-Typen und Board-Spalten bei jedem Konflikt verloren.
+            for(const[k,v]of Object.entries(remote)){
+              if(!k.startsWith('_')||k==='_statuses'||Array.isArray(v))continue;
+              if(v&&typeof v==='object')merged[k]={...v};
+            }
+            // PC ist Autorität für Board-Konfiguration → lokale Metadaten haben Vorrang
+            const _metaKeys=['_boardStatuses','_boardTypes','_mobileBoards'];
+            for(const mk of _metaKeys){
+              if(localState[mk]!==undefined&&localState[mk]!==null){
+                merged[mk]=Array.isArray(localState[mk])?localState[mk].slice():{...localState[mk]};
+              }
             }
             // 1) Modal-Task: lokale Skalar-Felder gewinnen, aber chronologische Listen werden gemerged
             if(modalTaskId){
@@ -2130,9 +2152,17 @@ function getBoardStatuses(board){
 }
 function loadFromObject(data){
   if(data._statuses&&Array.isArray(data._statuses))statuses=data._statuses;
-  boardStatuses=(data._boardStatuses&&typeof data._boardStatuses==='object')?{...data._boardStatuses}:{};
-  mobileBoards=Array.isArray(data._mobileBoards)?data._mobileBoards.slice():[];
-  boardTypes=(data._boardTypes&&typeof data._boardTypes==='object')?{...data._boardTypes}:{};
+  // Metadaten nur überschreiben wenn im Datensatz vorhanden – fehlt ein Feld, bleibt der aktuelle Wert erhalten
+  // (verhindert, dass ein unvollständiger Merge boardStatuses/boardTypes auf {} zurücksetzt)
+  if(data._boardStatuses&&typeof data._boardStatuses==='object'&&Object.keys(data._boardStatuses).length)
+    boardStatuses={...data._boardStatuses};
+  else if(data.hasOwnProperty('_boardStatuses'))
+    boardStatuses={}; // explizit leer gesetzt → akzeptieren
+  if(data._boardTypes&&typeof data._boardTypes==='object'&&Object.keys(data._boardTypes).length)
+    boardTypes={...data._boardTypes};
+  else if(data.hasOwnProperty('_boardTypes'))
+    boardTypes={}; // explizit leer gesetzt → akzeptieren
+  if(Array.isArray(data._mobileBoards))mobileBoards=data._mobileBoards.slice();
   boards={};
   // Nur "echte" Boards: keine _-Keys, Wert muss Array sein
   for(const[k,v]of Object.entries(data)){
@@ -4697,8 +4727,10 @@ function openNewTaskModal(){
   const _aufgabenDefault='https://drive.google.com/drive/u/0/folders/18z9bRXtzUteTCf0Xu58gKti0ykHuZEGB';
   const _nasDefault='\\\\nas-ddbraun\\Kunden';
   const _isAufgaben=(boardTypes[currentBoard]||'baustelle')==='notiz';
-  ['tGD','tEmailOrdner'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=_driveDefault;});
+  // Foto-Ordner: nur Baustelle; Projektordner + E-Mail-Ordner: je nach Typ
+  const _gdEl=document.getElementById('tGD');if(_gdEl)_gdEl.value=_driveDefault;
   const _gdOEl=document.getElementById('tGDOrdner');if(_gdOEl)_gdOEl.value=_isAufgaben?_aufgabenDefault:_driveDefault;
+  const _eoEl=document.getElementById('tEmailOrdner');if(_eoEl)_eoEl.value=_isAufgaben?_aufgabenDefault:_driveDefault;
   const _nasEl=document.getElementById('tNAS');if(_nasEl)_nasEl.value=_nasDefault;
   _updateFotoOrdnerHint();
   const kc=document.getElementById('tKontakteContainer');if(kc)kc.innerHTML='';
@@ -4762,7 +4794,7 @@ function openEditTaskModal(id){
   document.getElementById('tGD').value=task.gdrive||_dDef;
   document.getElementById('tNAS').value=task.nas||_nDef;
   _updateFotoOrdnerHint();
-  document.getElementById('tEmailOrdner').value=task.emailOrdner||_dDef;
+  document.getElementById('tEmailOrdner').value=task.emailOrdner||(_isAufgabenEdit?_aufgabenDef:_dDef);
   document.getElementById('deleteTaskBtn').style.display='';
   // abschlussBtn: wird von _applyBoardType gesteuert (nur Baustelle-Typ)
   taskLinks=JSON.parse(JSON.stringify(task.links||[]));
