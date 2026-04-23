@@ -576,11 +576,14 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg2);border-radius:12px;padding:calc(24px * var(--modal-scale, 1)) calc(24px * var(--modal-scale, 1)) 0;width:520px;min-width:340px;min-height:200px;max-width:98vw;max-height:94vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px var(--shadow);}
 .modal.is-placed{transform:none;}
 .modal-scroll-body{flex:1;overflow:auto;padding-bottom:8px;}
-.modal-resize-bar{flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:10px;padding:5px 10px;border-top:1px solid var(--border);background:var(--bg3);border-radius:0 0 12px 12px;cursor:ns-resize;user-select:none;}
+.modal-resize-bar{flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:10px;padding:4px 10px 4px 10px;border-top:1px solid var(--border);background:var(--bg3);border-radius:0 0 12px 12px;user-select:none;position:relative;}
 .modal-resize-bar .resize-grip{display:flex;flex-direction:column;gap:3px;pointer-events:none;}
-.modal-resize-bar .resize-grip span{display:block;width:28px;height:3px;border-radius:2px;background:var(--text2);opacity:.4;}
-.modal-resize-bar:hover .resize-grip span{opacity:.8;}
-.modal-resize-bar:active .resize-grip span{opacity:1;background:var(--accent);}
+.modal-resize-bar .resize-grip span{display:block;width:28px;height:3px;border-radius:2px;background:var(--text2);opacity:.35;}
+.modal-resize-bar:hover .resize-grip span{opacity:.7;}
+/* Eigener großer Resize-Griff unten rechts */
+.modal-resize-corner{position:absolute;right:0;bottom:0;width:44px;height:44px;cursor:se-resize;display:flex;align-items:flex-end;justify-content:flex-end;padding:6px;color:var(--accent);font-size:20px;opacity:.45;transition:opacity .15s;background:transparent;border:none;}
+.modal-resize-corner:hover{opacity:1;}
+.modal-resize-corner:active{opacity:1;color:var(--accent);}
 .modal-size-preset{padding:2px 9px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:10px;cursor:pointer;transition:background .15s,color .15s;}
 .modal-size-preset:hover{background:var(--accent);color:#fff;border-color:var(--accent);}
 .modal h2{font-size:calc(18px * var(--modal-scale, 1));margin-bottom:16px;}
@@ -1350,6 +1353,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       <button class="modal-size-preset" onclick="_setModalPreset('l')" title="Groß">L</button>
       <button class="modal-size-preset" onclick="_setModalPreset('xl')" title="Fast Vollbild">XL</button>
       <div class="resize-grip"><span></span><span></span></div>
+      <button type="button" class="modal-resize-corner" id="modalResizeCorner" title="Größe ändern – ziehen">⤡</button>
     </div>
   </div>
 </div>
@@ -1506,9 +1510,10 @@ let collapsedCols = {};
 (function(){
   const MODAL_SIZE_STORE='ptp_modal_wh_v1';
   let _mdDrag=false,_mdOx=0,_mdOy=0;
-  let _mdResize=false,_mdResizeStartY=0,_mdResizeStartH=0;
+  let _mdResize=false,_mdRSX=0,_mdRSY=0,_mdRW=0,_mdRH=0;
 
   function _mb(){return document.getElementById('taskModalBox');}
+  function _saveModalSize(){const b=_mb();if(b)try{localStorage.setItem(MODAL_SIZE_STORE,JSON.stringify({w:b.offsetWidth,h:b.offsetHeight}));}catch(e){}}
 
   // Drag via header row
   document.addEventListener('mousedown',function(e){
@@ -1524,18 +1529,20 @@ let collapsedCols = {};
     e.preventDefault();
   });
 
-  // Resize via bottom bar
+  // Resize via corner button
   document.addEventListener('mousedown',function(e){
-    const bar=e.target.closest('#modalResizeBar');
-    if(!bar)return;
-    if(e.target.tagName==='BUTTON')return;
+    if(!e.target.closest('#modalResizeCorner'))return;
     const box=_mb();if(!box)return;
     const r=box.getBoundingClientRect();
-    box.style.left=r.left+'px';box.style.top=r.top+'px';
+    if(!box.classList.contains('is-placed')){
+      box.style.left=r.left+'px';box.style.top=r.top+'px';
+      box.classList.add('is-placed');
+    }
     box.style.width=r.width+'px';box.style.height=r.height+'px';
-    box.classList.add('is-placed');
-    _mdResizeStartY=e.clientY;_mdResizeStartH=r.height;_mdResize=true;
-    document.body.style.cursor='ns-resize';document.body.style.userSelect='none';
+    _mdRSX=e.clientX;_mdRSY=e.clientY;_mdRW=r.width;_mdRH=r.height;
+    _mdResize=true;
+    document.body.style.cursor='se-resize';
+    document.body.style.userSelect='none';
     e.preventDefault();
   });
 
@@ -1546,18 +1553,16 @@ let collapsedCols = {};
       box.style.top=Math.max(0,Math.min(window.innerHeight-60,e.clientY-_mdOy))+'px';
     }
     if(_mdResize){
-      const newH=Math.max(300,_mdResizeStartH+(e.clientY-_mdResizeStartY));
-      box.style.height=Math.min(window.innerHeight-20,newH)+'px';
+      const nw=Math.max(340,_mdRW+(e.clientX-_mdRSX));
+      const nh=Math.max(200,_mdRH+(e.clientY-_mdRSY));
+      box.style.width=Math.min(window.innerWidth-20,nw)+'px';
+      box.style.height=Math.min(window.innerHeight-20,nh)+'px';
     }
   });
 
   document.addEventListener('mouseup',function(){
-    if(_mdResize){
-      document.body.style.cursor='';document.body.style.userSelect='';
-      // Größe merken
-      const box=_mb();
-      if(box){try{localStorage.setItem(MODAL_SIZE_STORE,JSON.stringify({w:box.offsetWidth,h:box.offsetHeight}));}catch(e){}}
-    }
+    if(_mdResize){document.body.style.cursor='';document.body.style.userSelect='';_saveModalSize();}
+    if(_mdDrag){_saveModalSize();}
     _mdDrag=false;_mdResize=false;
   });
 
