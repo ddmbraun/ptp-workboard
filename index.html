@@ -1708,12 +1708,35 @@ let collapsedCols = {};
 
 // ── MODAL DRAG & RESIZE ──
 (function(){
-  const MODAL_SIZE_STORE='ptp_modal_wh_v1';
+  // Standardgröße: 25 cm × 20 cm bei 96 dpi
+  const MODAL_W=945, MODAL_H=756;
+
   let _mdDrag=false,_mdOx=0,_mdOy=0;
   let _mdResize=false,_mdRSX=0,_mdRSY=0,_mdRW=0,_mdRH=0;
 
   function _mb(){return document.getElementById('taskModalBox');}
-  function _saveModalSize(){const b=_mb();if(b)try{localStorage.setItem(MODAL_SIZE_STORE,JSON.stringify({w:b.offsetWidth,h:b.offsetHeight}));}catch(e){}}
+
+  // Standardgröße anwenden (zentriert)
+  function _applyDefault(box){
+    box.style.width=MODAL_W+'px';
+    box.style.height=MODAL_H+'px';
+    box.style.left=Math.max(0,Math.round((window.innerWidth-MODAL_W)/2))+'px';
+    box.style.top=Math.max(0,Math.round((window.innerHeight-MODAL_H)/2))+'px';
+    box.classList.add('is-placed');
+  }
+
+  // Beim Öffnen immer Standardgröße
+  window._applyStoredModalSize2=function(){
+    const box=_mb();if(!box)return;
+    _applyDefault(box);
+  };
+
+  // Doppelklick auf Titelleiste → zurück auf Standardgröße
+  document.addEventListener('dblclick',function(e){
+    if(!e.target.closest('.modal-header-row'))return;
+    const box=_mb();if(!box)return;
+    _applyDefault(box);
+  });
 
   // Drag via header row
   document.addEventListener('mousedown',function(e){
@@ -1761,31 +1784,19 @@ let collapsedCols = {};
   });
 
   document.addEventListener('mouseup',function(){
-    if(_mdResize){document.body.style.cursor='';document.body.style.userSelect='';_saveModalSize();}
-    if(_mdDrag){_saveModalSize();}
+    if(_mdResize){document.body.style.cursor='';document.body.style.userSelect='';}
     _mdDrag=false;_mdResize=false;
   });
 
   window._setModalPreset=function(p){
     const box=_mb();if(!box)return;
     const vw=window.innerWidth,vh=window.innerHeight;
-    const sizes={s:[480,460],m:[580,600],l:[720,760],xl:[Math.min(1100,vw-40),vh-40]};
-    const [w,h]=sizes[p]||sizes.m;
+    const sizes={s:[480,460],m:[MODAL_W,MODAL_H],l:[720,760],xl:[Math.min(1100,vw-40),vh-40]};
+    const [w,h]=sizes[p]||[MODAL_W,MODAL_H];
     box.style.width=w+'px';box.style.height=h+'px';
-    // Zentrieren
     box.style.left=Math.max(0,(vw-w)/2)+'px';
     box.style.top=Math.max(0,(vh-h)/2)+'px';
     box.classList.add('is-placed');
-    try{localStorage.setItem(MODAL_SIZE_STORE,JSON.stringify({w,h}));}catch(e){}
-  };
-
-  // Gespeicherte Fenstergröße beim Öffnen wiederherstellen
-  window._applyStoredModalSize2=function(){
-    const box=_mb();if(!box)return;
-    try{
-      const s=JSON.parse(localStorage.getItem(MODAL_SIZE_STORE)||'null');
-      if(s&&s.w&&s.h){box.style.width=s.w+'px';box.style.height=s.h+'px';}
-    }catch(e){}
   };
 })();
 
