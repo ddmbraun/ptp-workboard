@@ -218,6 +218,7 @@ async function _ezUpload(buf,fname,fid){
   out.set(p1,o);o+=p1.length;out.set(p2,o);o+=p2.length;out.set(fb,o);o+=fb.length;out.set(p3,o);
   var r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name',
     {method:'POST',headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'multipart/related; boundary='+b},body:out});
+  if(r.status===401){_handleDrive401();throw new Error('Drive-Verbindung abgelaufen – bitte ☁️-Button drücken');}
   if(!r.ok){var t=await r.text();throw new Error('Upload '+r.status+': '+t.substring(0,100));}
   return r.json();
 }
@@ -1484,6 +1485,7 @@ const GDRIVE_CLIENT_ID = '56419258975-2ri3eujer9p6saph1mesa5hihlcae1pl.apps.goog
 const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly';
 const WORKSPACE_FOLDER_NAME = 'PTP-BAU Daten';
 const PC_TOKEN_KEY = 'ptp_gdrive_token_v1';
+const PC_FILE_KEY  = 'ptp_gdrive_file_v1';   // Zuletzt geladene Datei (id + name)
 const PC_BACKUP_KEY = 'ptp_board_backup_v1';
 let workspaceFolderId = localStorage.getItem('workspace_folder_id') || null;
 
@@ -1514,32 +1516,33 @@ function gdriveInit() {
     scope: GDRIVE_SCOPE,
     callback: gdriveTokenCallback,
   });
-  // Gespeichertes Token aus localStorage wiederherstellen
+  // ── AUTO-CONNECT: gespeicherten Token + zuletzt geladene Datei wiederherstellen ──
+  let storedFile = null;
+  try { storedFile = JSON.parse(localStorage.getItem(PC_FILE_KEY) || 'null'); } catch(e) {}
   try {
     const stored = JSON.parse(localStorage.getItem(PC_TOKEN_KEY) || 'null');
     if (stored && stored.token && stored.exp && Date.now() < stored.exp - 30000) {
+      // Token noch gültig → direkt nutzen
       gdriveToken = stored.token;
       gdriveTokenExpires = stored.exp;
-      // Direkt loslegen ohne erneuten Auth-Aufruf
       const lastAction = localStorage.getItem('gdrive_last_action');
-      if (lastAction) {
-        gdrivePendingAction = lastAction;
-        localStorage.removeItem('gdrive_last_action');
-        ensureWorkspaceFolder().then(() => {
-          if (gdrivePendingAction === 'load') { gdrivePendingAction = null; gdrivePickAndLoad(); }
-          else if (gdrivePendingAction === 'new') { gdrivePendingAction = null; gdriveCreateFile(); }
-          else if (gdrivePendingAction === 'save') { gdrivePendingAction = null; gdriveSaveData(); }
-          else { gdrivePendingAction = null; }
-          syncInit();
-        }).catch(() => { gdrivePendingAction = null; syncInit(); });
-      }
+      if (lastAction) localStorage.removeItem('gdrive_last_action');
+      ensureWorkspaceFolder().then(() => {
+        // Zuletzt geladene Datei direkt öffnen (kein Picker, kein Button)
+        if (storedFile && storedFile.id && storedFile.name) {
+          gdriveLoadFile(storedFile.id, storedFile.name).catch(()=>{});
+        } else if (lastAction === 'load') { gdrivePickAndLoad(); }
+        else if (lastAction === 'new') { gdriveCreateFile(); }
+        else if (lastAction === 'save') { gdriveSaveData(); }
+        syncInit();
+      }).catch(() => { syncInit(); });
       return;
     }
   } catch(e) {}
-  // Kein gültiges gespeichertes Token → stille Anmeldung versuchen (klappt wenn Google-Session noch aktiv)
-  const lastAction = localStorage.getItem('gdrive_last_action');
-  if (lastAction) {
-    gdrivePendingAction = lastAction;
+  // Token abgelaufen oder fehlt → stille Anmeldung versuchen (klappt wenn Google-Session aktiv)
+  // Auch ohne lastAction versuchen, wenn eine Datei gespeichert ist
+  if (storedFile || localStorage.getItem('gdrive_last_action')) {
+    gdrivePendingAction = storedFile ? 'autoload' : localStorage.getItem('gdrive_last_action');
     try { gdriveTokenClient.requestAccessToken({ prompt: 'none' }); } catch(e) { gdrivePendingAction = null; }
   }
 }
@@ -1584,11 +1587,17 @@ async function gdriveTokenCallback(resp) {
   clearTimeout(_gdriveRefreshTimer); // kein Timer mehr – visibilitychange übernimmt
   const action = gdrivePendingAction;
   gdrivePendingAction = null;
-  if (action) localStorage.setItem('gdrive_last_action', action);
+  if (action && action !== 'autoload') localStorage.setItem('gdrive_last_action', action);
   try { await ensureWorkspaceFolder(); } catch(e) { console.warn('Workspace-Ordner:', e); }
   if (action === 'load') gdrivePickAndLoad();
   else if (action === 'new') gdriveCreateFile();
   else if (action === 'save') gdriveSaveData();
+  else if (action === 'autoload' || !action) {
+    // Auto-Connect: gespeicherte Datei direkt laden
+    let sf=null;
+    try{sf=JSON.parse(localStorage.getItem(PC_FILE_KEY)||'null');}catch(e){}
+    if(sf&&sf.id&&sf.name){gdriveLoadFile(sf.id,sf.name).catch(()=>{});}
+  }
   syncInit();
   // Thumbnails für Drive-Fotos nachladen, falls ein Task offen ist
   try{
@@ -1703,6 +1712,7 @@ function gdriveConnectFromBar() {
     );
     if (choice) {
       gdriveFileId = null;
+      try{localStorage.removeItem(PC_FILE_KEY);}catch(e){}
       if (!gdriveToken) { gdriveRequestToken('load'); return; }
       gdrivePickAndLoad();
     }
@@ -1779,6 +1789,7 @@ async function gdriveLoadFile(fileId, fileName) {
   const data = await r.json();
   gdriveFileId = fileId;
   gdriveFileName = fileName;
+  try{localStorage.setItem(PC_FILE_KEY,JSON.stringify({id:fileId,name:fileName}));}catch(e){}
   loadFromObject(data);
   updateFileStatus('ok', '☁️ ' + fileName, '✓ Von Google Drive geladen');
   updateDriveBtnBar();
@@ -1892,6 +1903,7 @@ async function gdriveCreateFile(keepCurrentData) {
     if (!file.id) throw new Error('Keine Datei-ID erhalten');
     gdriveFileId = file.id;
     gdriveFileName = file.name || 'workboard.json';
+    try{localStorage.setItem(PC_FILE_KEY,JSON.stringify({id:gdriveFileId,name:gdriveFileName}));}catch(e){}
     workboardLastModified = null;
     // Sync-Datei-Verbindung zurücksetzen, damit syncInit eine neue anlegt
     syncFileId = null;
@@ -4585,6 +4597,7 @@ async function _driveUploadGeneric(buf,fname,mimeType,fid){
     headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'multipart/related; boundary='+b},
     body:out
   });
+  if(r.status===401){_handleDrive401();throw new Error('Drive-Verbindung abgelaufen – bitte ☁️-Button drücken');}
   if(!r.ok)throw new Error('Drive Upload Fehler: HTTP '+r.status);
   return r.json();
 }
@@ -4604,6 +4617,34 @@ async function _uploadEmailOriginal(file){
     taskEmailOriginals.push({name:file.name,fileId:result.id,url:'https://drive.google.com/file/d/'+result.id+'/view',uploadedAt:new Date().toLocaleDateString('de-DE')});
     renderEmailOriginals();
     scheduleTaskFieldSave();
+    // ── Für .eml: zusätzlich PDF-Vorschau erstellen ──
+    if(file.name.toLowerCase().endsWith('.eml')){
+      try{
+        if(msgEl)msgEl.textContent='⏳ PDF-Vorschau wird erstellt…';
+        const text=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result||'');r.onerror=rej;r.readAsText(file);});
+        const info={subject:file.name.replace(/\.eml$/i,''),sender:'',date:new Date(),bodyText:''};
+        text.split(/\r?\n/).slice(0,50).forEach(l=>{
+          if(/^Subject:/i.test(l))info.subject=l.replace(/^Subject:\s*/i,'').trim();
+          if(/^From:/i.test(l))info.sender=l.replace(/^From:\s*/i,'').trim();
+          if(/^Date:/i.test(l)){try{const d=new Date(l.replace(/^Date:\s*/i,''));if(!isNaN(d))info.date=d;}catch(ex){}}
+        });
+        info.bodyText=text.substring(0,4000);
+        const pdfBuf=await _ezBuildPdf(info);
+        const pdfName=_ezClean(info.subject||file.name.replace(/\.eml$/i,''))+'_Protokoll.pdf';
+        const pdfResult=await _ezUpload(pdfBuf,pdfName,fid);
+        taskEmailPdfs.push({name:pdfName,fileId:pdfResult.id,url:'https://drive.google.com/file/d/'+pdfResult.id+'/view',uploadedAt:new Date().toLocaleDateString('de-DE')});
+        renderEmailPdfs();
+        scheduleTaskFieldSave();
+        // PDF-Vorschau einblenden und hinscrolled
+        const sect=document.getElementById('tEmailOrigSect');
+        if(sect&&!sect.classList.contains('open'))sect.classList.add('open');
+        const pdfList=document.getElementById('emailPdfList');
+        if(pdfList)setTimeout(()=>pdfList.scrollIntoView({behavior:'smooth',block:'nearest'}),250);
+      }catch(pdfErr){
+        console.warn('[PTP] PDF-Vorschau konnte nicht erstellt werden:',pdfErr);
+        showToast('⚠ Original gespeichert – PDF-Vorschau konnte nicht erstellt werden.','error',5000);
+      }
+    }
     if(msgEl)msgEl.textContent='✅ Abgelegt: '+file.name;
     setTimeout(()=>{if(msgEl)msgEl.textContent='📨 .msg / .eml hier hineinziehen';},3500);
     // Sektion öffnen
