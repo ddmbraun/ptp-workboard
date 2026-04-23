@@ -2169,6 +2169,13 @@ function loadFromObject(data){
     if(k.startsWith('_'))continue;
     if(Array.isArray(v))boards[k]=v;
   }
+  // ── AUTO-MIGRATION: boardTypes für bekannte Boards ergänzen wenn leer ──
+  // Wenn _boardTypes nicht in der JSON stand (ältere Daten), Typ aus Boardname ableiten
+  if(!Object.keys(boardTypes).length&&Object.keys(boards).length){
+    const _np=/aufgab|notiz|todo|to[\s_-]do/i;
+    Object.keys(boards).forEach(k=>{boardTypes[k]=_np.test(k)?'notiz':'baustelle';});
+    console.info('[PTP] boardTypes auto-migriert:',boardTypes);
+  }
   const keys=Object.keys(boards);
   // Zuletzt gewähltes Projekt aus localStorage wiederherstellen
   try{const saved=localStorage.getItem('ptp_lastBoard');if(saved&&boards[saved])currentBoard=saved;}catch(e){console.warn('[PTP]',e);}
@@ -4908,7 +4915,7 @@ function renderProjList(){
          ondragstart="onProjDragStart(event,${i})" ondragend="onProjDragEnd(event)"
          ondragover="onProjDragOver(event)" ondragleave="onProjDragLeave(event)" ondrop="onProjDrop(event,${i})">
       <span class="proj-drag" title="Ziehen zum Umsortieren" style="cursor:grab;user-select:none;color:var(--text2);padding:0 4px;">⋮⋮</span>
-      <span class="proj-icon">📁</span>
+      <span class="proj-icon">${(p.type||'baustelle')==='notiz'?'✅':'🏗'}</span>
       <input type="text" value="${esc(p.name)}" id="projinput-${i}" placeholder="Projektname">
       <span class="proj-count">${p.count} Task${p.count!==1?'s':''}</span>
       <select id="projtype-${i}" class="proj-type-sel" title="Projekt-Typ">
