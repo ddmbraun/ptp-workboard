@@ -1260,7 +1260,6 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <div class="modal-header-row">
       <h2 id="modalTitle">Neuer Task</h2>
       <span id="_taskTypeIndicator" class="task-type-badge baustelle">🏗 Baustelle</span>
-      <button type="button" id="modalSaveSize" onclick="_saveModalDefault()" title="Aktuelle Größe als Standard speichern" style="flex-shrink:0;padding:2px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:13px;cursor:pointer;line-height:1.4;">💾</button>
     </div>
     <div class="modal-size-bar">
       <label>🔍 Schriftgröße:</label>
@@ -1549,10 +1548,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       </div>
     </div><!-- end .modal-scroll-body -->
     <div class="modal-resize-bar" id="modalResizeBar">
-      <button class="modal-size-preset" onclick="_setModalPreset('s')" title="Klein">S</button>
-      <button class="modal-size-preset" onclick="_setModalPreset('m')" title="Mittel">M</button>
-      <button class="modal-size-preset" onclick="_setModalPreset('l')" title="Groß">L</button>
-      <button class="modal-size-preset" onclick="_setModalPreset('xl')" title="Fast Vollbild">XL</button>
+      <button type="button" id="modalSaveSize" onclick="_saveModalDefault()" title="Aktuelle Größe als Standard speichern – Doppelklick auf Titel stellt sie wieder her" style="padding:2px 10px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:11px;cursor:pointer;white-space:nowrap;flex-shrink:0;">💾 Größe speichern</button>
       <div class="resize-grip"><span></span><span></span></div>
       <button type="button" class="modal-resize-corner" id="modalResizeCorner" title="Größe ändern – ziehen">⤡</button>
     </div>
