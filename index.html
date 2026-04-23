@@ -1172,8 +1172,9 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       </select>
       <button class="proj-add-btn" onclick="addProject()">+ Anlegen</button>
     </div>
-    <div class="modal-actions" style="margin-top:12px;">
+    <div class="modal-actions" style="margin-top:12px;flex-wrap:wrap;gap:8px;">
       <button class="topbar-btn btn-secondary" onclick="closeProjManager()">Abbrechen</button>
+      <button class="topbar-btn" style="background:var(--bg3);border:1px solid var(--border)" onclick="autoDetectProjTypes()" title="Setzt den Typ automatisch aus dem Projektnamen (Aufgaben/Notiz → ✅, sonst → 🏗)">🔄 Typen erkennen</button>
       <button class="topbar-btn btn-primary" onclick="saveProjects()">Übernehmen</button>
     </div>
   </div>
@@ -2169,13 +2170,14 @@ function loadFromObject(data){
     if(k.startsWith('_'))continue;
     if(Array.isArray(v))boards[k]=v;
   }
-  // ── AUTO-MIGRATION: boardTypes für bekannte Boards ergänzen wenn leer ──
-  // Wenn _boardTypes nicht in der JSON stand (ältere Daten), Typ aus Boardname ableiten
-  if(!Object.keys(boardTypes).length&&Object.keys(boards).length){
-    const _np=/aufgab|notiz|todo|to[\s_-]do/i;
-    Object.keys(boards).forEach(k=>{boardTypes[k]=_np.test(k)?'notiz':'baustelle';});
-    console.info('[PTP] boardTypes auto-migriert:',boardTypes);
-  }
+  // ── AUTO-MIGRATION: boardTypes für alle Boards sicherstellen ──
+  // Fehlende Einträge aus Boardname ableiten (auch wenn _boardTypes teilweise vorhanden)
+  {const _np=/aufgab|notiz|todo|to[\s_-]do/i;
+  let _fixed=0;
+  Object.keys(boards).forEach(k=>{
+    if(!boardTypes[k]){boardTypes[k]=_np.test(k)?'notiz':'baustelle';_fixed++;}
+  });
+  if(_fixed)console.info('[PTP] boardTypes ergänzt ('+_fixed+' Boards):',boardTypes);}
   const keys=Object.keys(boards);
   // Zuletzt gewähltes Projekt aus localStorage wiederherstellen
   try{const saved=localStorage.getItem('ptp_lastBoard');if(saved&&boards[saved])currentBoard=saved;}catch(e){console.warn('[PTP]',e);}
@@ -4928,6 +4930,13 @@ function renderProjList(){
       </label>
       <button class="col-icon-btn" onclick="removeProject(${i})" ${editProjects.length<=1?'disabled':''} style="color:var(--red)" title="Projekt löschen">✕</button>
     </div>`).join('');
+}
+function autoDetectProjTypes(){
+  syncProjInputs();
+  const _np=/aufgab|notiz|todo|to[\s_-]do/i;
+  editProjects=editProjects.map(p=>({...p,type:_np.test(p.name)?'notiz':'baustelle'}));
+  renderProjList();
+  showToast('✓ Typen aus Namen erkannt – bitte prüfen und auf Übernehmen klicken','ok',4000);
 }
 // Drag-Drop zum Umsortieren der Projekte
 let _projDragIdx=null;
