@@ -388,6 +388,171 @@ function _parseEmlText(rawText){
 
 function tEmailOrdnerOeffnen(){var u=(document.getElementById('tEmailOrdner')||{}).value||'';if(u.trim())window.open(u,'_blank');else alert('Bitte zuerst eine Google Drive Ordner-URL eintragen.');}
 
+// ── AUFTRAG ANLEGEN (Haupt-Drop-Zone) ──
+var _auftragPending=null; // speichert geparste E-Mail + Rohdaten bis Board gewählt
+
+async function _auftragDrop(dt){
+  if(!gdriveToken){alert('Bitte zuerst mit Google Drive verbinden.');return;}
+  var zone=document.getElementById('auftragDropBar');
+  zone.classList.add('adz-hover');
+  try{
+    var info=null;
+    var rawFile=null;
+    var types=[].slice.call(dt.types||[]);
+    // 1. Datei (.eml / .msg)
+    if(dt.files&&dt.files.length){
+      var f=[].slice.call(dt.files).find(function(x){return/\.(msg|eml)$/i.test(x.name);});
+      if(f){
+        rawFile=f;
+        if(f.name.toLowerCase().endsWith('.eml')){
+          var text=await new Promise(function(res){var r=new FileReader();r.onload=function(e){res(e.target.result);};r.readAsText(f);});
+          info=_parseEmlText(text);
+          if(!info.subject)info.subject=f.name.replace(/\.eml$/i,'');
+        }else{
+          info={subject:f.name.replace(/\.msg$/i,''),sender:'',date:new Date(),bodyText:''};
+        }
+      }
+    }
+    // 2. HTML aus Outlook-Drag
+    if(!info&&types.indexOf('text/html')>=0){
+      var h=dt.getData('text/html');
+      if(h&&h.length>20)info=_ezParseHtml(h);
+    }
+    // 3. Plaintext
+    if(!info&&types.indexOf('text/plain')>=0){
+      var t=dt.getData('text/plain');
+      if(t&&t.trim()){var s=t.split('\n')[0].replace(/^(Betreff|Subject):\s*/i,'').trim()||'E-Mail';info={subject:s,sender:'',date:new Date(),bodyText:t};}
+    }
+    if(!info){zone.classList.remove('adz-hover');alert('Keine E-Mail erkannt. Bitte .eml-Datei verwenden.');return;}
+    _auftragPending={info:info,rawFile:rawFile};
+    _auftragShowPopup(info.subject);
+  }catch(e){
+    zone.classList.remove('adz-hover');alert('Fehler: '+e.message);
+  }
+  zone.classList.remove('adz-hover');
+}
+
+function _auftragFileSelect(evt){
+  var f=evt.target.files&&evt.target.files[0];
+  evt.target.value='';
+  if(!f)return;
+  if(!gdriveToken){alert('Bitte zuerst mit Google Drive verbinden.');return;}
+  var dt={files:[f],types:['Files'],getData:function(){return '';}};
+  _auftragDrop(dt);
+}
+
+function _auftragShowPopup(subject){
+  var sel=document.getElementById('auftragBoardSel');
+  sel.innerHTML='';
+  Object.keys(boards).forEach(function(k){
+    var opt=document.createElement('option');
+    opt.value=k;
+    var icon=(boardTypes[k]||'baustelle')==='notiz'?'✅':'🏗';
+    opt.textContent=icon+' '+k;
+    sel.appendChild(opt);
+  });
+  // Letztes verwendetes Board vorauswählen
+  var last=localStorage.getItem('ptp_auftrag_last_board');
+  if(last&&sel.querySelector('option[value="'+CSS.escape(last)+'"]'))sel.value=last;
+  document.getElementById('auftragPopupSubject').textContent='"'+subject+'"';
+  var popup=document.getElementById('auftragBoardPopup');
+  popup.style.display='flex';
+}
+
+function _auftragCancel(){
+  document.getElementById('auftragBoardPopup').style.display='none';
+  _auftragPending=null;
+}
+
+async function _auftragConfirm(){
+  var sel=document.getElementById('auftragBoardSel');
+  var boardName=sel.value;
+  if(!boardName||!boards[boardName]){alert('Board nicht gefunden.');return;}
+  document.getElementById('auftragBoardPopup').style.display='none';
+  localStorage.setItem('ptp_auftrag_last_board',boardName);
+
+  var p=_auftragPending;_auftragPending=null;
+  if(!p)return;
+  var info=p.info;var rawFile=p.rawFile;
+
+  // Zielordner ermitteln: Board-Default oder Fallback
+  var _isNotiz=(boardTypes[boardName]||'baustelle')==='notiz';
+  var _folderDefault=_isNotiz
+    ?'https://drive.google.com/drive/u/0/folders/18z9bRXtzUteTCf0Xu58gKti0ykHuZEGB'
+    :'https://drive.google.com/drive/u/0/folders/1GBcSWtUkKw7pJJ2CKvbTs_WZCZ1_RJ07';
+  var fid=_ezFolderId(_folderDefault);
+  if(!fid){alert('Kein Zielordner konfiguriert.');return;}
+
+  var stamp=(function(){var d=info.date instanceof Date&&!isNaN(info.date)?info.date:new Date();return d.getFullYear()+'.'+_ez2(d.getMonth()+1)+'.'+_ez2(d.getDate());})();
+  var pdfName=stamp+'_'+_ezClean(info.subject)+'.pdf';
+
+  var newPdfs=[];var newOriginals=[];
+
+  // PDF erstellen und hochladen
+  try{
+    if(typeof showToast==='function')showToast('⏳ PDF wird erstellt…','info',3000);
+    var pdfData=await _ezBuildPdfFromHtml(info);
+    var pdfResult=await _ezUpload(pdfData,pdfName,fid);
+    if(pdfResult&&pdfResult.id){
+      newPdfs.push({name:pdfName,fileId:pdfResult.id,url:'https://drive.google.com/file/d/'+pdfResult.id+'/view',uploadedAt:new Date().toLocaleDateString('de-DE')});
+    }
+  }catch(e){console.warn('[PTP] PDF-Fehler:',e);}
+
+  // Original-Datei hochladen (falls vorhanden)
+  if(rawFile){
+    try{
+      var origName=stamp+'_'+_ezClean(info.subject)+(rawFile.name.toLowerCase().endsWith('.eml')?'.eml':'.msg');
+      var buf=await new Promise(function(res,rej){var r=new FileReader();r.onload=function(e){res(e.target.result);};r.onerror=rej;r.readAsArrayBuffer(rawFile);});
+      var origResult=await _driveUploadGeneric(buf,origName,'application/octet-stream',fid);
+      if(origResult&&origResult.id){
+        newOriginals.push({name:info.subject||origName,fileId:origResult.id,url:'https://drive.google.com/file/d/'+origResult.id+'/view',uploadedAt:new Date().toLocaleDateString('de-DE')});
+      }
+    }catch(e){console.warn('[PTP] Original-Upload-Fehler:',e);}
+  }
+
+  // Neuen Task anlegen
+  var newTask={
+    id:generateId(),
+    title:info.subject||'Neuer Auftrag',
+    desc:info.sender?('Von: '+info.sender):'',
+    owner:'Braun',
+    due:'',
+    status:(getBoardStatuses(boardName)||[])[0]||'',
+    ampel:'grün',
+    ausführungsdatum:'',
+    tags:[],
+    source:'',
+    repNr:'',
+    kundenNr:'',
+    hausverwaltung:'',
+    adresse:'',
+    schadensbild:'',
+    kontakte:[],
+    links:[],
+    attachments:[],
+    ausserhausTermine:[],
+    zeitEntries:[],
+    notizVerlauf:[],
+    fotos:[],
+    checkliste:[],
+    gmailLinks:[],
+    emailPdfs:newPdfs,
+    emailOriginals:newOriginals,
+    gdriveOrdner:_folderDefault,
+    emailOrdner:_folderDefault,
+    gdrive:'',
+    nas:''
+  };
+
+  if(!boards[boardName])boards[boardName]=[];
+  boards[boardName].push(newTask);
+  autoSave();
+  if(typeof showToast==='function')showToast('✅ Auftrag angelegt: '+newTask.title,'success',4000);
+  // Task zur Bearbeitung öffnen
+  if(currentBoard!==boardName){currentBoard=boardName;render();}
+  setTimeout(function(){openEditTaskModal(newTask.id);},150);
+}
+
 // ── MODAL SIZE ──
 const MODAL_SIZE_KEY='ptp_modal_size_v1';
 function setModalSize(val){
@@ -470,6 +635,13 @@ input,select,textarea{font-family:inherit;}
 
 /* TOOLBAR */
 .toolbar{display:flex;align-items:center;justify-content:space-between;padding:8px 20px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;position:relative;z-index:50;}
+.auftrag-drop-bar{display:flex;align-items:center;gap:10px;padding:7px 20px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;transition:background .15s;}
+.auftrag-drop-bar.adz-hover{background:rgba(108,99,255,.10);border-bottom-color:var(--accent);}
+.adz-icon{font-size:18px;flex-shrink:0;}
+.adz-text{font-size:12px;color:var(--text2);flex:1;}
+.adz-text strong{color:var(--text);}
+.adz-file-btn{padding:3px 12px;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:11px;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:background .15s;}
+.adz-file-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent);}
 .toolbar-left{display:flex;align-items:center;gap:8px;}
 .view-tabs{display:flex;gap:2px;background:var(--bg2);border-radius:8px;padding:2px;}
 .view-tab{padding:5px 14px;border-radius:6px;background:transparent;color:var(--text2);font-size:12px;font-weight:500;transition:all .15s;}
@@ -1016,6 +1188,34 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
         <div class="filter-dropdown" id="filterTagDropdown"></div>
       </div>
       <button class="filter-btn" id="clearFiltersBtn" onclick="clearFilters()" style="display:none">✕ Zurücksetzen</button>
+    </div>
+  </div>
+</div>
+
+<!-- AUFTRAG ANLEGEN DROP-ZONE -->
+<div id="auftragDropBar"
+  ondragenter="event.preventDefault();this.classList.add('adz-hover')"
+  ondragover="event.preventDefault();this.classList.add('adz-hover');event.dataTransfer.dropEffect='copy'"
+  ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('adz-hover')"
+  ondrop="event.preventDefault();this.classList.remove('adz-hover');_auftragDrop(event.dataTransfer)"
+  class="auftrag-drop-bar">
+  <span class="adz-icon">📨</span>
+  <span class="adz-text">E-Mail hier ablegen → <strong>Auftrag anlegen</strong></span>
+  <label class="adz-file-btn" title="Datei auswählen">
+    📁 Datei wählen
+    <input type="file" accept=".msg,.eml" style="display:none" onchange="_auftragFileSelect(event)">
+  </label>
+</div>
+<!-- Board-Auswahl Popup (erscheint nach E-Mail-Drop) -->
+<div id="auftragBoardPopup" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.45);align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border-radius:12px;padding:24px 28px;min-width:320px;max-width:420px;box-shadow:0 8px 40px var(--shadow);">
+    <div style="font-size:15px;font-weight:700;margin-bottom:6px;">📨 Auftrag anlegen</div>
+    <div id="auftragPopupSubject" style="font-size:12px;color:var(--text2);margin-bottom:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+    <label style="font-size:11px;color:var(--text2);font-weight:600;display:block;margin-bottom:6px;">In welchem Board anlegen?</label>
+    <select id="auftragBoardSel" style="width:100%;padding:8px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;margin-bottom:16px;"></select>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button onclick="_auftragCancel()" style="padding:7px 16px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:13px;cursor:pointer;">Abbrechen</button>
+      <button onclick="_auftragConfirm()" style="padding:7px 18px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">✓ Task anlegen</button>
     </div>
   </div>
 </div>
