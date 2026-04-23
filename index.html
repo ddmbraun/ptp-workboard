@@ -133,9 +133,20 @@ async function _ezProcess(info,fid,zone){
     var d=info.date instanceof Date&&!isNaN(info.date)?info.date:new Date();
     var stamp=d.getFullYear()+'.'+_ez2(d.getMonth()+1)+'.'+_ez2(d.getDate());
     var fname=stamp+'_'+_ezClean(info.subject)+'.pdf';
-    await _ezUpload(pdf,fname,fid);
-    _ezMsg(zone,'success','Gespeichert: '+fname);
+    var result=await _ezUpload(pdf,fname,fid);
+    _ezMsg(zone,'success','✅ Gespeichert: '+fname);
     setTimeout(function(){document.getElementById('emailDropZoneMsg')&&_ezMsg(zone,'','');},4000);
+    // PDF-Vorschau im Task speichern
+    if(result&&result.id){
+      taskEmailPdfs.push({
+        name:fname,
+        fileId:result.id,
+        url:'https://drive.google.com/file/d/'+result.id+'/view',
+        uploadedAt:new Date().toLocaleDateString('de-DE')
+      });
+      if(typeof renderEmailPdfs==='function')renderEmailPdfs();
+      if(typeof scheduleTaskFieldSave==='function')scheduleTaskFieldSave();
+    }
   }catch(err){
     _ezMsg(zone,'error','Fehler: '+err.message);
   }
@@ -701,6 +712,14 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .email-orig-item a.eo-open:hover{background:rgba(108,99,255,.18);}
 .email-orig-item .eo-del{padding:2px 7px;font-size:11px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;flex-shrink:0;}
 .email-orig-item .eo-del:hover{border-color:var(--red);color:var(--red);}
+/* PDF-Vorschau aus E-Mail-Drop */
+.email-pdf-item{border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden;background:var(--bg3);}
+.email-pdf-header{display:flex;align-items:center;gap:7px;padding:7px 10px;cursor:pointer;font-size:12px;user-select:none;}
+.email-pdf-header:hover{background:var(--bg4);}
+.email-pdf-toggle{margin-left:auto;font-size:13px;color:var(--text2);transition:transform .2s;}
+.email-pdf-item.open .email-pdf-toggle{transform:rotate(180deg);}
+.email-pdf-preview{display:none;padding:0 8px 8px;}
+.email-pdf-item.open .email-pdf-preview{display:block;}
 
 /* ── CHECKLISTE ── */
 .checkliste-item{display:flex;align-items:center;gap:6px;margin-bottom:5px;}
@@ -817,6 +836,10 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
         <span class="start-btn-text"><span class="start-btn-label">Neue lokale Datei</span><span class="start-btn-sub">Speicherort auf dem Computer wählen</span></span>
       </button>
       <button class="start-btn ghost" onclick="skipFileSelection()">Ohne Datei starten (Daten gehen beim Schließen verloren)</button>
+      <button class="start-btn" id="restoreBackupBtn" style="display:none;background:linear-gradient(135deg,#e65100,#bf360c);margin-top:4px;" onclick="restoreLocalBackup()">
+        <span class="start-btn-icon">💾</span>
+        <span class="start-btn-text"><span class="start-btn-label">Letzten lokalen Stand wiederherstellen</span><span class="start-btn-sub" id="restoreBackupHint"></span></span>
+      </button>
     </div>
   </div>
 </div>
@@ -930,7 +953,30 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       </div>
     </div>
 
-    <!-- ZEITERFASSUNG (manuell) -->
+    <!-- E-MAIL ORIGINALE (vor Checkliste) -->
+    <div class="form-collapse" id="tEmailOrigSect">
+      <div class="form-collapse-header" onclick="toggleFormSection('tEmailOrigSect')">
+        <span class="form-collapse-title" id="tEmailOrigTitle">📧 E-Mail Originale</span>
+        <span class="form-collapse-arrow">▾</span>
+      </div>
+      <div class="form-collapse-body">
+        <p style="font-size:11px;color:var(--text2);margin:0 0 6px;">Outlook .msg oder .eml ablegen → wird als PDF in Drive gespeichert &amp; als Vorschau angezeigt. Zum Öffnen in Outlook: „⬇ Speichern" drücken → im Downloads-Ordner doppelklicken.</p>
+        <div id="emailPdfList"></div>
+        <div id="emailOrigList"></div>
+        <div class="email-orig-drop" id="emailOrigDrop"
+          ondragenter="event.preventDefault();this.classList.add('dragover')"
+          ondragover="event.preventDefault();this.classList.add('dragover');event.dataTransfer.dropEffect='copy'"
+          ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('dragover')"
+          ondrop="event.preventDefault();this.classList.remove('dragover');_handleEmailOrigDrop(event.dataTransfer)">
+          <span id="emailOrigDropMsg" style="font-size:12px;color:var(--text2);">📨 .msg / .eml hier hineinziehen</span>
+          <label style="cursor:pointer;padding:5px 12px;border-radius:6px;border:1px solid var(--accent);background:rgba(108,99,255,.08);color:var(--accent);font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0;">
+            📁 Datei wählen
+            <input type="file" id="emailOrigInput" accept=".msg,.eml" style="display:none" onchange="_handleEmailOrigSelect(event)">
+          </label>
+        </div>
+      </div>
+    </div>
+
     <!-- CHECKLISTE -->
     <div class="form-collapse" id="tChecklisteSect">
       <div class="form-collapse-header" onclick="toggleFormSection('tChecklisteSect')">
@@ -982,27 +1028,8 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       </div>
     </div>
 
-    <!-- E-MAIL ORIGINALE -->
-    <div class="form-collapse" id="tEmailOrigSect">
-      <div class="form-collapse-header" onclick="toggleFormSection('tEmailOrigSect')">
-        <span class="form-collapse-title" id="tEmailOrigTitle">📧 E-Mail Originale</span>
-        <span class="form-collapse-arrow">▾</span>
-      </div>
-      <div class="form-collapse-body">
-        <p style="font-size:11px;color:var(--text2);margin:0 0 6px;">Outlook .msg oder .eml ablegen → direkt in Drive → von dort in Outlook öffnen &amp; antworten.</p>
-        <div id="emailOrigList"></div>
-        <div class="email-orig-drop" id="emailOrigDrop"
-          ondragenter="event.preventDefault();this.classList.add('dragover')"
-          ondragover="event.preventDefault();this.classList.add('dragover');event.dataTransfer.dropEffect='copy'"
-          ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('dragover')"
-          ondrop="event.preventDefault();this.classList.remove('dragover');_handleEmailOrigDrop(event.dataTransfer)">
-          <span id="emailOrigDropMsg" style="font-size:12px;color:var(--text2);">📨 .msg / .eml hier hineinziehen</span>
-          <label style="cursor:pointer;padding:5px 12px;border-radius:6px;border:1px solid var(--accent);background:rgba(108,99,255,.08);color:var(--accent);font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0;">
-            📁 Datei wählen
-            <input type="file" id="emailOrigInput" accept=".msg,.eml" style="display:none" onchange="_handleEmailOrigSelect(event)">
-          </label>
-        </div>
-      </div>
+    <!-- PLATZHALTER (wird unten nicht mehr benötigt, Sektion ist bereits oben) -->
+    <div style="display:none" id="tEmailOrigSect_placeholder">
     </div>
 
     <!-- DATEIHAENGE -->
@@ -1260,6 +1287,7 @@ let taskZeitEntries = [];
 let taskNotizVerlauf = [];
 let taskCheckliste = [];
 let taskEmailOriginals = [];
+let taskEmailPdfs = []; // E-Mail PDFs aus Drop-Zone (Vorschau)
 let taskGmailLinks = [];
 
 // ── KANBAN COLUMN RESIZE ──
@@ -1375,6 +1403,7 @@ function saveTaskData(){
     fotos:taskFotos,
     checkliste:taskCheckliste,
     emailOriginals:taskEmailOriginals,
+    emailPdfs:taskEmailPdfs,
     gmailLinks:taskGmailLinks
   };
   if(!boards[currentBoard])boards[currentBoard]=[];
@@ -1447,7 +1476,19 @@ const GDRIVE_CLIENT_ID = '56419258975-2ri3eujer9p6saph1mesa5hihlcae1pl.apps.goog
 const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly';
 const WORKSPACE_FOLDER_NAME = 'PTP-BAU Daten';
 const PC_TOKEN_KEY = 'ptp_gdrive_token_v1';
+const PC_BACKUP_KEY = 'ptp_board_backup_v1';
 let workspaceFolderId = localStorage.getItem('workspace_folder_id') || null;
+
+// ── localStorage-Backup: Boards lokal sichern (Absicherung wenn Drive nicht erreichbar) ──
+function _saveLocalBackup(){
+  try{
+    const snap={ts:new Date().toISOString(),data:buildSaveObject()};
+    localStorage.setItem(PC_BACKUP_KEY,JSON.stringify(snap));
+  }catch(e){console.warn('[PTP] Backup fehlgeschlagen:',e);}
+}
+function _getLocalBackup(){
+  try{const s=localStorage.getItem(PC_BACKUP_KEY);return s?JSON.parse(s):null;}catch(e){return null;}
+}
 
 let gdriveToken = null;
 let gdriveTokenExpires = 0;
@@ -1550,35 +1591,69 @@ async function gdriveTokenCallback(resp) {
   }catch(e){console.warn('[PTP]',e);}
 }
 
-// Token-Refresh via visibilitychange (Tab-Wechsel = Nutzeraktion → Popup erlaubt)
-// Timer-basierter Refresh entfernt: Browser blockiert Popups aus Timern heraus
-function _scheduleGdriveRefresh() { /* nicht mehr verwendet – wird durch visibilitychange ersetzt */ }
+// ── Token stille Erneuerung ──
+// prompt:'none' = kein Popup → kann sicher aus Timer aufgerufen werden
+function _silentTokenRefresh(onSuccess){
+  if(!gdriveTokenClient||!gdriveToken)return;
+  const prev=gdriveTokenClient.callback;
+  gdriveTokenClient.callback=(r)=>{
+    gdriveTokenClient.callback=prev;
+    if(r&&r.access_token){
+      gdriveToken=r.access_token;
+      gdriveTokenExpires=Date.now()+(Number(r.expires_in||3600)-60)*1000;
+      try{localStorage.setItem(PC_TOKEN_KEY,JSON.stringify({token:gdriveToken,exp:gdriveTokenExpires}));}catch(e){}
+      console.info('[PTP] Token automatisch erneuert ✓');
+      if(typeof onSuccess==='function')onSuccess();
+    }
+  };
+  try{gdriveTokenClient.requestAccessToken({prompt:'none'});}catch(e){gdriveTokenClient.callback=prev;}
+}
+// Alle 5 Minuten prüfen: Token kürzer als 10 Min gültig? → still erneuern
+setInterval(()=>{
+  if(!gdriveTokenClient||!gdriveToken)return;
+  if(gdriveTokenExpires-Date.now()>600000)return;
+  _silentTokenRefresh();
+},5*60*1000);
+// Auch bei Tab-Wechsel (als zusätzliche Absicherung)
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   if (!gdriveTokenClient || !gdriveToken) return;
-  const remaining = gdriveTokenExpires - Date.now();
-  if (remaining > 600000) return; // mehr als 10 Min übrig → kein Bedarf
-  // Token abgelaufen oder weniger als 10 Min übrig → still erneuern
-  const prev = gdriveTokenClient.callback;
-  gdriveTokenClient.callback = (r) => {
-    gdriveTokenClient.callback = prev;
-    if (r && r.access_token) {
-      gdriveToken = r.access_token;
-      gdriveTokenExpires = Date.now() + (Number(r.expires_in || 3600) - 60) * 1000;
-      try { localStorage.setItem(PC_TOKEN_KEY, JSON.stringify({token: gdriveToken, exp: gdriveTokenExpires})); } catch(e) {}
-      console.info('[PTP] Drive-Token bei Tab-Wechsel erneuert ✓');
-    }
-  };
-  try { gdriveTokenClient.requestAccessToken({ prompt: 'none' }); } catch(e) { gdriveTokenClient.callback = prev; }
+  if (gdriveTokenExpires - Date.now() > 600000) return;
+  _silentTokenRefresh();
 });
 function gdriveTokenValid() { return !!gdriveToken && Date.now() < gdriveTokenExpires; }
 
-// Zentraler 401-Handler: Token wegwerfen, localStorage leeren, sanfte Reconnect-Aufforderung
+// Zentraler 401-Handler: erst stille Neuanmeldung versuchen, dann retry
 function _handleDrive401(){
   gdriveToken=null;gdriveTokenExpires=0;
   try{localStorage.removeItem(PC_TOKEN_KEY);}catch(e){}
-  updateFileStatus('unsaved','⚠ Drive-Verbindung abgelaufen','Bitte neu verbinden →');
-  showToast('Drive-Token abgelaufen – bitte neu verbinden.','error');
+  if(gdriveTokenClient){
+    // Stille Neuanmeldung versuchen (kein Popup) – klappt solange Google-Session aktiv
+    const prev=gdriveTokenClient.callback;
+    gdriveTokenClient.callback=(r)=>{
+      gdriveTokenClient.callback=prev;
+      if(r&&r.access_token){
+        gdriveToken=r.access_token;
+        gdriveTokenExpires=Date.now()+(Number(r.expires_in||3600)-60)*1000;
+        try{localStorage.setItem(PC_TOKEN_KEY,JSON.stringify({token:gdriveToken,exp:gdriveTokenExpires}));}catch(e){}
+        showToast('✓ Drive-Verbindung automatisch erneuert – speichere erneut…','ok',3000);
+        updateFileStatus('ok','☁️ '+gdriveFileName,'✓ Verbunden');
+        // Automatisch nochmal speichern
+        setTimeout(()=>gdriveSaveData(),600);
+      }else{
+        updateFileStatus('unsaved','⚠ Drive-Verbindung abgelaufen','☁️ Drive-Button drücken zum Neu-Verbinden');
+        showToast('⚠ Drive-Anmeldung abgelaufen – bitte ☁️-Button drücken','error',8000);
+      }
+    };
+    try{gdriveTokenClient.requestAccessToken({prompt:'none'});}catch(e){
+      gdriveTokenClient.callback=prev;
+      updateFileStatus('unsaved','⚠ Drive-Verbindung abgelaufen','☁️ Drive-Button drücken zum Neu-Verbinden');
+      showToast('⚠ Drive-Anmeldung abgelaufen – bitte ☁️-Button drücken','error',8000);
+    }
+  }else{
+    updateFileStatus('unsaved','⚠ Drive-Verbindung abgelaufen','☁️ Drive-Button drücken zum Neu-Verbinden');
+    showToast('⚠ Drive-Anmeldung abgelaufen – bitte ☁️-Button drücken','error',8000);
+  }
 }
 // Hilfsfunktion: wirft einen sprechenden Fehler bei HTTP-Fehlerstatus, behandelt 401 direkt
 function _driveCheckResponse(r){
@@ -1960,20 +2035,24 @@ async function gdriveSaveData() {
       try{const meta=await r.json();if(meta&&meta.modifiedTime)workboardLastModified=meta.modifiedTime;}catch(e){console.warn('[PTP]',e);}
       updateFileStatus('ok', '☁️ ' + gdriveFileName,
         '✓ Gespeichert ' + new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}));
+      _saveLocalBackup(); // Lokales Backup nach erfolgreichem Drive-Speichern aktualisieren
     } else if (r.status === 404) {
       gdriveFileId = null;
+      _saveLocalBackup(); // Daten lokal sichern bevor Verbindung verloren
       updateFileStatus('unsaved', '☁️ Datei gelöscht', '⚠ workboard.json wurde in Drive gelöscht – bitte neu verbinden');
       showToast('⚠ workboard.json nicht gefunden – bitte neu verbinden', 'error', 6000);
     } else if (r.status === 401) {
-      updateFileStatus('unsaved', '☁️ ' + gdriveFileName, '⚠ Anmeldung abgelaufen (401)');
-      showToast('⚠ Drive-Anmeldung abgelaufen – Seite neu laden', 'error', 6000);
+      _saveLocalBackup(); // Daten lokal sichern während Token erneuert wird
+      _handleDrive401(); // versucht stille Neuanmeldung + automatischen Retry
     } else {
+      _saveLocalBackup();
       updateFileStatus('unsaved', '☁️ ' + gdriveFileName, '⚠ Speichern fehlgeschlagen (HTTP ' + r.status + ')');
       showToast('⚠ Drive-Fehler HTTP ' + r.status, 'error', 5000);
     }
   } catch(e) {
+    _saveLocalBackup(); // Immer lokal sichern wenn Drive-Speichern fehlschlägt
     updateFileStatus('unsaved', '☁️ ' + gdriveFileName, '⚠ ' + e.message);
-    showToast('⚠ Speichern fehlgeschlagen: ' + e.message, 'error', 5000);
+    showToast('⚠ Speichern fehlgeschlagen – Daten lokal gesichert: ' + e.message, 'error', 5000);
   } finally {
     gdriveSaving = false;
   }
@@ -2022,6 +2101,28 @@ function skipFileSelection(){
   seedData(); render();
 }
 function closeStartModal(){document.getElementById('startModal').classList.remove('open');}
+// Lokales Backup wiederherstellen (Notfall-Funktion wenn Drive nicht erreichbar)
+function restoreLocalBackup(){
+  const bk=_getLocalBackup();
+  if(!bk||!bk.data){alert('Kein lokales Backup gefunden.');return;}
+  const ts=bk.ts?new Date(bk.ts).toLocaleString('de-DE'):'unbekannt';
+  if(!confirm('Letzten lokalen Stand wiederherstellen?\nStand: '+ts+'\n\nDie Daten werden OHNE Drive-Verbindung geladen.\nDu kannst danach über ☁️ Google Drive verbinden und speichern.'))return;
+  loadFromObject(bk.data);
+  closeStartModal();
+  updateFileStatus('unsaved','💾 Lokaler Stand ('+ts+')','⚠ Noch nicht mit Drive synchronisiert');
+  render();
+  showToast('✓ Lokaler Stand wiederhergestellt ('+ts+'). Jetzt ☁️ Drive verbinden zum Synchronisieren.','ok',8000);
+}
+// Backup-Button im Start-Modal anzeigen wenn Backup vorhanden
+document.addEventListener('DOMContentLoaded',()=>{
+  const bk=_getLocalBackup();
+  if(bk&&bk.data&&bk.ts){
+    const btn=document.getElementById('restoreBackupBtn');
+    const hint=document.getElementById('restoreBackupHint');
+    if(btn)btn.style.display='';
+    if(hint)hint.textContent='Letzter Stand: '+new Date(bk.ts).toLocaleString('de-DE');
+  }
+});
 // Gibt die Spalten des aktuellen (oder angegebenen) Boards zurück
 function getBoardStatuses(board){
   const b=board||currentBoard;
@@ -3702,15 +3803,29 @@ async function _pickDriveFolder(fieldId){
   const el=document.getElementById(fieldId);
   const existingUrl=el?el.value.trim():'';
   const existingId=existingUrl?_extractFolderIdFromUrl(existingUrl):'';
+  const ov=document.getElementById('driveFolderBrowserOverlay');
+  if(ov)ov.classList.add('open');
   if(existingId){
     // Root als Ausgangspunkt in History legen → Zurück-Button funktioniert
     _dfbHistory=[{id:'root',name:'Mein Drive'}];
-    await _dfbLoad(existingId,'Aktueller Ordner');
+    // Echten Ordnernamen von Drive laden
+    let realName='Aktueller Ordner';
+    try{
+      const mr=await fetch('https://www.googleapis.com/drive/v3/files/'+existingId+'?fields=id,name,parents',
+        {headers:{Authorization:'Bearer '+gdriveToken}});
+      if(mr.ok){
+        const meta=await mr.json();
+        if(meta.name)realName=meta.name;
+        // Wenn der Ordner einen Parent hat, diesen in History aufnehmen für echte Navigation
+        if(meta.parents&&meta.parents.length&&meta.parents[0]!=='root'){
+          _dfbHistory=[{id:'root',name:'Mein Drive'},{id:meta.parents[0],name:'↑ Übergeordneter Ordner'}];
+        }
+      }
+    }catch(e){console.warn('[PTP] dfb metadata:',e);}
+    await _dfbLoad(existingId,realName);
   }else{
     await _dfbLoad('root','Mein Drive');
   }
-  const ov=document.getElementById('driveFolderBrowserOverlay');
-  if(ov)ov.classList.add('open');
 }
 async function _dfbLoad(folderId,folderName){
   _dfbCurrentId=folderId;
@@ -4362,40 +4477,57 @@ function renderEmailOriginals(){
       <span style="font-size:16px;flex-shrink:0;">📨</span>
       <span class="eo-name" title="${esc(e.name)}">${esc(e.name)}</span>
       <span class="eo-date">${esc(e.uploadedAt||'')}</span>
-      <button type="button" class="eo-open" onclick="_downloadEmailOrig('${esc(e.fileId)}','${esc(e.name)}')" title="Datei herunterladen → in Outlook öffnen &amp; antworten">⬇ Herunterladen</button>
+      <button type="button" class="eo-open" onclick="_downloadEmailOrig('${esc(e.fileId)}','${esc(e.name)}')" title="In Downloads speichern → dort doppelklicken zum Öffnen in Outlook">⬇ Speichern</button>
       <a class="eo-open" href="${esc(e.url)}" target="_blank" title="In Google Drive anzeigen" style="background:transparent;border-color:var(--border);color:var(--text2);">📂</a>
       <button type="button" class="eo-del" onclick="taskEmailOriginals.splice(${i},1);renderEmailOriginals();scheduleTaskFieldSave();" title="Eintrag entfernen (Datei bleibt in Drive)">✕</button>
     </div>`).join('');
 }
 
-// Direkter Download via Drive API → .eml wird direkt in Outlook geöffnet
+// Download via Drive API → Datei in Downloads speichern → dort doppelklicken für Outlook
 async function _downloadEmailOrig(fileId,filename){
   if(!gdriveToken){showToast('⚠ Bitte zuerst mit Google Drive verbinden.','error');return;}
   try{
-    showToast('⏳ Lädt…','info');
+    showToast('⏳ Lädt herunter…','info');
     const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(fileId)+'?alt=media',{
       headers:{Authorization:'Bearer '+gdriveToken}
     });
     if(!r.ok)throw new Error('HTTP '+r.status);
     const arrayBuf=await r.arrayBuffer();
-    const isEml=/\.eml$/i.test(filename);
-    // .eml: MIME-Typ message/rfc822 → Browser öffnet direkt in Outlook (kein download-Attribut)
-    // .msg: als Datei speichern (proprietäres Format, Browser kann es nicht zuordnen)
-    const mimeType=isEml?'message/rfc822':'application/octet-stream';
-    const blob=new Blob([arrayBuf],{type:mimeType});
+    const blob=new Blob([arrayBuf],{type:'application/octet-stream'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
     a.href=url;
+    a.download=filename; // immer als Download (nicht im Browser öffnen)
     a.style.display='none';
-    if(!isEml)a.download=filename; // .msg immer als Datei speichern
-    // .eml: kein download-Attribut → Browser reicht an Outlook weiter
     document.body.appendChild(a);
     a.click();
     setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},8000);
-    showToast(isEml?'📧 Wird in Outlook geöffnet…':'✅ '+filename+' gespeichert','success');
+    showToast('⬇ „'+filename+'" gespeichert – im Downloads-Ordner doppelklicken um in Outlook zu öffnen','success',7000);
   }catch(e){
     showToast('⚠ Fehler: '+e.message,'error');
   }
+}
+
+// PDF-Vorschau aus E-Mail-Drop-Zone rendern (Drive-Embed-Vorschau)
+function renderEmailPdfs(){
+  const el=document.getElementById('emailPdfList');
+  if(!el)return;
+  if(!taskEmailPdfs.length){el.innerHTML='';return;}
+  el.innerHTML=taskEmailPdfs.map((p,i)=>`
+    <div class="email-pdf-item">
+      <div class="email-pdf-header" onclick="this.parentElement.classList.toggle('open')">
+        <span style="font-size:15px;">📄</span>
+        <span class="eo-name" title="${esc(p.name)}">${esc(p.name)}</span>
+        <span class="eo-date">${esc(p.uploadedAt||'')}</span>
+        <a class="eo-open" href="${esc(p.url)}" target="_blank" title="In Google Drive öffnen" style="background:transparent;border-color:var(--border);color:var(--text2);">📂</a>
+        <button type="button" class="eo-del" onclick="event.stopPropagation();taskEmailPdfs.splice(${i},1);renderEmailPdfs();scheduleTaskFieldSave();" title="Eintrag entfernen (Datei bleibt in Drive)">✕</button>
+        <span class="email-pdf-toggle">▾</span>
+      </div>
+      <div class="email-pdf-preview">
+        <iframe src="https://drive.google.com/file/d/${esc(p.fileId)}/preview"
+          width="100%" height="480" allow="autoplay" style="border:none;border-radius:6px;display:block;"></iframe>
+      </div>
+    </div>`).join('');
 }
 
 // Generischer Drive-Upload (beliebiger MIME-Typ)
@@ -4519,7 +4651,7 @@ function _applyBoardType(boardName){
   }
 }
 
-const TASK_SECTION_IDS=['tStammSect','tObjektSect','tAnsprchSect','tTermineSect','tChecklisteSect','tNotizenSect','tZeitSect','tEmailOrigSect','tAnhangSect','tVerkSect','tFotoSect'];
+const TASK_SECTION_IDS=['tStammSect','tObjektSect','tAnsprchSect','tTermineSect','tEmailOrigSect','tChecklisteSect','tNotizenSect','tZeitSect','tAnhangSect','tVerkSect','tFotoSect'];
 function collapseAllTaskSections(){
   TASK_SECTION_IDS.forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('open');});
 }
@@ -4553,7 +4685,7 @@ function openNewTaskModal(){
   document.getElementById('taskDescInput').value='';
   document.getElementById('taskOwnerInput').value='Braun';
   document.getElementById('taskDueInput').value='';
-  document.getElementById('taskStatusInput').value=statuses[0]||'';
+  document.getElementById('taskStatusInput').value=getBoardStatuses(currentBoard)[0]||'';
   document.getElementById('taskAmpelInput').value='grün';
   document.getElementById('taskAusfInput').value='';
   document.getElementById('taskTagsInput').value='';
@@ -4573,10 +4705,10 @@ function openNewTaskModal(){
   updateKontaktePTPTitle();
   document.getElementById('deleteTaskBtn').style.display='none';
   document.getElementById('abschlussBtn').style.display='none';
-  taskLinks=[];taskAttachments=[];taskAusserhausTermine=[];taskZeitEntries=[];taskNotizVerlauf=[];taskFotos=[];taskCheckliste=[];taskEmailOriginals=[];taskGmailLinks=[];
+  taskLinks=[];taskAttachments=[];taskAusserhausTermine=[];taskZeitEntries=[];taskNotizVerlauf=[];taskFotos=[];taskCheckliste=[];taskEmailOriginals=[];taskEmailPdfs=[];taskGmailLinks=[];
   _attachImgsOpen=false;
   renderLinksList();renderAttachList();renderFotoListDesktop();
-  renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();renderCheckliste();renderEmailOriginals();renderGmailLinks();
+  renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();renderCheckliste();renderEmailOriginals();renderEmailPdfs();renderGmailLinks();
   const _ni=document.getElementById('newTaskNotizInput');if(_ni)_ni.value='';
   const _ci=document.getElementById('newChecklistInput');if(_ci)_ci.value='';
   const _gu=document.getElementById('newGmailLinkUrl');if(_gu)_gu.value='';
@@ -4641,10 +4773,11 @@ function openEditTaskModal(id){
   taskFotos=JSON.parse(JSON.stringify(task.fotos||[]));
   taskCheckliste=JSON.parse(JSON.stringify(task.checkliste||[]));
   taskEmailOriginals=JSON.parse(JSON.stringify(task.emailOriginals||[]));
+  taskEmailPdfs=JSON.parse(JSON.stringify(task.emailPdfs||[]));
   taskGmailLinks=JSON.parse(JSON.stringify(task.gmailLinks||[]));
   _attachImgsOpen=false;
   renderLinksList();renderAttachList();renderFotoListDesktop();
-  renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();renderCheckliste();renderEmailOriginals();renderGmailLinks();
+  renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();renderCheckliste();renderEmailOriginals();renderEmailPdfs();renderGmailLinks();
   const _ni=document.getElementById('newTaskNotizInput');if(_ni)_ni.value='';
   const _ci=document.getElementById('newChecklistInput');if(_ci)_ci.value='';
   const _gu=document.getElementById('newGmailLinkUrl');if(_gu)_gu.value='';
