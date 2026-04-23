@@ -480,37 +480,9 @@ async function _auftragConfirm(){
   var _folderDefault=_isNotiz
     ?'https://drive.google.com/drive/u/0/folders/18z9bRXtzUteTCf0Xu58gKti0ykHuZEGB'
     :'https://drive.google.com/drive/u/0/folders/1GBcSWtUkKw7pJJ2CKvbTs_WZCZ1_RJ07';
-  var fid=_ezFolderId(_folderDefault);
-  if(!fid){alert('Kein Zielordner konfiguriert.');return;}
 
-  var stamp=(function(){var d=info.date instanceof Date&&!isNaN(info.date)?info.date:new Date();return d.getFullYear()+'.'+_ez2(d.getMonth()+1)+'.'+_ez2(d.getDate());})();
-  var pdfName=stamp+'_'+_ezClean(info.subject)+'.pdf';
-
-  var newPdfs=[];var newOriginals=[];
-
-  // PDF erstellen und hochladen
-  try{
-    if(typeof showToast==='function')showToast('⏳ PDF wird erstellt…','info',3000);
-    var pdfData=await _ezBuildPdfFromHtml(info);
-    var pdfResult=await _ezUpload(pdfData,pdfName,fid);
-    if(pdfResult&&pdfResult.id){
-      newPdfs.push({name:pdfName,fileId:pdfResult.id,url:'https://drive.google.com/file/d/'+pdfResult.id+'/view',uploadedAt:new Date().toLocaleDateString('de-DE')});
-    }
-  }catch(e){console.warn('[PTP] PDF-Fehler:',e);}
-
-  // Original-Datei hochladen (falls vorhanden)
-  if(rawFile){
-    try{
-      var origName=stamp+'_'+_ezClean(info.subject)+(rawFile.name.toLowerCase().endsWith('.eml')?'.eml':'.msg');
-      var buf=await new Promise(function(res,rej){var r=new FileReader();r.onload=function(e){res(e.target.result);};r.onerror=rej;r.readAsArrayBuffer(rawFile);});
-      var origResult=await _driveUploadGeneric(buf,origName,'application/octet-stream',fid);
-      if(origResult&&origResult.id){
-        newOriginals.push({name:info.subject||origName,fileId:origResult.id,url:'https://drive.google.com/file/d/'+origResult.id+'/view',uploadedAt:new Date().toLocaleDateString('de-DE')});
-      }
-    }catch(e){console.warn('[PTP] Original-Upload-Fehler:',e);}
-  }
-
-  // Neuen Task anlegen
+  // ── SCHRITT 1: Task SOFORT anlegen und speichern ──
+  // Drive-Upload ist optional und darf das Speichern des Tasks nie blockieren
   var newTask={
     id:generateId(),
     title:info.subject||'Neuer Auftrag',
@@ -536,8 +508,8 @@ async function _auftragConfirm(){
     fotos:[],
     checkliste:[],
     gmailLinks:[],
-    emailPdfs:newPdfs,
-    emailOriginals:newOriginals,
+    emailPdfs:[],
+    emailOriginals:[],
     gdriveOrdner:_folderDefault,
     emailOrdner:_folderDefault,
     gdrive:'',
@@ -546,11 +518,48 @@ async function _auftragConfirm(){
 
   if(!boards[boardName])boards[boardName]=[];
   boards[boardName].push(newTask);
-  autoSave();
+  await autoSave(); // Task erst sichern, bevor Drive-Uploads beginnen
   if(typeof showToast==='function')showToast('✅ Auftrag angelegt: '+newTask.title,'success',4000);
-  // Task zur Bearbeitung öffnen
   if(currentBoard!==boardName){currentBoard=boardName;render();}
   setTimeout(function(){openEditTaskModal(newTask.id);},150);
+
+  // ── SCHRITT 2: Drive-Upload nachträglich (optional, blockiert Task-Speicherung nicht) ──
+  var fid=_ezFolderId(_folderDefault);
+  if(!fid||!gdriveToken)return; // Kein Ordner oder kein Token → fertig, Task ist bereits gespeichert
+
+  var stamp=(function(){var d=info.date instanceof Date&&!isNaN(info.date)?info.date:new Date();return d.getFullYear()+'.'+_ez2(d.getMonth()+1)+'.'+_ez2(d.getDate());})();
+  var pdfName=stamp+'_'+_ezClean(info.subject)+'.pdf';
+  var uploaded=false;
+
+  // PDF erstellen und hochladen
+  try{
+    if(typeof showToast==='function')showToast('⏳ E-Mail PDF wird hochgeladen…','info',4000);
+    var pdfData=await _ezBuildPdfFromHtml(info);
+    var pdfResult=await _ezUpload(pdfData,pdfName,fid);
+    if(pdfResult&&pdfResult.id){
+      newTask.emailPdfs=[{name:pdfName,fileId:pdfResult.id,url:'https://drive.google.com/file/d/'+pdfResult.id+'/view',uploadedAt:new Date().toLocaleDateString('de-DE')}];
+      uploaded=true;
+    }
+  }catch(e){console.warn('[PTP] PDF-Upload fehlgeschlagen (Task bleibt gespeichert):',e);}
+
+  // Original-Datei hochladen
+  if(rawFile&&gdriveToken){
+    try{
+      var origName=stamp+'_'+_ezClean(info.subject)+(rawFile.name.toLowerCase().endsWith('.eml')?'.eml':'.msg');
+      var buf=await new Promise(function(res,rej){var r=new FileReader();r.onload=function(e){res(e.target.result);};r.onerror=rej;r.readAsArrayBuffer(rawFile);});
+      var origResult=await _driveUploadGeneric(buf,origName,'application/octet-stream',fid);
+      if(origResult&&origResult.id){
+        newTask.emailOriginals=[{name:info.subject||origName,fileId:origResult.id,url:'https://drive.google.com/file/d/'+origResult.id+'/view',uploadedAt:new Date().toLocaleDateString('de-DE')}];
+        uploaded=true;
+      }
+    }catch(e){console.warn('[PTP] Original-Upload fehlgeschlagen (Task bleibt gespeichert):',e);}
+  }
+
+  // Falls Uploads erfolgreich: nochmals speichern mit den Drive-Links
+  if(uploaded&&gdriveToken){
+    await autoSave();
+    if(typeof showToast==='function')showToast('☁️ E-Mail in Drive gespeichert','success',3000);
+  }
 }
 
 // ── MODAL SIZE ──
@@ -660,6 +669,13 @@ input,select,textarea{font-family:inherit;}
 
 /* KANBAN */
 .kanban{display:flex;gap:14px;height:100%;min-height:0;overflow-x:auto;padding-bottom:8px;user-select:none;}
+.kanban-col-alle{flex:0 0 260px;min-width:180px;background:var(--bg2);border-radius:10px;display:flex;flex-direction:column;max-height:100%;border-top:3px solid #888;position:relative;opacity:.97;}
+.kanban-col-alle .kanban-col-header{padding:12px 14px 8px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.kanban-col-alle .kanban-col-body{flex:1;overflow-y:auto;padding:6px 10px 10px;display:flex;flex-direction:column;gap:8px;}
+.kanban-col-alle .task-card{cursor:grab;}
+.kanban-col-alle .task-card.alle-drag-over-above{border-top:2px solid var(--accent);}
+.kanban-col-alle .task-card.alle-drag-over-below{border-bottom:2px solid var(--accent);}
+#alleColBtn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
 .kanban-col{flex:0 0 260px;min-width:150px;background:var(--bg2);border-radius:10px;display:flex;flex-direction:column;max-height:100%;transition:none;position:relative;}
 .kanban-col::after{content:'';position:absolute;right:-7px;top:0;bottom:0;width:14px;cursor:col-resize;background:linear-gradient(90deg,transparent,var(--accent));opacity:0;transition:opacity .2s;pointer-events:auto;border-radius:0 10px 10px 0;}
 .kanban-col:hover::after{opacity:0.8;}
@@ -1171,6 +1187,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       <button class="view-tab" data-view="table" onclick="switchView('table')">&#9638;&#9638; Tabelle</button>
     </div>
     <button class="col-manage-btn" onclick="openColManager()">&#9998; Spalten</button>
+    <button class="col-manage-btn" id="alleColBtn" onclick="toggleAlleCol()" title="Alle Tasks unabhängig vom Status anzeigen">☰ Alle</button>
   </div>
   <div class="toolbar-right">
     <span class="filter-label">Filter:</span>
@@ -2818,7 +2835,11 @@ async function autoSave(){
   // Prefer Google Drive if connected
   if(gdriveFileId){ await gdriveSaveData(); return; }
   // Otherwise use local File System Access API
-  if(!fileHandle)return;
+  if(!fileHandle){
+    // Letzter Ausweg: localStorage-Backup damit keine Daten verloren gehen
+    _saveLocalBackup();
+    return;
+  }
   try{
     const w=await fileHandle.createWritable();
     await w.write(JSON.stringify(buildSaveObject(),null,2));
@@ -2927,6 +2948,133 @@ function taskCardHTML(task){
   </div>`;
 }
 
+// ── ALLE-SPALTE ──
+let _alleColVisible = false;
+let _alleColOrders = {}; // {boardName: [taskId, ...]}
+let _alleDragId = null;
+
+function toggleAlleCol(){
+  _alleColVisible = !_alleColVisible;
+  const btn = document.getElementById('alleColBtn');
+  if(btn) btn.classList.toggle('active', _alleColVisible);
+  render();
+}
+
+function _getAlleOrder(board){
+  // Gespeicherte Reihenfolge laden oder alle Tasks in aktueller Reihenfolge
+  if(!_alleColOrders[board]){
+    _alleColOrders[board] = (boards[board]||[]).map(t=>t.id);
+  } else {
+    // Neu hinzugekommene Tasks ans Ende
+    const existing = new Set(_alleColOrders[board]);
+    (boards[board]||[]).forEach(t=>{ if(!existing.has(t.id)) _alleColOrders[board].push(t.id); });
+    // Gelöschte Tasks entfernen
+    const ids = new Set((boards[board]||[]).map(t=>t.id));
+    _alleColOrders[board] = _alleColOrders[board].filter(id=>ids.has(id));
+  }
+  return _alleColOrders[board];
+}
+
+function _renderAlleCol(){
+  const order = _getAlleOrder(currentBoard);
+  const allTasks = boards[currentBoard]||[];
+  const sorted = order.map(id=>allTasks.find(t=>t.id===id)).filter(Boolean);
+  let cards = sorted.map(t=>{
+    const statusBadge=`<span style="font-size:10px;padding:1px 6px;border-radius:4px;background:var(--bg4);color:var(--text2);margin-left:4px;">${esc(t.status||'–')}</span>`;
+    const overdue=isOverdue(t.due);
+    const ampelCls=t.ampel==='grün'?'green':t.ampel==='orange'?'orange':'red';
+    return `<div class="task-card" draggable="true"
+      ondragstart="_alleDragStart(event,'${esc(t.id)}')"
+      ondragover="_alleDragOver(event)"
+      ondragleave="_alleDragLeave(event)"
+      ondrop="_alleDrop(event,'${esc(t.id)}')"
+      ondragend="_alleDragEnd(event)"
+      onclick="openEditTaskModal('${esc(t.id)}')" data-alle-id="${esc(t.id)}">
+      <span class="ampel ampel-${ampelCls}"></span>
+      <span style="font-weight:600;font-size:13px;">${esc(t.title)}</span>${statusBadge}
+      ${t.owner?`<div style="font-size:11px;color:var(--text2);margin-top:4px;">👤 ${esc(t.owner)}</div>`:''}
+      ${t.due?`<div style="font-size:11px;color:${overdue?'var(--red)':'var(--text2)'};margin-top:2px;">📅 ${formatDate(t.due)}</div>`:''}
+    </div>`;
+  }).join('');
+
+  return `<div class="kanban-col-alle">
+    <div class="kanban-col-header">
+      <span class="kanban-col-title" style="color:var(--text2)">☰ Alle</span>
+      <span class="kanban-col-count">${sorted.length}</span>
+    </div>
+    <div class="kanban-col-body" id="alleColBody"
+      ondragover="_alleDragOverBody(event)"
+      ondrop="_alleDropBody(event)">
+      ${cards}
+    </div>
+  </div>`;
+}
+
+function _alleDragStart(e, id){
+  _alleDragId = id;
+  e.dataTransfer.effectAllowed = 'move';
+  setTimeout(()=>{ const el=e.target; if(el) el.style.opacity='0.4'; }, 0);
+}
+function _alleDragEnd(e){ if(e.target) e.target.style.opacity=''; _alleDragId=null; document.querySelectorAll('[data-alle-id]').forEach(el=>{el.classList.remove('alle-drag-over-above','alle-drag-over-below');}); }
+function _alleDragOver(e){
+  e.preventDefault(); e.stopPropagation();
+  const card = e.currentTarget;
+  const rect = card.getBoundingClientRect();
+  const mid = rect.top + rect.height/2;
+  document.querySelectorAll('[data-alle-id]').forEach(el=>{el.classList.remove('alle-drag-over-above','alle-drag-over-below');});
+  card.classList.add(e.clientY < mid ? 'alle-drag-over-above' : 'alle-drag-over-below');
+}
+function _alleDragLeave(e){ e.currentTarget.classList.remove('alle-drag-over-above','alle-drag-over-below'); }
+function _alleDragOverBody(e){ e.preventDefault(); }
+function _alleDrop(e, targetId){
+  e.preventDefault(); e.stopPropagation();
+  if(!_alleDragId || _alleDragId===targetId) return;
+  const card = e.currentTarget;
+  const rect = card.getBoundingClientRect();
+  const before = e.clientY < rect.top + rect.height/2;
+  const order = _getAlleOrder(currentBoard);
+  const fromIdx = order.indexOf(_alleDragId);
+  let toIdx = order.indexOf(targetId);
+  if(fromIdx===-1||toIdx===-1) return;
+  order.splice(fromIdx,1);
+  toIdx = order.indexOf(targetId);
+  order.splice(before ? toIdx : toIdx+1, 0, _alleDragId);
+  _alleColOrders[currentBoard] = order;
+  // Nur Alle-Spalte neu rendern
+  const body = document.getElementById('alleColBody');
+  if(body){
+    const allTasks = boards[currentBoard]||[];
+    const sorted = order.map(id=>allTasks.find(t=>t.id===id)).filter(Boolean);
+    body.innerHTML = sorted.map(t=>{
+      const statusBadge=`<span style="font-size:10px;padding:1px 6px;border-radius:4px;background:var(--bg4);color:var(--text2);margin-left:4px;">${esc(t.status||'–')}</span>`;
+      const overdue=isOverdue(t.due);
+      const ampelCls=t.ampel==='grün'?'green':t.ampel==='orange'?'orange':'red';
+      return `<div class="task-card" draggable="true"
+        ondragstart="_alleDragStart(event,'${esc(t.id)}')"
+        ondragover="_alleDragOver(event)"
+        ondragleave="_alleDragLeave(event)"
+        ondrop="_alleDrop(event,'${esc(t.id)}')"
+        ondragend="_alleDragEnd(event)"
+        onclick="openEditTaskModal('${esc(t.id)}')" data-alle-id="${esc(t.id)}">
+        <span class="ampel ampel-${ampelCls}"></span>
+        <span style="font-weight:600;font-size:13px;">${esc(t.title)}</span>${statusBadge}
+        ${t.owner?`<div style="font-size:11px;color:var(--text2);margin-top:4px;">👤 ${esc(t.owner)}</div>`:''}
+        ${t.due?`<div style="font-size:11px;color:${overdue?'var(--red)':'var(--text2)'};margin-top:2px;">📅 ${formatDate(t.due)}</div>`:''}
+      </div>`;
+    }).join('');
+    // Events neu binden passiert via Inline-Handler – kein Re-Attach nötig
+  }
+}
+function _alleDropBody(e){
+  e.preventDefault();
+  if(!_alleDragId) return;
+  const order = _getAlleOrder(currentBoard);
+  const idx = order.indexOf(_alleDragId);
+  if(idx>-1){ order.splice(idx,1); order.push(_alleDragId); }
+  _alleColOrders[currentBoard]=order;
+  render();
+}
+
 function renderKanban(){
   const tasks=getTasks();
   const curStatuses=getBoardStatuses();
@@ -2934,6 +3082,8 @@ function renderKanban(){
   const taskOnlyStatuses=[...new Set((boards[currentBoard]||[]).map(t=>t.status).filter(s=>s&&!curStatuses.includes(s)))];
   const displayStatuses=[...curStatuses,...taskOnlyStatuses];
   let html='<div class="kanban">';
+  // Alle-Spalte ganz links einfügen wenn aktiv
+  if(_alleColVisible) html += _renderAlleCol();
   displayStatuses.forEach((s,i)=>{
     const col=tasks.filter(t=>t.status===s);
     const isCollapsed=!!collapsedCols[s];
