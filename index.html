@@ -204,8 +204,56 @@ async function _ezBuildPdfFromHtml(info){
   wrap.innerHTML=hdr+'<div style="padding:16px 20px;line-height:1.55;color:#1e2337;word-break:break-word;">'+cleanHtml+'</div>';
   document.body.appendChild(wrap);
 
+  // Alle Bilder vorher als Base64 laden – verhindert CORS-Lücken in html2canvas
+  await (async function _preloadImages(){
+    var imgs=Array.from(wrap.querySelectorAll('img'));
+    var TIMEOUT=4000;
+    await Promise.all(imgs.map(function(img){
+      return new Promise(function(resolve){
+        // cid:-Bilder und leere srcs ausblenden
+        if(!img.src||img.src.startsWith('cid:')||img.src.startsWith('data:')){
+          if(!img.src||img.src.startsWith('cid:'))img.style.display='none';
+          return resolve();
+        }
+        var done=false;
+        var timer=setTimeout(function(){
+          if(done)return;done=true;
+          img.style.display='none'; // Timeout → Bild ausblenden statt fehlendem Fleck
+          resolve();
+        },TIMEOUT);
+        fetch(img.src,{mode:'no-cors'})
+          .then(function(r){return r.blob();})
+          .then(function(blob){
+            var reader=new FileReader();
+            reader.onload=function(e){
+              if(done)return;done=true;
+              clearTimeout(timer);
+              img.src=e.target.result; // Base64 ersetzen
+              resolve();
+            };
+            reader.onerror=function(){
+              if(done)return;done=true;
+              clearTimeout(timer);
+              img.style.display='none';
+              resolve();
+            };
+            reader.readAsDataURL(blob);
+          })
+          .catch(function(){
+            // CORS-Fehler → Bild als normales img-onload abwarten
+            var t2=setTimeout(function(){
+              if(done)return;done=true;img.style.display='none';resolve();
+            },2000);
+            img.onload=function(){if(done)return;done=true;clearTimeout(t2);resolve();};
+            img.onerror=function(){if(done)return;done=true;clearTimeout(t2);img.style.display='none';resolve();};
+            if(img.complete)img.onload();
+          });
+      });
+    }));
+  })();
+
   try{
-    var canvas=await window.html2canvas(wrap,{scale:1.5,useCORS:true,allowTaint:true,backgroundColor:'#ffffff',logging:false,width:780});
+    var canvas=await window.html2canvas(wrap,{scale:1.5,useCORS:false,allowTaint:true,backgroundColor:'#ffffff',logging:false,width:780,imageTimeout:0});
     document.body.removeChild(wrap);
 
     var doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
@@ -2738,10 +2786,13 @@ async function gdriveSaveData() {
 }
 
 let _driveTimerRaf = null;
+let _driveAutoRenewTimer = null;
+
 function updateDriveBtnBar() {
   const btn = document.getElementById('driveBtnBar');
   if (!btn) return;
   if (_driveTimerRaf) { cancelAnimationFrame(_driveTimerRaf); _driveTimerRaf = null; }
+  clearTimeout(_driveAutoRenewTimer);
   if (gdriveFileId && gdriveToken && gdriveTokenExpires > Date.now()) {
     _startDriveTimer();
   } else if (gdriveFileId) {
@@ -2764,22 +2815,45 @@ function _startDriveTimer() {
   const btn = document.getElementById('driveBtnBar');
   if (!btn) return;
   const TOTAL = 3600000; // 60 Minuten in ms
+  const AUTO_RENEW_BEFORE = 5 * 60 * 1000; // 5 Minuten vor Ablauf automatisch erneuern
+
+  // Automatische Erneuerung planen (5 Min vor Ablauf)
+  clearTimeout(_driveAutoRenewTimer);
+  const msUntilRenew = (gdriveTokenExpires - Date.now()) - AUTO_RENEW_BEFORE;
+  if (msUntilRenew > 0) {
+    _driveAutoRenewTimer = setTimeout(function() {
+      console.log('[PTP] Token läuft bald ab – automatische Erneuerung…');
+      _renewDriveTokenSilent();
+    }, msUntilRenew);
+  } else {
+    // Bereits im roten Bereich → sofort erneuern
+    setTimeout(_renewDriveTokenSilent, 500);
+  }
+
+  // Visuelle Countdown-Anzeige (rAF-Loop, aktualisiert jede Sekunde)
+  let lastMin = -1;
   function tick() {
     const now = Date.now();
     const remaining = Math.max(0, gdriveTokenExpires - now);
     const mins = Math.ceil(remaining / 60000);
     const pct = Math.max(0, Math.min(100, (remaining / TOTAL) * 100));
     if (remaining <= 0) {
-      btn.textContent = '☁️ Abgelaufen';
-      btn.className = 'drive-timer-btn expired';
-      _setDriveBar(0, 'red');
+      btn.textContent = '☁️ Verbinde…';
+      btn.className = 'drive-timer-btn expiring';
+      _setDriveBar(0, 'orange');
+      // Falls Erneuerung noch nicht ausgelöst: jetzt versuchen
+      _renewDriveTokenSilent();
       return;
     }
-    const colorCls = pct > 50 ? 'green' : pct > 20 ? 'orange' : 'red';
-    const btnCls = pct > 50 ? 'connected' : pct > 20 ? 'expiring' : 'expired';
-    btn.textContent = '☁️ Drive – ' + mins + ' Min';
-    btn.className = 'drive-timer-btn ' + btnCls;
-    _setDriveBar(pct, colorCls);
+    // Nur neu zeichnen wenn Minuten sich geändert haben (spart CPU)
+    if (mins !== lastMin) {
+      lastMin = mins;
+      const colorCls = pct > 50 ? 'green' : pct > 20 ? 'orange' : 'red';
+      const btnCls   = pct > 50 ? 'connected' : pct > 20 ? 'expiring' : 'expired';
+      btn.textContent = '☁️ Drive – ' + mins + ' Min';
+      btn.className = 'drive-timer-btn ' + btnCls;
+      _setDriveBar(pct, colorCls);
+    }
     _driveTimerRaf = requestAnimationFrame(tick);
   }
   tick();
