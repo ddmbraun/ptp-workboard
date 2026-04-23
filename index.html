@@ -388,6 +388,23 @@ function _parseEmlText(rawText){
 
 function tEmailOrdnerOeffnen(){var u=(document.getElementById('tEmailOrdner')||{}).value||'';if(u.trim())window.open(u,'_blank');else alert('Bitte zuerst eine Google Drive Ordner-URL eintragen.');}
 
+// ── MODAL SIZE ──
+const MODAL_SIZE_KEY='ptp_modal_size_v1';
+function setModalSize(val){
+  val=Math.min(180,Math.max(80,+val));
+  const slider=document.getElementById('modalSizeSlider');
+  const label=document.getElementById('modalSizeVal');
+  if(slider)slider.value=val;
+  if(label)label.textContent=val+'%';
+  document.getElementById('taskModalBox').style.setProperty('--modal-scale',val/100);
+  try{localStorage.setItem(MODAL_SIZE_KEY,val);}catch(e){}
+}
+function applyStoredModalSize(){
+  let val=100;
+  try{const s=localStorage.getItem(MODAL_SIZE_KEY);if(s)val=Math.min(180,Math.max(80,+s));}catch(e){}
+  setModalSize(val);
+}
+
 </script>
 <script src="https://cdn.jsdelivr.net/npm/piexifjs@1.0.6/piexif.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css">
@@ -563,10 +580,11 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .modal-header-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;cursor:move;user-select:none;}
 .modal-header-row h2{margin-bottom:0;pointer-events:none;}
 .modal-header-row *{pointer-events:auto;}
-.modal-size-group{display:flex;align-items:center;gap:6px;flex-shrink:0;}
-.modal-size-group label{font-size:11px;color:var(--text2);white-space:nowrap;margin:0;}
-.modal-size-group input[type=range]{width:90px;accent-color:var(--accent);}
-.modal-size-group .modal-size-val{font-size:11px;color:var(--text2);min-width:34px;text-align:right;}
+.modal-size-bar{display:flex;align-items:center;justify-content:flex-end;gap:5px;margin:-10px 0 12px;padding:3px 2px;}
+.modal-size-bar label{font-size:10px;color:var(--text2);white-space:nowrap;margin:0 4px 0 0;cursor:default;}
+.modal-size-btn{width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:16px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s;}
+.modal-size-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent);}
+.modal-size-val2{font-size:11px;color:var(--text2);min-width:32px;text-align:center;}
 .modal-field{margin-bottom:12px;}
 .modal-field label{display:block;font-size:calc(12px * var(--modal-scale, 1));color:var(--text2);margin-bottom:4px;font-weight:500;}
 .modal-field input,.modal-field select,.modal-field textarea{width:100%;padding:calc(8px * var(--modal-scale, 1)) calc(10px * var(--modal-scale, 1));border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:calc(13px * var(--modal-scale, 1));outline:none;}
@@ -883,6 +901,8 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 /* ── E-MAIL ORIGINALE ── */
 .email-orig-drop{border:1.5px dashed var(--border);border-radius:8px;padding:9px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;transition:border-color .2s,background .2s;margin-top:6px;}
 .email-orig-drop.dragover{border-color:var(--accent);background:rgba(108,99,255,.07);}
+.email-section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);margin:8px 0 5px;padding-left:2px;border-bottom:1px solid var(--border);padding-bottom:3px;}
+.email-section-label:first-child{margin-top:0;}
 .email-orig-item{display:flex;align-items:center;gap:7px;padding:6px 9px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);margin-bottom:5px;font-size:12px;}
 .email-orig-item .eo-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);}
 .email-orig-item .eo-date{font-size:10px;color:var(--text2);flex-shrink:0;}
@@ -1028,11 +1048,13 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <div class="modal-header-row">
       <h2 id="modalTitle">Neuer Task</h2>
       <span id="_taskTypeIndicator" class="task-type-badge baustelle">🏗 Baustelle</span>
-      <div class="modal-size-group" title="Schriftgröße im Formular anpassen">
-        <label>🔍</label>
-        <input id="modalSizeSlider" type="range" min="80" max="180" step="5" value="100" oninput="setModalSize(this.value)">
-        <span class="modal-size-val" id="modalSizeVal">100%</span>
-      </div>
+    </div>
+    <div class="modal-size-bar">
+      <label>🔍 Schriftgröße:</label>
+      <button type="button" class="modal-size-btn" onclick="setModalSize(Math.max(80,+(document.getElementById('modalSizeSlider').value)-10))" title="Kleiner">−</button>
+      <span class="modal-size-val2" id="modalSizeVal">100%</span>
+      <button type="button" class="modal-size-btn" onclick="setModalSize(Math.min(180,+(document.getElementById('modalSizeSlider').value)+10))" title="Größer">+</button>
+      <input id="modalSizeSlider" type="range" min="80" max="180" step="10" value="100" oninput="setModalSize(this.value)" style="width:80px;accent-color:var(--accent);margin-left:4px;">
     </div>
     <input type="hidden" id="taskId">
     <!-- Timer-Bar oben: Stoppuhr direkt zugänglich ohne Sektion aufzuklappen -->
@@ -1139,7 +1161,9 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       </div>
       <div class="form-collapse-body">
         <p style="font-size:11px;color:var(--text2);margin:0 0 6px;">Outlook .msg oder .eml ablegen → wird als PDF in Drive gespeichert &amp; als Vorschau angezeigt. Zum Öffnen in Outlook: „⬇ Speichern" drücken → im Downloads-Ordner doppelklicken.</p>
+        <div class="email-section-label">📄 E-Mail PDFs</div>
         <div id="emailPdfList"></div>
+        <div class="email-section-label">📨 Originale (.msg / .eml)</div>
         <div id="emailOrigList"></div>
         <div class="email-orig-drop" id="emailOrigDrop"
           ondragenter="event.preventDefault();this.classList.add('dragover')"
@@ -1754,6 +1778,12 @@ async function gdriveTokenCallback(resp) {
   gdriveTokenExpires = Date.now() + (Number(resp.expires_in || 3600) - 60) * 1000;
   // Token in localStorage speichern (übersteht Seitenreload)
   try { localStorage.setItem(PC_TOKEN_KEY, JSON.stringify({token: gdriveToken, exp: gdriveTokenExpires})); } catch(e) {}
+  // User-E-Mail für login_hint speichern (einmalig)
+  if (!localStorage.getItem('ptp_user_email_v1')) {
+    fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: 'Bearer ' + gdriveToken } })
+      .then(r => r.json()).then(u => { if (u.email) try { localStorage.setItem('ptp_user_email_v1', u.email); } catch(e){} })
+      .catch(() => {});
+  }
   clearTimeout(_gdriveRefreshTimer); // kein Timer mehr – visibilitychange übernimmt
   _hideDriveWarnBanner(); // Warnbanner ausblenden (falls sichtbar)
   const action = gdrivePendingAction;
@@ -1790,7 +1820,7 @@ function _showDriveWarnBanner(secondsLeft){
     banner.id = '_driveWarnBanner';
     banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999999;background:#e67e22;color:#fff;display:flex;align-items:center;justify-content:center;gap:12px;padding:10px 16px;font-size:13px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.3);';
     banner.innerHTML = '<span id="_driveWarnMsg">⚠ Google Drive Verbindung läuft ab</span>'
-      + '<button onclick="gdriveConnectFromBar()" style="background:#fff;color:#e67e22;border:none;border-radius:6px;padding:5px 14px;font-size:13px;font-weight:700;cursor:pointer;">🔄 Jetzt erneuern</button>';
+      + '<button onclick="_renewDriveTokenSilent()" style="background:#fff;color:#e67e22;border:none;border-radius:6px;padding:5px 14px;font-size:13px;font-weight:700;cursor:pointer;">🔄 Jetzt erneuern</button>';
     document.body.prepend(banner);
   }
   banner.style.display = 'flex';
@@ -1803,6 +1833,32 @@ function _hideDriveWarnBanner(){
   const banner = document.getElementById('_driveWarnBanner');
   if(banner) banner.style.display = 'none';
   clearTimeout(_driveWarnBannerTimer);
+}
+
+// Stille Token-Erneuerung ohne Account-Auswahl (für den Banner-Button)
+function _renewDriveTokenSilent(){
+  if(!gdriveTokenClient){_showDriveWarnBanner(0);return;}
+  const hint=localStorage.getItem('ptp_user_email_v1')||'';
+  const prev=gdriveTokenClient.callback;
+  gdriveTokenClient.callback=(r)=>{
+    gdriveTokenClient.callback=prev;
+    if(r&&r.access_token){
+      gdriveToken=r.access_token;
+      gdriveTokenExpires=Date.now()+(Number(r.expires_in||3600)-60)*1000;
+      try{localStorage.setItem(PC_TOKEN_KEY,JSON.stringify({token:gdriveToken,exp:gdriveTokenExpires}));}catch(e){}
+      _hideDriveWarnBanner();
+    } else {
+      // Stilles Login hat nicht geklappt → mit Account-Auswahl versuchen
+      gdriveTokenClient.callback=prev;
+      try{gdriveTokenClient.requestAccessToken({prompt:'select_account',login_hint:hint});}catch(e){}
+    }
+  };
+  try{
+    gdriveTokenClient.requestAccessToken({prompt:'none',login_hint:hint});
+  }catch(e){
+    gdriveTokenClient.callback=prev;
+    try{gdriveTokenClient.requestAccessToken({prompt:'select_account',login_hint:hint});}catch(e2){}
+  }
 }
 
 function _silentTokenRefresh(onSuccess, onFail){
