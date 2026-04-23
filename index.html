@@ -841,6 +841,10 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .gcal-btn:hover{background:#1558b0;}
 .gcal-btn-modal{padding:7px 14px;border-radius:6px;font-size:13px;font-weight:500;background:#1a73e8;color:#fff;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;}
 .gcal-btn-modal:hover{background:#1558b0;}
+.outlook-btn{font-size:10px;padding:2px 7px;border-radius:3px;background:#0078d4;color:#fff;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:3px;font-weight:500;transition:background .12s;}
+.outlook-btn:hover{background:#005a9e;}
+.outlook-btn-modal{padding:7px 14px;border-radius:6px;font-size:13px;font-weight:500;background:#0078d4;color:#fff;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;}
+.outlook-btn-modal:hover{background:#005a9e;}
 
 /* TERMIN / ZEITERFASSUNG ROWS */
 .termin-table{width:100%;border-collapse:collapse;}
@@ -1687,7 +1691,8 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 
       <div class="modal-actions">
         <button class="topbar-btn btn-danger" id="deleteTaskBtn" onclick="deleteTask()" style="display:none;margin-right:auto;">Löschen</button>
-        <button class="gcal-btn-modal" id="gcalModalBtn" onclick="openGoogleCalendarFromModal()" style="display:none;margin-right:auto;">📅 In Kalender eintragen</button>
+        <button class="gcal-btn-modal" id="gcalModalBtn" onclick="openGoogleCalendarFromModal()" style="display:none;margin-right:auto;">📅 Google Kalender</button>
+        <button class="outlook-btn-modal" id="outlookModalBtn" onclick="openOutlookCalendarFromModal()" style="display:none;margin-right:auto;">📆 Outlook Kalender</button>
         <button class="topbar-btn baustelle-only" id="abschlussBtn" onclick="createAbschlussakte()" style="display:none;margin-right:auto;background:var(--bg3);border:1px solid var(--border)">📁 Abschlussakte</button>
         <button class="topbar-btn btn-secondary" onclick="saveTaskAndBack()">← Zurück</button>
         <button class="topbar-btn btn-primary" onclick="saveTask()">Speichern</button>
@@ -3132,7 +3137,8 @@ function taskCardHTML(task){
         ${hasAttach?`<span class="task-icon-badge">📎 ${(task.attachments||[]).length}</span>`:''}
         ${hasFotos?`<span class="task-icon-badge" title="Fotos vom Handy">📷 ${(task.fotos||[]).length}</span>`:''}
         ${hasTime?`<span class="timer-badge${isTaskTimerRunning(task.id)?' running':''}">⏱ ${formatDuration(timeMs)}</span>`:''}
-        ${isAH?`<button class="gcal-btn" onclick="openGoogleCalendar('${task.id}',event)" title="In Google Kalender eintragen">📅 Kalender</button>`:''}
+        ${isAH?`<button class="gcal-btn" onclick="openGoogleCalendar('${task.id}',event)" title="In Google Kalender eintragen">📅 Google</button>`:''}
+        ${isAH?`<button class="outlook-btn" onclick="openOutlookCalendar('${task.id}',event)" title="In Outlook Kalender eintragen">📆 Outlook</button>`:''}
         ${bauTotal>0?`<span class="task-icon-badge" style="color:#e67e22;background:rgba(230,126,34,.12);border:1px solid rgba(230,126,34,.3);cursor:pointer" onclick="event.stopPropagation();openSyncPanel()" title="Daten von Bau Doku">🔄 ${bauTotal} Bau</span>`:''}
       </div>`;
     })()}
@@ -3522,6 +3528,7 @@ function renderAusserhausTermine(){
       <input type="time" value="${t.bis||''}" oninput="syncAusserhausTermin(${i},'bis',this.value)">
       <input type="text" value="${esc(t.beschreibung||'')}" placeholder="Beschreibung" oninput="syncAusserhausTermin(${i},'beschreibung',this.value)">
       <button class="termin-row-btn cal" onclick="openGcalTermin(${i})" title="In Google Kalender eintragen">📅</button>
+      <button class="termin-row-btn" onclick="openOutlookTermin(${i})" title="In Outlook Kalender eintragen" style="background:#0078d4;color:#fff;border:none;border-radius:5px;padding:0 8px;cursor:pointer;font-size:14px;">📆</button>
       <button class="termin-row-btn del" onclick="removeAusserhausTermin(${i})">✕</button>
     </div>`).join('');
   }
@@ -3620,7 +3627,7 @@ function renderZeiterfassung(){
   }else{
     html+=taskZeitEntries.map((e,i)=>{
       const hasTime=e.date&&e.von&&e.bis;
-      const calBtn=hasTime?`<button class="termin-row-btn" title="In Google Kalender eintragen" onclick="_openGcalZeitPC(${i})" style="background:#1a73e8;color:#fff;border:none;border-radius:5px;padding:0 8px;cursor:pointer;font-size:14px;">📅</button>`:'<span></span>';
+      const calBtn=hasTime?`<button class="termin-row-btn" title="In Google Kalender eintragen" onclick="_openGcalZeitPC(${i})" style="background:#1a73e8;color:#fff;border:none;border-radius:5px;padding:0 8px;cursor:pointer;font-size:14px;">📅</button><button class="termin-row-btn" title="In Outlook Kalender eintragen" onclick="_openOutlookZeitPC(${i})" style="background:#0078d4;color:#fff;border:none;border-radius:5px;padding:0 8px;cursor:pointer;font-size:14px;">📆</button>`:'<span></span><span></span>';
       return `
     <div class="termin-row">
       <input type="date" value="${e.date||''}" oninput="syncZeitEntry(${i},'date',this.value)">
@@ -3782,8 +3789,11 @@ function parseAuftragText(text){
 
 function updateGcalModalBtn(){
   const status=document.getElementById('taskStatusInput').value||'';
+  const isAH=status.toLowerCase().includes('außerhaus');
   const btn=document.getElementById('gcalModalBtn');
-  if(btn)btn.style.display=status.toLowerCase().includes('außerhaus')?'':'none';
+  if(btn)btn.style.display=isAH?'':'none';
+  const obtn=document.getElementById('outlookModalBtn');
+  if(obtn)obtn.style.display=isAH?'':'none';
 }
 function openGoogleCalendarFromModal(){
   const title=encodeURIComponent(document.getElementById('taskTitleInput').value.trim()||'Termin');
@@ -3793,6 +3803,74 @@ function openGoogleCalendarFromModal(){
   let dates='';if(due){const d=due.replace(/-/g,'');dates=d+'/'+d;}
   window.open('https://calendar.google.com/calendar/render?action=TEMPLATE&text='+title+'&dates='+dates+'&details='+desc,'_blank');
 }
+// ── OUTLOOK KALENDER (ICS-Download) ──
+function _buildIcs(title,desc,dateStr,vonStr,bisStr){
+  const now=new Date();
+  const stamp=now.getFullYear()+_ez2(now.getMonth()+1)+_ez2(now.getDate())+'T'+_ez2(now.getHours())+_ez2(now.getMinutes())+'00Z';
+  let dtStart,dtEnd;
+  if(dateStr){
+    const d=dateStr.replace(/-/g,'');
+    if(vonStr&&bisStr){
+      function toT(hhmm){const[h,m]=(hhmm+':00').split(':');return d+'T'+(h||'00').padStart(2,'0')+(m||'00').padStart(2,'0')+'00';}
+      dtStart=toT(vonStr);dtEnd=toT(bisStr);
+    }else{
+      dtStart='VALUE=DATE:'+d;dtEnd='VALUE=DATE:'+d;
+    }
+  }else{
+    const d=now.getFullYear()+_ez2(now.getMonth()+1)+_ez2(now.getDate());
+    dtStart='VALUE=DATE:'+d;dtEnd='VALUE=DATE:'+d;
+  }
+  const esc2=s=>(s||'').replace(/\n/g,'\\n').replace(/,/g,'\\,').replace(/;/g,'\\;');
+  const lines=[
+    'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//PTP Workboard//DE','CALSCALE:GREGORIAN',
+    'BEGIN:VEVENT',
+    'DTSTAMP:'+stamp,
+    'UID:ptp-'+Date.now()+'@workboard',
+    'SUMMARY:'+esc2(title),
+    'DESCRIPTION:'+esc2(desc),
+    dtStart.startsWith('VALUE')?'DTSTART;'+dtStart:'DTSTART:'+dtStart,
+    dtEnd.startsWith('VALUE')?'DTEND;'+dtEnd:'DTEND:'+dtEnd,
+    'END:VEVENT','END:VCALENDAR'
+  ];
+  return lines.join('\r\n');
+}
+function _icsDownload(filename,icsContent){
+  const blob=new Blob([icsContent],{type:'text/calendar;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;
+  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);
+}
+function openOutlookCalendar(taskId,evt){
+  if(evt)evt.stopPropagation();
+  const task=findTaskById(taskId)||(boards[currentBoard]||[]).find(t=>t.id===taskId);
+  if(!task)return;
+  const desc=(task.desc||'')+(task.owner?'\nZuständig: '+task.owner:'');
+  const ics=_buildIcs(task.title,desc,task.due||'','','');
+  _icsDownload('termin.ics',ics);
+}
+function openOutlookCalendarFromModal(){
+  const title=document.getElementById('taskTitleInput').value.trim()||'Termin';
+  const owner=document.getElementById('taskOwnerInput').value.trim();
+  const desc=(document.getElementById('taskDescInput').value.trim()||'')+(owner?'\nZuständig: '+owner:'');
+  const due=document.getElementById('taskDueInput').value||'';
+  const ics=_buildIcs(title,desc,due,'','');
+  _icsDownload('termin.ics',ics);
+}
+function openOutlookTermin(i){
+  const t=taskAusserhausTermine[i];if(!t)return;
+  const title=(document.getElementById('taskTitleInput')?.value.trim()||'Außerhaus-Termin');
+  const ics=_buildIcs(title,t.beschreibung||'',t.date||'',t.von||'',t.bis||'');
+  _icsDownload('termin.ics',ics);
+}
+function _openOutlookZeitPC(i){
+  const e=taskZeitEntries[i];if(!e)return;
+  const openId=document.getElementById('taskId')?.value;
+  const task=findTaskById(openId)||{};
+  const title=e.beschreibung||task.title||'Zeiteintrag';
+  const desc=((task.title?task.title+'\n':''))+(e.beschreibung||'');
+  const ics=_buildIcs(title,desc,e.date||'',e.von||'',e.bis||'');
+  _icsDownload('zeiteintrag.ics',ics);
+}
+
 function toggleListSort(field){if(listSortField===field)listSortDir*=-1;else{listSortField=field;listSortDir=1;}render();}
 
 // ── FILTERS ──
