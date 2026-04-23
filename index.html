@@ -439,6 +439,34 @@ function tEmailOrdnerOeffnen(){var u=(document.getElementById('tEmailOrdner')||{
 // ── AUFTRAG ANLEGEN (Haupt-Drop-Zone) ──
 var _auftragPending=null; // speichert geparste E-Mail + Rohdaten bis Board gewählt
 
+// E-Mail-Header UTF-8 kodieren (RFC 2047 Base64)
+function _emlEncodeHeader(str){
+  if(!str)return '';
+  try{
+    var b64=btoa(unescape(encodeURIComponent(str)));
+    return '=?UTF-8?B?'+b64+'?=';
+  }catch(e){return str;}
+}
+// Quoted-Printable Encoding (einfach, für .eml-Body)
+function _textToQP(str){
+  if(!str)return '';
+  // Zeilen über 76 Zeichen mit = umbrechen, Nicht-ASCII kodieren
+  var out='';
+  var enc=new TextEncoder();
+  for(var i=0;i<str.length;i++){
+    var c=str.charCodeAt(i);
+    if(c===13)continue; // CR weglassen
+    if(c===10){out+='\r\n';continue;}
+    if(c>126||c===61||(c<32&&c!==9)){
+      var bytes=enc.encode(str[i]);
+      for(var b=0;b<bytes.length;b++)out+='='+bytes[b].toString(16).toUpperCase().padStart(2,'0');
+    }else{
+      out+=str[i];
+    }
+  }
+  return out;
+}
+
 async function _auftragDrop(dt){
   if(!gdriveToken){alert('Bitte zuerst mit Google Drive verbinden.');return;}
   var zone=document.getElementById('auftragDropBar');
@@ -582,19 +610,56 @@ async function _auftragConfirm(){
       if(pdfResult&&pdfResult.id){
         newTask.emailPdfs=[{name:pdfName,fileId:pdfResult.id,url:'https://drive.google.com/file/d/'+pdfResult.id+'/view',uploadedAt:new Date().toLocaleDateString('de-DE')}];
       }
-    }catch(e){console.warn('[PTP] PDF-Upload fehlgeschlagen:',e);}
+    }catch(e){console.warn('[PTP] PDF-Upload fehlgeschlagen:',e);showToast('⚠ PDF-Vorschau fehlgeschlagen: '+e.message,'error',6000);}
 
-    // Original-Datei hochladen
-    if(rawFile&&gdriveToken){
-      try{
-        var origName=stamp+'_'+_ezClean(info.subject)+(rawFile.name.toLowerCase().endsWith('.eml')?'.eml':'.msg');
-        var buf=await new Promise(function(res,rej){var r=new FileReader();r.onload=function(e){res(e.target.result);};r.onerror=rej;r.readAsArrayBuffer(rawFile);});
-        var origResult=await _driveUploadGeneric(buf,origName,'application/octet-stream',fid);
-        if(origResult&&origResult.id){
-          newTask.emailOriginals=[{name:info.subject||origName,fileId:origResult.id,url:'https://drive.google.com/file/d/'+origResult.id+'/view',uploadedAt:new Date().toLocaleDateString('de-DE')}];
+    // Original-Datei hochladen (oder synthetisches .eml aus Drag-Daten erzeugen)
+    try{
+      var origName=stamp+'_'+_ezClean(info.subject)+'.eml';
+      var origMime='message/rfc822';
+      var buf=null;
+
+      if(rawFile&&gdriveToken){
+        // Echte Datei: direkt als ArrayBuffer lesen
+        var isEml=rawFile.name.toLowerCase().endsWith('.eml');
+        if(!isEml){origName=origName.replace(/\.eml$/,'.msg');origMime='application/vnd.ms-outlook';}
+        buf=await new Promise(function(res,rej){var r=new FileReader();r.onload=function(e){res(e.target.result);};r.onerror=rej;r.readAsArrayBuffer(rawFile);});
+      } else if(info.bodyHtml||info.bodyText){
+        // Kein Datei-Drop (direkt aus Outlook gezogen) → synthetisches .eml bauen
+        var d2=info.date instanceof Date&&!isNaN(info.date)?info.date:new Date();
+        var emlLines=[
+          'MIME-Version: 1.0',
+          'Date: '+d2.toUTCString(),
+          'Subject: '+_emlEncodeHeader(info.subject||'(kein Betreff)'),
+          'From: '+(info.sender||'unbekannt'),
+          'Content-Type: multipart/alternative; boundary="ptp_eml_boundary"',
+          '',
+          '--ptp_eml_boundary',
+          'Content-Type: text/plain; charset=UTF-8',
+          'Content-Transfer-Encoding: quoted-printable',
+          '',
+          _textToQP(info.bodyText||''),
+        ];
+        if(info.bodyHtml){
+          emlLines=emlLines.concat([
+            '--ptp_eml_boundary',
+            'Content-Type: text/html; charset=UTF-8',
+            'Content-Transfer-Encoding: quoted-printable',
+            '',
+            _textToQP(info.bodyHtml),
+          ]);
         }
-      }catch(e){console.warn('[PTP] Original-Upload fehlgeschlagen:',e);}
-    }
+        emlLines.push('--ptp_eml_boundary--');
+        var emlStr=emlLines.join('\r\n');
+        buf=new TextEncoder().encode(emlStr).buffer;
+      }
+
+      if(buf&&gdriveToken){
+        var origResult=await _driveUploadGeneric(buf,origName,origMime,fid);
+        if(origResult&&origResult.id){
+          newTask.emailOriginals=[{name:info.subject||origName,filename:origName,fileId:origResult.id,url:'https://drive.google.com/file/d/'+origResult.id+'/view',uploadedAt:new Date().toLocaleDateString('de-DE')}];
+        }
+      }
+    }catch(e){console.warn('[PTP] Original-Upload fehlgeschlagen:',e);showToast('⚠ E-Mail Original fehlgeschlagen: '+e.message,'error',8000);}
   }
 
   // ── SCHRITT 3: Speichern und Modal öffnen (jetzt mit vollständigen E-Mail-Daten) ──
@@ -5420,7 +5485,7 @@ function renderEmailOriginals(){
       <span style="font-size:16px;flex-shrink:0;">📨</span>
       <span class="eo-name" title="${esc(e.name)}">${esc(e.name)}</span>
       <span class="eo-date">${esc(e.uploadedAt||'')}</span>
-      <button type="button" class="eo-icon-btn" onclick="_downloadEmailOrig('${esc(e.fileId)}','${esc(e.name)}')" title="In Downloads speichern → dort doppelklicken zum Öffnen in Outlook">⬇</button>
+      <button type="button" class="eo-icon-btn" onclick="_downloadEmailOrig('${esc(e.fileId)}','${esc(e.filename||e.name)}')" title="In Downloads speichern → dort doppelklicken zum Öffnen in Outlook">⬇</button>
       <a class="eo-icon-btn" href="${esc(e.url)}" target="_blank" title="In Google Drive anzeigen" style="text-decoration:none;">📂</a>
       <button type="button" class="eo-del" onclick="taskEmailOriginals.splice(${i},1);renderEmailOriginals();scheduleTaskFieldSave();" title="Eintrag entfernen (Datei bleibt in Drive)">✕</button>
     </div>`).join('');
@@ -5436,11 +5501,17 @@ async function _downloadEmailOrig(fileId,filename){
     });
     if(!r.ok)throw new Error('HTTP '+r.status);
     const arrayBuf=await r.arrayBuffer();
-    const blob=new Blob([arrayBuf],{type:'application/octet-stream'});
+    // MIME-Type anhand Endung setzen damit Windows/Mac die richtige App zuordnet
+    const lname=(filename||'').toLowerCase();
+    const mime=lname.endsWith('.eml')?'message/rfc822':lname.endsWith('.msg')?'application/vnd.ms-outlook':'application/octet-stream';
+    // Sicherstellen dass Dateiname die richtige Endung hat
+    let dlName=filename||'email';
+    if(!lname.endsWith('.eml')&&!lname.endsWith('.msg')&&!lname.endsWith('.pdf'))dlName+='.eml';
+    const blob=new Blob([arrayBuf],{type:mime});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
     a.href=url;
-    a.download=filename; // immer als Download (nicht im Browser öffnen)
+    a.download=dlName;
     a.style.display='none';
     document.body.appendChild(a);
     a.click();
