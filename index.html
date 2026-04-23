@@ -518,48 +518,41 @@ async function _auftragConfirm(){
 
   if(!boards[boardName])boards[boardName]=[];
   boards[boardName].push(newTask);
-  await autoSave(); // Task erst sichern, bevor Drive-Uploads beginnen
-  if(typeof showToast==='function')showToast('✅ Auftrag angelegt: '+newTask.title,'success',4000);
   if(currentBoard!==boardName){currentBoard=boardName;render();}
-  setTimeout(function(){openEditTaskModal(newTask.id);},150);
 
-  // ── SCHRITT 2: Drive-Upload nachträglich (optional, blockiert Task-Speicherung nicht) ──
+  // ── SCHRITT 2: Drive-Upload (vor Modal-Öffnen, damit Daten direkt sichtbar sind) ──
   var fid=_ezFolderId(_folderDefault);
-  if(!fid||!gdriveToken)return; // Kein Ordner oder kein Token → fertig, Task ist bereits gespeichert
+  if(fid&&gdriveToken){
+    var stamp=(function(){var d=info.date instanceof Date&&!isNaN(info.date)?info.date:new Date();return d.getFullYear()+'.'+_ez2(d.getMonth()+1)+'.'+_ez2(d.getDate());})();
+    var pdfName=stamp+'_'+_ezClean(info.subject)+'.pdf';
 
-  var stamp=(function(){var d=info.date instanceof Date&&!isNaN(info.date)?info.date:new Date();return d.getFullYear()+'.'+_ez2(d.getMonth()+1)+'.'+_ez2(d.getDate());})();
-  var pdfName=stamp+'_'+_ezClean(info.subject)+'.pdf';
-  var uploaded=false;
-
-  // PDF erstellen und hochladen
-  try{
-    if(typeof showToast==='function')showToast('⏳ E-Mail PDF wird hochgeladen…','info',4000);
-    var pdfData=await _ezBuildPdfFromHtml(info);
-    var pdfResult=await _ezUpload(pdfData,pdfName,fid);
-    if(pdfResult&&pdfResult.id){
-      newTask.emailPdfs=[{name:pdfName,fileId:pdfResult.id,url:'https://drive.google.com/file/d/'+pdfResult.id+'/view',uploadedAt:new Date().toLocaleDateString('de-DE')}];
-      uploaded=true;
-    }
-  }catch(e){console.warn('[PTP] PDF-Upload fehlgeschlagen (Task bleibt gespeichert):',e);}
-
-  // Original-Datei hochladen
-  if(rawFile&&gdriveToken){
+    // PDF erstellen und hochladen
     try{
-      var origName=stamp+'_'+_ezClean(info.subject)+(rawFile.name.toLowerCase().endsWith('.eml')?'.eml':'.msg');
-      var buf=await new Promise(function(res,rej){var r=new FileReader();r.onload=function(e){res(e.target.result);};r.onerror=rej;r.readAsArrayBuffer(rawFile);});
-      var origResult=await _driveUploadGeneric(buf,origName,'application/octet-stream',fid);
-      if(origResult&&origResult.id){
-        newTask.emailOriginals=[{name:info.subject||origName,fileId:origResult.id,url:'https://drive.google.com/file/d/'+origResult.id+'/view',uploadedAt:new Date().toLocaleDateString('de-DE')}];
-        uploaded=true;
+      if(typeof showToast==='function')showToast('⏳ E-Mail wird verarbeitet…','info',8000);
+      var pdfData=await _ezBuildPdfFromHtml(info);
+      var pdfResult=await _ezUpload(pdfData,pdfName,fid);
+      if(pdfResult&&pdfResult.id){
+        newTask.emailPdfs=[{name:pdfName,fileId:pdfResult.id,url:'https://drive.google.com/file/d/'+pdfResult.id+'/view',uploadedAt:new Date().toLocaleDateString('de-DE')}];
       }
-    }catch(e){console.warn('[PTP] Original-Upload fehlgeschlagen (Task bleibt gespeichert):',e);}
+    }catch(e){console.warn('[PTP] PDF-Upload fehlgeschlagen:',e);}
+
+    // Original-Datei hochladen
+    if(rawFile&&gdriveToken){
+      try{
+        var origName=stamp+'_'+_ezClean(info.subject)+(rawFile.name.toLowerCase().endsWith('.eml')?'.eml':'.msg');
+        var buf=await new Promise(function(res,rej){var r=new FileReader();r.onload=function(e){res(e.target.result);};r.onerror=rej;r.readAsArrayBuffer(rawFile);});
+        var origResult=await _driveUploadGeneric(buf,origName,'application/octet-stream',fid);
+        if(origResult&&origResult.id){
+          newTask.emailOriginals=[{name:info.subject||origName,fileId:origResult.id,url:'https://drive.google.com/file/d/'+origResult.id+'/view',uploadedAt:new Date().toLocaleDateString('de-DE')}];
+        }
+      }catch(e){console.warn('[PTP] Original-Upload fehlgeschlagen:',e);}
+    }
   }
 
-  // Falls Uploads erfolgreich: nochmals speichern mit den Drive-Links
-  if(uploaded&&gdriveToken){
-    await autoSave();
-    if(typeof showToast==='function')showToast('☁️ E-Mail in Drive gespeichert','success',3000);
-  }
+  // ── SCHRITT 3: Speichern und Modal öffnen (jetzt mit vollständigen E-Mail-Daten) ──
+  await autoSave();
+  if(typeof showToast==='function')showToast('✅ Auftrag angelegt: '+newTask.title,'success',4000);
+  setTimeout(function(){openEditTaskModal(newTask.id);},150);
 }
 
 // ── MODAL SIZE ──
