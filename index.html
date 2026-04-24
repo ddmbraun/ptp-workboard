@@ -870,21 +870,7 @@ async function _auftragConfirm(){
 }
 
 // ── MODAL SIZE ──
-const MODAL_SIZE_KEY='ptp_modal_size_v1';
-function setModalSize(val){
-  val=Math.min(180,Math.max(80,+val));
-  const slider=document.getElementById('modalSizeSlider');
-  const label=document.getElementById('modalSizeVal');
-  if(slider)slider.value=val;
-  if(label)label.textContent=val+'%';
-  document.getElementById('taskModalBox').style.setProperty('--modal-scale',val/100);
-  try{localStorage.setItem(MODAL_SIZE_KEY,val);}catch(e){}
-}
-function applyStoredModalSize(){
-  let val=100;
-  try{const s=localStorage.getItem(MODAL_SIZE_KEY);if(s)val=Math.min(180,Math.max(80,+s));}catch(e){}
-  setModalSize(val);
-}
+// setModalSize / applyStoredModalSize → siehe Hauptblock unten
 
 </script>
 <script src="https://cdn.jsdelivr.net/npm/piexifjs@1.0.6/piexif.js"></script>
@@ -1685,6 +1671,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       <div class="modal-timer-bar" id="modalTimerBar" style="margin-bottom:0;flex:1;">
         <div id="timerDisplayTop" class="timer-display">00:00:00</div>
         <button id="timerBtnTop" type="button" class="timer-toggle-btn" onclick="toggleTimer()">▶ Start</button>
+        <div id="timerEntries" class="timer-entries" style="font-size:11px;color:var(--text2);width:100%;"></div>
       </div>
       <div class="email-drop-zone" id="emailDropZone"
         ondragenter="event.preventDefault();this.classList.add('dragover')"
@@ -2878,7 +2865,7 @@ async function pollWorkboardFile(){
     render();
     workboardLastModified=meta.modifiedTime;
     try{
-      const ind=document.getElementById('fileStatus');
+      const ind=document.getElementById('fileMsg');
       if(ind)ind.textContent='↻ Aktualisiert vom Handy '+new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
     }catch(e){console.warn('[PTP]',e);}
   }catch(e){console.warn('[PTP]',e);}
@@ -5783,8 +5770,6 @@ function renderTimerDisplay(){
   const ms=task?getTaskTotalMs(task):0;
   const text=formatDuration(ms);
   const running=isTaskTimerRunning(taskId);
-  const el=document.getElementById('timerDisplay');
-  if(el){el.textContent=text;el.className='timer-display'+(running?' running':'');}
   const elTop=document.getElementById('timerDisplayTop');
   if(elTop){elTop.textContent=text;elTop.className='timer-display'+(running?' running':'');}
 }
@@ -5865,24 +5850,32 @@ function _openAttachLightbox(a){
       },100);
     }
   } else if(a.type==='application/pdf'||a.name.toLowerCase().endsWith('.pdf')){
-    const pdfSrc=a.data||(a.url?a.url:'');
-    if(pdfSrc){
-      inner='<iframe src="'+pdfSrc+'" style="width:85vw;height:85vh;border:none;border-radius:8px;background:#fff;" onclick="event.stopPropagation()"></iframe>';
-    } else if(a.fileId&&gdriveToken){
-      inner='<div style="color:#fff;padding:40px;text-align:center"><div style="font-size:14px;margin-bottom:12px;">⏳ PDF wird geladen…</div></div>';
-      // async nachladen
+    // Bevorzuge API-Fetch mit Token → Blob-URL (vermeidet Google-Anmeldefehler im iframe)
+    if(a.fileId&&gdriveToken){
+      inner='<div id="_pdfLoadWrap" style="color:#fff;padding:40px;text-align:center"><div style="font-size:14px;margin-bottom:12px;">⏳ PDF wird geladen…</div></div>';
       setTimeout(async()=>{
         try{
           const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(a.fileId)+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}});
-          if(!r.ok)throw new Error('HTTP '+r.status);
+          if(!r.ok)throw new Error('HTTP '+r.status+' – Drive-Zugriff verweigert');
           const blob=await r.blob();
           const url=URL.createObjectURL(blob);
           const iframe=document.createElement('iframe');
           iframe.src=url;iframe.style.cssText='width:85vw;height:85vh;border:none;border-radius:8px;background:#fff;';
-          const ph=document.querySelector('#_attachLbOverlay div[style*="padding:40px"]');
+          const ph=document.getElementById('_pdfLoadWrap');
           if(ph)ph.replaceWith(iframe);
-        }catch(e){const ph=document.querySelector('#_attachLbOverlay div[style*="padding:40px"]');if(ph)ph.textContent='⚠ Fehler: '+e.message;}
+        }catch(e){
+          const ph=document.getElementById('_pdfLoadWrap');
+          // Fallback: direkte URL (erfordert Browser-Anmeldung bei Google)
+          if(ph&&a.url){ph.innerHTML='<a href="'+a.url+'" target="_blank" style="color:#7af;font-size:15px;">PDF in neuem Tab öffnen 🔗</a><br><span style="font-size:12px;opacity:.6;">'+e.message+'</span>';}
+          else if(ph){ph.textContent='⚠ '+e.message;}
+        }
       },100);
+    } else if(a.data){
+      // base64-Data-URL (lokal, kein Drive-Upload nötig)
+      inner='<iframe src="'+a.data+'" style="width:85vw;height:85vh;border:none;border-radius:8px;background:#fff;" onclick="event.stopPropagation()"></iframe>';
+    } else if(a.url){
+      // Nur URL vorhanden, kein Token – direkt versuchen (evtl. Anmeldefehler)
+      inner='<iframe src="'+a.url+'" style="width:85vw;height:85vh;border:none;border-radius:8px;background:#fff;" onclick="event.stopPropagation()"></iframe>';
     } else {
       inner='<div style="color:#fff;padding:40px;text-align:center">PDF nicht verfügbar</div>';
     }
