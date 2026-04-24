@@ -1145,8 +1145,8 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .tel-call-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:38px;border-radius:7px;background:rgba(46,204,113,.1);color:var(--green);font-size:16px;text-decoration:none;flex-shrink:0;border:1px solid rgba(46,204,113,.3);}
 .tel-call-btn:hover{background:rgba(46,204,113,.25);}
 .tel-call-btn.disabled{opacity:.3;pointer-events:none;}
-.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
-.modal-actions button{padding:8px 18px;border-radius:6px;font-size:13px;font-weight:500;}
+.modal-actions{display:flex;gap:5px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap;}
+.modal-actions button,.modal-actions label.topbar-btn{padding:4px 10px!important;border-radius:5px;font-size:11px!important;font-weight:500;}
 .btn-danger{background:var(--red);color:#fff;}
 .btn-danger:hover{opacity:0.85;}
 
@@ -7228,26 +7228,37 @@ async function exportTaskZip(){
     showToast('📦 ZIP wird generiert…','info');
     const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
     const fname=safe+'_'+new Date().toISOString().slice(0,10)+'.zip';
-    // Drive-Ordner ermitteln
+    // Drive-Ordner ermitteln: erst Projektordner, dann Drive-Link
     const folderUrl=((document.getElementById('tGDOrdner')||{}).value||
                      (document.getElementById('tGD')||{}).value||'').trim();
     const fid2=folderUrl?_ezFolderId(folderUrl):null;
+    if(!fid2&&folderUrl){
+      // URL vorhanden aber ID konnte nicht extrahiert werden
+      console.warn('[PTP] ZIP-Export: Ordner-ID konnte nicht aus URL extrahiert werden:',folderUrl);
+    }
     if(fid2&&gdriveToken){
-      showToast('☁️ ZIP wird in Drive gespeichert…','info');
+      showToast('☁️ ZIP wird in Drive gespeichert… (Ordner: '+fid2.slice(0,8)+'…)','info');
       try{
         const ab=await blob.arrayBuffer();
         const res=await _driveUploadGeneric(ab,fname,'application/zip',fid2);
-        showToast('✅ In Drive gesichert: '+fname,'success',6000);
+        const driveLink=res&&res.id?'https://drive.google.com/file/d/'+res.id+'/view':'';
+        // Erfolg: Link anklickbar machen
+        const toastMsg='✅ In Drive gesichert: '+fname+(driveLink?' – <a href="'+driveLink+'" target="_blank" style="color:#fff;text-decoration:underline;">Öffnen ↗</a>':'');
+        showToast(toastMsg,'success',10000);
+        // Auch als direkter Link in Konsole
+        if(driveLink)console.info('[PTP] ZIP in Drive:',driveLink);
       }catch(e){
-        showToast('⚠ Drive-Upload fehlgeschlagen, lokaler Download: '+e.message,'error',6000);
+        showToast('⚠ Drive-Upload fehlgeschlagen – lokaler Download: '+e.message,'error',8000);
+        console.error('[PTP] ZIP Drive-Upload:',e);
         const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=fname;
         document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},5000);
       }
     }else{
-      // Kein Ordner hinterlegt → lokaler Download
+      // Kein Ordner hinterlegt oder ID nicht erkannt → lokaler Download
       const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=fname;
       document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},5000);
-      showToast('✅ Lokal gesichert: '+fname+(folderUrl?'':' (kein Drive-Ordner hinterlegt)'),'success',6000);
+      const reason=!folderUrl?' (kein Drive-Ordner im Task hinterlegt)':!fid2?' (Ordner-URL nicht erkannt)':!gdriveToken?' (Drive nicht verbunden)':'';
+      showToast('💾 Lokal gespeichert: '+fname+reason,'info',8000);
     }
   }catch(e){showToast('⚠ Export fehlgeschlagen: '+e.message,'error',8000);console.error('[PTP] Export:',e);}
 }
