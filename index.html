@@ -2503,8 +2503,9 @@ async function gdriveTokenCallback(resp) {
   if (resp.error) {
     // Stille Anmeldung fehlgeschlagen (prompt:none) oder Popup blockiert
     if (['interaction_required','access_denied','popup_failed_to_open','popup_closed'].includes(resp.error)) {
+      const _pendingAction = gdrivePendingAction;
       gdrivePendingAction = null;
-      // War vorher eine Datei verbunden? → Nutzer informieren statt lautlos aufgeben
+      // War vorher eine Datei verbunden?
       let _hadFile=false;
       try{const sf=JSON.parse(localStorage.getItem(PC_FILE_KEY)||'null');if(sf&&sf.id)_hadFile=true;}catch(e){}
       if(_hadFile){
@@ -2512,6 +2513,15 @@ async function gdriveTokenCallback(resp) {
         _showDriveWarnBanner(0);
         showToast('☁️ Drive-Sitzung abgelaufen – bitte Drive-Button drücken','error',8000);
         closeStartModal();
+      } else {
+        // Kein gespeicherter Datei-Stand → Start-Modal wieder zeigen + Hinweis
+        const sm=document.getElementById('startModal');
+        if(sm&&!sm.classList.contains('open'))sm.classList.add('open');
+        if(resp.error==='popup_failed_to_open'||resp.error==='popup_closed'){
+          showToast('⚠ Google-Anmelde-Popup wurde blockiert oder geschlossen – bitte nochmals versuchen und Popup erlauben','error',8000);
+        } else {
+          showToast('⚠ Google Drive Anmeldung fehlgeschlagen ('+resp.error+') – bitte nochmals versuchen','error',8000);
+        }
       }
       return;
     }
@@ -2717,20 +2727,46 @@ function gdriveRequestToken(action) {
   if (!gdriveTokenClient) {
     gdriveInit();
     if (!gdriveTokenClient) {
-      alert('Google Identity Services noch nicht geladen. Bitte kurz warten und erneut versuchen.');
+      // GSI noch nicht geladen → Start-Modal sichtbar lassen und Hinweis geben
+      showToast('⚠ Google-Dienst noch nicht geladen – bitte 2–3 Sekunden warten und nochmals drücken','error',6000);
+      gdrivePendingAction = null;
       return;
     }
   }
-  gdriveTokenClient.requestAccessToken();
+  // login_hint beschleunigt den Login (überspringt Konto-Auswahl wenn bekannt)
+  const hint = localStorage.getItem('ptp_user_email_v1') || '';
+  const opts = {};
+  if (hint) opts.login_hint = hint;
+  try {
+    gdriveTokenClient.requestAccessToken(opts);
+  } catch(e) {
+    showToast('⚠ Google Drive Anmeldung fehlgeschlagen: ' + e.message,'error',6000);
+    gdrivePendingAction = null;
+  }
 }
 
 function gdriveOpenExisting() {
+  // Erst prüfen ob Google-Dienst bereit ist
+  if (!gdriveToken && !gdriveTokenClient) {
+    gdriveInit();
+    if (!gdriveTokenClient) {
+      showToast('⚠ Google-Dienst noch nicht geladen – bitte 2–3 Sekunden warten und nochmals drücken','error',6000);
+      return;
+    }
+  }
   closeStartModal();
   if (!gdriveToken) { gdriveRequestToken('load'); return; }
   gdrivePickAndLoad();
 }
 
 function gdriveCreateNew() {
+  if (!gdriveToken && !gdriveTokenClient) {
+    gdriveInit();
+    if (!gdriveTokenClient) {
+      showToast('⚠ Google-Dienst noch nicht geladen – bitte 2–3 Sekunden warten und nochmals drücken','error',6000);
+      return;
+    }
+  }
   closeStartModal();
   if (!gdriveToken) { gdriveRequestToken('new'); return; }
   gdriveCreateFile();
