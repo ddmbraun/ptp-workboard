@@ -5725,8 +5725,6 @@ async function _uploadEmailOriginal(file){
         const text=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result||'');r.onerror=rej;r.readAsText(file);});
         const info=_parseEmlText(text);
         if(!info.subject)info.subject=file.name.replace(/\.eml$/i,'');
-        // ── Druckfenster für pixelgenaues PDF öffnen ──
-        _openEmailPrintWindow(info);
         const pdfBuf=await _ezBuildPdfFromHtml(info);
         const pdfName=_ezClean(info.subject||file.name.replace(/\.eml$/i,''))+'_Protokoll.pdf';
         const pdfResult=await _ezUpload(pdfBuf,pdfName,fid);
