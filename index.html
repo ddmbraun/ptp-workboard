@@ -1078,7 +1078,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 /* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;opacity:0;pointer-events:none;transition:opacity .2s;}
 .modal-overlay.open{opacity:1;pointer-events:all;}
-.modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg2);border-radius:12px;padding:calc(24px * var(--modal-scale, 1)) calc(24px * var(--modal-scale, 1)) 0;width:520px;min-width:340px;min-height:200px;max-width:98vw;max-height:94vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px var(--shadow);}
+.modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg2);border-radius:12px;padding:calc(24px * var(--modal-scale, 1)) calc(24px * var(--modal-scale, 1)) 0;width:640px;min-width:340px;min-height:200px;max-width:98vw;max-height:94vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px var(--shadow);}
 .modal.is-placed{transform:none;}
 .modal-scroll-body{flex:1;overflow:auto;padding-bottom:8px;}
 .modal-resize-bar{flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:10px;padding:4px 10px 4px 10px;border-top:1px solid var(--border);background:var(--bg3);border-radius:0 0 12px 12px;user-select:none;position:relative;}
@@ -1108,7 +1108,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .modal-field textarea.expandable-ta.expanded{min-height:calc(280px * var(--modal-scale, 1));font-size:calc(14px * var(--modal-scale, 1));line-height:1.5;}
 .modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .modal-field.full{grid-column:1/-1;}
-.form-collapse{margin-top:14px;border-top:1px solid var(--border);}
+.form-collapse{margin-top:6px;border-top:1px solid var(--border);}
 .form-collapse-header{display:flex;align-items:center;justify-content:space-between;padding:5px 0 4px;cursor:pointer;user-select:none;-webkit-user-select:none;}
 .form-collapse-title{font-size:calc(11px * var(--modal-scale, 1));font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;}
 .form-collapse-arrow{color:var(--text2);font-size:13px;transition:transform .2s;}
@@ -1213,7 +1213,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .timer-display.running{color:var(--green);animation:timerPulse 1s ease-in-out infinite;}
 .modal-timer-bar{display:flex;align-items:center;gap:10px;padding:4px 12px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);margin-bottom:12px;}
 .modal-timer-bar .timer-display{font-size:22px;letter-spacing:2px;padding:0;flex:1;text-align:left;}
-.modal-timer-bar .timer-toggle-btn{padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;background:rgba(46,204,113,.15);color:var(--green);border:1.5px solid var(--green);white-space:nowrap;}
+.modal-timer-bar .timer-toggle-btn{padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;background:rgba(46,204,113,.15);color:var(--green);border:1.5px solid var(--green);white-space:nowrap;}
 .modal-timer-bar .timer-toggle-btn.stop{background:rgba(231,76,60,.15);color:var(--red);border-color:var(--red);}
 .modal-timer-bar .timer-toggle-btn:hover{filter:brightness(1.15);}
 @keyframes timerPulse{0%,100%{opacity:1;}50%{opacity:.75;}}
@@ -1679,7 +1679,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
         ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('dragover')"
         ondrop="event.preventDefault();this.classList.remove('dragover');handleEmailDrop(event.dataTransfer,this)"
         onclick="if(this.classList.contains('error'))_ezReset()"
-        style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:0;padding:6px 10px;">
+        style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:0;padding:3px 10px;">
         <span id="emailDropZoneMsg" style="text-align:center;font-size:12px;">&#128231; E-Mail / PDF hier hineinziehen<br><small style="opacity:.7">&#8594; direkt in Google Drive</small></span>
         <label style="cursor:pointer;padding:3px 10px;border-radius:5px;background:rgba(39,174,96,0.15);border:1px solid #27ae60;font-size:11px;color:#1a7a40;white-space:nowrap;">
           &#128193; Datei ausw&#228;hlen
@@ -1691,7 +1691,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <div class="modal-field" style="margin-bottom:5px"><label>Titel *</label><input type="text" id="taskTitleInput" placeholder="Task-Titel eingeben…" oninput="scheduleTaskFieldSave();_updateStammSummary()"></div>
     <!-- Ausklappbare Detailfelder -->
     <div class="form-collapse" id="tStammSect" style="border-bottom:1px solid var(--border);margin-bottom:6px;">
-      <div class="form-collapse-header" onclick="toggleFormSection('tStammSect')" style="padding:5px 0 5px;">
+      <div class="form-collapse-header" onclick="toggleFormSection('tStammSect')">
         <span id="tStammSummary" style="font-size:11px;color:var(--text2);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">–</span>
         <span class="form-collapse-arrow" style="margin-left:6px;">▾</span>
       </div>
@@ -6226,8 +6226,9 @@ async function _printEmailFromDrive(fileId,filename){
 }
 
 // PDF-Vorschau rendern → jetzt über unified renderEmailSection()
-function openEmailPdfPreview(fileId,name){
+async function openEmailPdfPreview(fileId,name){
   if(!fileId)return;
+  if(!gdriveToken){showToast('⚠ Bitte zuerst mit Google Drive verbinden.','error');return;}
   // Vorhandenes Popup entfernen
   const old=document.getElementById('emailPdfPopup');if(old)old.remove();
   // Overlay
@@ -6242,13 +6243,28 @@ function openEmailPdfPreview(fileId,name){
   const drag=document.createElement('div');
   drag.className='pdf-preview-drag';
   drag.innerHTML='<span title="'+esc(name||'E-Mail PDF')+'">📄 '+esc(name||'E-Mail PDF')+'</span>'
-    +'<button onclick="document.getElementById(\'emailPdfPopup\').remove()" title="Schließen">✕</button>';
-  // iframe
-  const frame=document.createElement('iframe');
-  frame.src='https://drive.google.com/file/d/'+encodeURIComponent(fileId)+'/preview';
-  frame.allow='autoplay';frame.style.cssText='flex:1;border:none;min-height:0;';
-  box.appendChild(drag);box.appendChild(frame);
+    +'<button onclick="document.getElementById('emailPdfPopup').remove()" title="Schließen">✕</button>';
+  // Lade-Anzeige
+  const loader=document.createElement('div');
+  loader.style.cssText='flex:1;display:flex;align-items:center;justify-content:center;font-size:14px;color:#666;';
+  loader.textContent='⏳ PDF wird geladen…';
+  box.appendChild(drag);box.appendChild(loader);
   overlay.appendChild(box);document.body.appendChild(overlay);
+  // PDF via API laden → Blob-URL (kein Browser-Login nötig)
+  try{
+    const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(fileId)+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const blob=await r.blob();
+    const url=URL.createObjectURL(blob);
+    const frame=document.createElement('iframe');
+    frame.src=url;
+    frame.allow='autoplay';frame.style.cssText='flex:1;border:none;min-height:0;';
+    loader.replaceWith(frame);
+  }catch(e){
+    loader.textContent='⚠ Fehler beim Laden: '+e.message;
+    loader.style.color='#c0392b';
+    if(e.message.includes('401'))_handleDrive401();
+  }
   // Drag-Logik
   let dragging=false,ox=0,oy=0;
   drag.addEventListener('mousedown',function(e){
