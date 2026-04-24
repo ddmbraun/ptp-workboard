@@ -5063,7 +5063,7 @@ async function openFotoDesktop(i){
           cnt.innerHTML='<img src="'+esc(url)+'" alt="" id="deskLbImg">';
         }
       };
-      testImg.onerror=()=>{cnt.style.display='';cnt.innerHTML='<img src="'+esc(url)+'" alt="" id="deskLbImg">';};
+      testImg.onerror=()=>{cnt.style.display='';cnt.innerHTML='<img src="'+esc(url)+'" alt="" id="deskLbImgFallback">';};
       testImg.src=url;return;
     }
   }
