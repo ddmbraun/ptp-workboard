@@ -3981,6 +3981,32 @@ function parseAuftragText(text){
       }
       return'';
     };
+    // Mehrzeiliger Leser – für Felder wie Baustelle_Schadensbild die mehrere Zeilen umfassen können
+    const getMultiline=key=>{
+      if(!lines||!Array.isArray(lines))return'';
+      for(let i=0;i<lines.length;i++){
+        const line=lines[i];
+        if(!line||typeof line!=='string')continue;
+        if(line.toLowerCase().includes(key.toLowerCase()+':')){
+          const idx=line.indexOf(':');
+          if(idx<0)continue;
+          let val=line.substring(idx+1).trim();
+          // Folgezeilen lesen bis zum nächsten Schlüssel oder Abschnitts-Header
+          for(let j=i+1;j<lines.length;j++){
+            const nl=(lines[j]||'').replace(/\r/g,'');
+            const nlt=nl.trim();
+            // Stopp bei Abschnitts-Headern (GROSSBUCHSTABEN wie EIGENTUEMER, MIETER)
+            if(nlt.length>2&&/^[A-Z][A-Z0-9_]+$/.test(nlt))break;
+            // Stopp bei neuem Schlüssel-Wert-Paar (z.B. "Eigentuemer_Name:")
+            if(/^[A-Za-z][A-Za-z0-9_]{1,39}:/.test(nlt))break;
+            if(val!==''||nlt!=='')val+=(val?'\n':'')+nlt;
+          }
+          const result=val.trim();
+          return(result==='(noch offen)'||result==='')?'':result;
+        }
+      }
+      return'';
+    };
 
     const kostenstelle=get('Auftrag_Kostenstelle');
     const auftragDatum=get('Auftrag_Datum');
@@ -3992,7 +4018,7 @@ function parseAuftragText(text){
     const kundenNr=get('Kunden_Nr');
     const terminAbgabe=get('Termin_Abgabe');
     const terminOrt=get('Termin_Ortstermin');
-    const schadensbild=get('Baustelle_Schadensbild');
+    const schadensbild=getMultiline('Baustelle_Schadensbild');
     const hausverwaltung=get('Objekt_Hausverwaltung');
     const nasOrdner=get('NAS_Auftragsordner');
     const mieterTel=get('Mieter_Telefon');
@@ -7649,12 +7675,12 @@ async function importTaskFromZip(file){
         if(uploaded>0){
           renderEmailSection();renderAttachList();
           scheduleTaskFieldSave();
-          showToast('\u2705 '+uploaded+' Datei(en) in Drive hochgeladen','success',5000);
+          showToast('✅ '+uploaded+' Datei(en) in Drive hochgeladen','success',5000);
         }
       }
     }
   }catch(e){
-    showToast('\u26a0 Fehler beim Einlesen: '+e.message,'error',6000);
+    showToast('⚠ Fehler beim Einlesen: '+e.message,'error',6000);
     console.error('[PTP] importTaskFromZip:',e);
   }
 }
