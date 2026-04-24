@@ -6262,7 +6262,7 @@ async function openEmailPdfPreview(fileId,name){
   const drag=document.createElement('div');
   drag.className='pdf-preview-drag';
   drag.innerHTML='<span title="'+esc(name||'E-Mail PDF')+'">📄 '+esc(name||'E-Mail PDF')+'</span>'
-    +'<button onclick="document.getElementById('emailPdfPopup').remove()" title="Schließen">✕</button>';
+    +'<button onclick="document.getElementById(\'emailPdfPopup\').remove()" title="Schließen">✕</button>';
   // Lade-Anzeige
   const loader=document.createElement('div');
   loader.style.cssText='flex:1;display:flex;align-items:center;justify-content:center;font-size:14px;color:#666;';
