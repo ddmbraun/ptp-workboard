@@ -1179,7 +1179,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .aic:hover .aic-tip{opacity:1;}
 .attach-drop-zone{border:1.5px dashed var(--border);border-radius:6px;padding:12px;text-align:center;font-size:12px;color:var(--text2);cursor:pointer;transition:all .15s;}
 .attach-drop-zone:hover,.attach-drop-zone.dragover{border-color:var(--accent);background:rgba(108,99,255,0.06);color:var(--text);}
-.email-drop-zone{border:1.5px dashed #27ae60;border-radius:6px;padding:14px 12px;text-align:center;font-size:12px;color:#27ae60;cursor:default;transition:all .15s;margin-top:8px;background:rgba(39,174,96,0.04);}
+.email-drop-zone{border:1.5px dashed #27ae60;border-radius:6px;padding:7px 12px;text-align:center;font-size:12px;color:#27ae60;cursor:default;transition:all .15s;margin-top:8px;background:rgba(39,174,96,0.04);}
 .email-drop-zone.dragover{border-color:#1e8449;background:rgba(39,174,96,0.12);color:#1e8449;}
 .email-drop-zone.success{border-color:#27ae60;background:rgba(39,174,96,0.12);color:#1a7a40;}
 .email-drop-zone.error{border-color:var(--red);background:rgba(231,76,60,0.08);color:var(--red);}
@@ -1211,7 +1211,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 /* TIMER */
 .timer-display{font-size:34px;font-weight:700;color:var(--accent2);font-variant-numeric:tabular-nums;letter-spacing:3px;text-align:center;padding:10px 0 8px;font-family:'Courier New',monospace;}
 .timer-display.running{color:var(--green);animation:timerPulse 1s ease-in-out infinite;}
-.modal-timer-bar{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);margin-bottom:12px;}
+.modal-timer-bar{display:flex;align-items:center;gap:10px;padding:4px 12px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);margin-bottom:12px;}
 .modal-timer-bar .timer-display{font-size:22px;letter-spacing:2px;padding:0;flex:1;text-align:left;}
 .modal-timer-bar .timer-toggle-btn{padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;background:rgba(46,204,113,.15);color:var(--green);border:1.5px solid var(--green);white-space:nowrap;}
 .modal-timer-bar .timer-toggle-btn.stop{background:rgba(231,76,60,.15);color:var(--red);border-color:var(--red);}
@@ -7746,6 +7746,7 @@ function _openNotizOverlay(){
   ov.addEventListener('click',function(e){if(e.target===ov)_save();});
   document.addEventListener('keydown',function _esc(e){if(e.key==='Escape'){_save();document.removeEventListener('keydown',_esc);}});
 }
+
 
 </script>
 </body>
