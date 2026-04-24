@@ -502,6 +502,26 @@ function _textToQP(str){
   return out;
 }
 
+// ── PDF → AUFTRAG ANLEGEN ──
+var _pdfAuftragPending=null;
+
+function _pdfAuftragFileSelect(evt){
+  var f=evt.target.files&&evt.target.files[0];
+  evt.target.value='';
+  if(!f)return;
+  _pdfAuftragDrop({files:[f]});
+}
+
+async function _pdfAuftragDrop(dt){
+  var f=dt.files&&[].slice.call(dt.files).find(function(x){return /\.pdf$/i.test(x.name);});
+  if(!f){showToast('⚠ Bitte eine PDF-Datei verwenden.','error');return;}
+  var title=f.name.replace(/\.pdf$/i,'').replace(/[_\-]+/g,' ').trim();
+  _pdfAuftragPending={file:f,title:title};
+  // Board-Auswahl Popup (selbes Popup wie E-Mail, aber PDF-Modus)
+  document.getElementById('auftragPopupMode').value='pdf';
+  _auftragShowPopup('📄 '+title);
+}
+
 async function _auftragDrop(dt){
   if(!gdriveToken){alert('Bitte zuerst mit Google Drive verbinden.');return;}
   var zone=document.getElementById('auftragDropBar');
@@ -552,6 +572,45 @@ function _auftragFileSelect(evt){
   _auftragDrop(dt);
 }
 
+async function _pdfAuftragCreate(boardName){
+  var p=_pdfAuftragPending;_pdfAuftragPending=null;
+  if(!p)return;
+  var _isNotiz=(boardTypes[boardName]||'baustelle')==='notiz';
+  var _folderDefault=_isNotiz
+    ?'https://drive.google.com/drive/u/0/folders/18z9bRXtzUteTCf0Xu58gKti0ykHuZEGB'
+    :'https://drive.google.com/drive/u/0/folders/1GBcSWtUkKw7pJJ2CKvbTs_WZCZ1_RJ07';
+  var newTask={
+    id:generateId(),
+    title:p.title||'Neuer Auftrag',
+    desc:'',owner:'Braun',due:'',
+    status:(getBoardStatuses(boardName)||[])[0]||'',
+    ampel:'grün',ausführungsdatum:'',tags:[],source:'',repNr:'',kundenNr:'',
+    hausverwaltung:'',adresse:'',schadensbild:'',kontakte:[],
+    links:[],attachments:[],ausserhausTermine:[],zeitEntries:[],
+    notizVerlauf:[],fotos:[],checkliste:[],gmailLinks:[],
+    emailPdfs:[],emailOriginals:[],
+    gdriveOrdner:_folderDefault,emailOrdner:_folderDefault,gdrive:'',nas:''
+  };
+  if(!boards[boardName])boards[boardName]=[];
+  boards[boardName].push(newTask);
+  if(currentBoard!==boardName){currentBoard=boardName;render();}
+  // PDF in Drive hochladen (im Hintergrund, blockiert Modal nicht)
+  var fid=_ezFolderId(_folderDefault);
+  if(fid&&gdriveToken&&p.file){
+    showToast('⏳ PDF wird hochgeladen…','info',5000);
+    try{
+      var buf=await new Promise(function(res,rej){var r=new FileReader();r.onload=function(e){res(e.target.result);};r.onerror=rej;r.readAsArrayBuffer(p.file);});
+      var result=await _driveUploadGeneric(buf,p.file.name,'application/pdf',fid);
+      if(result&&result.id){
+        newTask.attachments=[{name:p.file.name,fileId:result.id,url:'https://drive.google.com/file/d/'+result.id+'/view',uploadedAt:new Date().toLocaleDateString('de-DE')}];
+      }
+      showToast('✅ PDF gespeichert: '+p.file.name,'success',3000);
+    }catch(e){showToast('⚠ PDF-Upload fehlgeschlagen: '+e.message,'error',6000);console.warn('[PTP] PDF-Upload:',e);}
+  }
+  await autoSave();
+  setTimeout(function(){openEditTaskModal(newTask.id);},150);
+}
+
 function _auftragShowPopup(subject){
   var sel=document.getElementById('auftragBoardSel');
   sel.innerHTML='';
@@ -581,7 +640,10 @@ async function _auftragConfirm(){
   if(!boardName||!boards[boardName]){alert('Board nicht gefunden.');return;}
   document.getElementById('auftragBoardPopup').style.display='none';
   localStorage.setItem('ptp_auftrag_last_board',boardName);
-
+  // PDF-Modus: separaten Flow starten
+  var mode=(document.getElementById('auftragPopupMode')||{}).value||'email';
+  if(mode==='pdf'){document.getElementById('auftragPopupMode').value='email';return _pdfAuftragCreate(boardName);}
+  if(mode==='ziprestore'){document.getElementById('auftragPopupMode').value='email';return _zipRestoreCreate(boardName);}
   var p=_auftragPending;_auftragPending=null;
   if(!p)return;
   var info=p.info;var rawFile=p.rawFile;
@@ -1332,6 +1394,9 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       <span class="card-size-val" id="cardSizeVal">100%</span>
     </div>
     <button class="btn-auftrag" onclick="openAuftragDatei()">📋 Auftrag anlegen</button>
+    <label class="topbar-btn" title="Task aus ZIP-Sicherung wiederherstellen" style="background:var(--bg3);border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:12px;font-weight:500;padding:6px 12px;border-radius:6px;display:inline-flex;align-items:center;gap:5px;">↩ ZIP
+      <input type="file" accept=".zip" style="display:none" onchange="_zipRestoreDrop(this.files[0]);this.value='';">
+    </label>
     <button class="topbar-btn btn-primary" onclick="openNewTaskModal()">+ Neuer Task</button>
   </div>
   <input type="file" id="auftragFileInput" accept=".txt" style="display:none" onchange="readAuftragDatei(event)">
@@ -1392,7 +1457,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
   </div>
 </div>
 
-<!-- AUFTRAG ANLEGEN DROP-ZONE -->
+<!-- AUFTRAG ANLEGEN DROP-ZONES -->
 <div id="auftragDropBar"
   ondragenter="event.preventDefault();this.classList.add('adz-hover')"
   ondragover="event.preventDefault();this.classList.add('adz-hover');event.dataTransfer.dropEffect='copy'"
@@ -1406,9 +1471,23 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <input type="file" accept=".msg,.eml" style="display:none" onchange="_auftragFileSelect(event)">
   </label>
 </div>
+<div id="pdfAuftragDropBar"
+  ondragenter="event.preventDefault();this.classList.add('adz-hover')"
+  ondragover="event.preventDefault();this.classList.add('adz-hover');event.dataTransfer.dropEffect='copy'"
+  ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('adz-hover')"
+  ondrop="event.preventDefault();this.classList.remove('adz-hover');_pdfAuftragDrop(event.dataTransfer)"
+  class="auftrag-drop-bar" style="border-top:1px solid var(--border);">
+  <span class="adz-icon">📄</span>
+  <span class="adz-text">PDF hier ablegen → <strong>Auftrag anlegen</strong></span>
+  <label class="adz-file-btn" title="PDF auswählen">
+    📁 PDF wählen
+    <input type="file" accept=".pdf" style="display:none" onchange="_pdfAuftragFileSelect(event)">
+  </label>
+</div>
 <!-- Board-Auswahl Popup (erscheint nach E-Mail-Drop) -->
 <div id="auftragBoardPopup" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.45);align-items:center;justify-content:center;">
   <div style="background:var(--bg2);border-radius:12px;padding:24px 28px;min-width:320px;max-width:420px;box-shadow:0 8px 40px var(--shadow);">
+    <input type="hidden" id="auftragPopupMode" value="email">
     <div style="font-size:15px;font-weight:700;margin-bottom:6px;">📨 Auftrag anlegen</div>
     <div id="auftragPopupSubject" style="font-size:12px;color:var(--text2);margin-bottom:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
     <label style="font-size:11px;color:var(--text2);font-weight:600;display:block;margin-bottom:6px;">In welchem Board anlegen?</label>
@@ -7011,13 +7090,120 @@ async function exportTaskZip(){
     showToast('📦 ZIP wird generiert…','info');
     const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
     const fname=safe+'_'+new Date().toISOString().slice(0,10)+'.zip';
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');a.href=url;a.download=fname;
-    document.body.appendChild(a);a.click();
-    setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},5000);
-    showToast('✅ Gesichert: '+fname,'success',6000);
+    // Drive-Ordner ermitteln
+    const folderUrl=((document.getElementById('tGDOrdner')||{}).value||
+                     (document.getElementById('tGD')||{}).value||'').trim();
+    const fid2=folderUrl?_ezFolderId(folderUrl):null;
+    if(fid2&&gdriveToken){
+      showToast('☁️ ZIP wird in Drive gespeichert…','info');
+      try{
+        const ab=await blob.arrayBuffer();
+        const res=await _driveUploadGeneric(ab,fname,'application/zip',fid2);
+        showToast('✅ In Drive gesichert: '+fname,'success',6000);
+      }catch(e){
+        showToast('⚠ Drive-Upload fehlgeschlagen, lokaler Download: '+e.message,'error',6000);
+        const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=fname;
+        document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},5000);
+      }
+    }else{
+      // Kein Ordner hinterlegt → lokaler Download
+      const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=fname;
+      document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},5000);
+      showToast('✅ Lokal gesichert: '+fname+(folderUrl?'':' (kein Drive-Ordner hinterlegt)'),'success',6000);
+    }
   }catch(e){showToast('⚠ Export fehlgeschlagen: '+e.message,'error',8000);console.error('[PTP] Export:',e);}
 }
+
+// ── ZIP-WIEDERHERSTELLUNG VOM BOARD (erstellt neuen Task) ──
+async function _zipRestoreDrop(file){
+  if(!file||!file.name.toLowerCase().endsWith('.zip')){showToast('⚠ Bitte eine .zip Datei wählen','error');return;}
+  showToast('⏳ ZIP wird gelesen…','info');
+  try{
+    await _loadJSZip();
+    const buf=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsArrayBuffer(file);});
+    const zip=await JSZip.loadAsync(buf);
+    const jsonFile=zip.file('aufgabe.json');
+    if(!jsonFile){showToast('⚠ Keine aufgabe.json in der ZIP gefunden','error');return;}
+    const data=JSON.parse(await jsonFile.async('text'));
+    // Board-Auswahl Popup
+    _zipRestorePending={zip,data};
+    document.getElementById('auftragPopupMode').value='ziprestore';
+    _auftragShowPopup('↩ '+( data.title||'Task wiederherstellen'));
+  }catch(e){showToast('⚠ Fehler: '+e.message,'error',8000);console.error('[PTP] ZIP-Restore:',e);}
+}
+
+async function _zipRestoreCreate(boardName){
+  const p=_zipRestorePending;_zipRestorePending=null;
+  if(!p)return;
+  const {zip,data}=p;
+  const _isNotiz=(boardTypes[boardName]||'baustelle')==='notiz';
+  const _folderDefault=_isNotiz
+    ?'https://drive.google.com/drive/u/0/folders/18z9bRXtzUteTCf0Xu58gKti0ykHuZEGB'
+    :'https://drive.google.com/drive/u/0/folders/1GBcSWtUkKw7pJJ2CKvbTs_WZCZ1_RJ07';
+  // Neuen Task aus JSON-Daten aufbauen
+  const newTask={
+    id:generateId(),
+    title:data.title||'Wiederhergestellter Task',
+    desc:'',owner:'Braun',due:'',
+    status:(getBoardStatuses(boardName)||[])[0]||'',
+    ampel:'grün',ausführungsdatum:'',tags:[],source:'',repNr:'',kundenNr:'',
+    hausverwaltung:data.hausverwaltung||'',
+    adresse:data.adresse||'',
+    schadensbild:data.schadensbild||'',
+    kontakte:[],
+    links:data.links||[],
+    attachments:data.attachments||[],
+    ausserhausTermine:data.ausserhausTermine||[],
+    zeitEntries:data.zeitEntries||[],
+    notizVerlauf:data.notizVerlauf||[],
+    fotos:data.fotos||[],
+    checkliste:data.checkliste||[],
+    gmailLinks:data.gmailLinks||[],
+    emailPdfs:data.emailPdfs||[],
+    emailOriginals:data.emailOriginals||[],
+    gdriveOrdner:data.gdOrdner||_folderDefault,
+    emailOrdner:data.emailOrdner||_folderDefault,
+    gdrive:data.gdOrdnerAlt||'',
+    nas:data.nas||''
+  };
+  if(!boards[boardName])boards[boardName]=[];
+  boards[boardName].push(newTask);
+  if(currentBoard!==boardName){currentBoard=boardName;render();}
+  await autoSave();
+  showToast('⏳ Task angelegt – Dateien werden in Drive hochgeladen…','info',5000);
+  // Dateien aus ZIP in Drive hochladen
+  const folderUrl=newTask.gdriveOrdner||newTask.emailOrdner||'';
+  const fid=folderUrl?_ezFolderId(folderUrl):null;
+  if(fid&&gdriveToken){
+    let uploaded=0;
+    for(const [folder,pushFn] of [
+      ['emails', e=>newTask.emailOriginals.push(e)],
+      ['email_pdfs', e=>newTask.emailPdfs.push(e)],
+      ['anhaenge', e=>newTask.attachments.push(e)]
+    ]){
+      const paths=Object.keys(zip.files).filter(n=>n.startsWith(folder+'/'));
+      for(const path of paths){
+        const zf=zip.file(path);if(!zf||zf.dir)continue;
+        const name=path.split('/').pop();
+        try{
+          const b=await zf.async('arraybuffer');
+          const lname=name.toLowerCase();
+          const mime=lname.endsWith('.eml')?'message/rfc822':lname.endsWith('.pdf')?'application/pdf':'application/octet-stream';
+          const res=await _driveUploadGeneric(b,name,mime,fid);
+          pushFn({name,fileId:res.id,url:'https://drive.google.com/file/d/'+res.id+'/view',uploadedAt:new Date().toLocaleDateString('de-DE')});
+          uploaded++;
+        }catch(err){console.warn('[PTP] ZIP-Upload '+name+':',err);}
+      }
+    }
+    if(uploaded)await autoSave();
+    showToast('✅ Task wiederhergestellt – '+uploaded+' Datei(en) hochgeladen','success',6000);
+  }else{
+    showToast('✅ Task-Daten wiederhergestellt'+((!gdriveToken||!fid)?' (Drive verbinden & Ordner prüfen für Dateien)':''),'success',6000);
+  }
+  setTimeout(()=>openEditTaskModal(newTask.id),300);
+}
+
+var _zipRestorePending=null;
 
 async function importTaskFromZip(file){
   if(!file||!file.name.toLowerCase().endsWith('.zip')){showToast('⚠ Bitte eine .zip Datei wählen','error');return;}
