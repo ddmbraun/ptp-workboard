@@ -200,7 +200,7 @@ async function _ezBuildPdfFromHtml(info){
   hdr+='</div></div>';
 
   // HTML-Body in isoliertem Bereich einfügen (base-href entfernen, externe Bilder erlauben)
-  var cleanHtml=info.bodyHtml.replace(/<base[^>]*>/gi,'').replace(/<script[\s\S]*?<\/script>/gi,'');
+  var cleanHtml=info.bodyHtml.replace(/<base[^>]*>/gi,'').replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<link[^>]+rel=["']?stylesheet["']?[^>]*>/gi,'').replace(/@font-face\s*\{[^}]*\}/gi,'').replace(/@import\s+url\([^)]*\)[^;]*;/gi,'');
   wrap.innerHTML=hdr+'<div style="padding:16px 20px;line-height:1.55;color:#1e2337;word-break:break-word;">'+cleanHtml+'</div>';
   document.body.appendChild(wrap);
 
@@ -228,14 +228,14 @@ async function _ezBuildPdfFromHtml(info){
             var objUrl=URL.createObjectURL(blob);
             var t2=setTimeout(function(){
               if(done)return;done=true;clearTimeout(timer);
-              URL.revokeObjectURL(objUrl);img.style.display='none';resolve();
+              img.src='';URL.revokeObjectURL(objUrl);img.style.display='none';resolve();
             },3000);
             img.onload=function(){
               if(done)return;done=true;clearTimeout(timer);clearTimeout(t2);resolve();
             };
             img.onerror=function(){
               if(done)return;done=true;clearTimeout(timer);clearTimeout(t2);
-              URL.revokeObjectURL(objUrl);img.style.display='none';resolve();
+              img.src='';URL.revokeObjectURL(objUrl);img.style.display='none';resolve();
             };
             img.src=objUrl;
             if(img.complete&&img.naturalWidth>0){done=true;clearTimeout(timer);clearTimeout(t2);resolve();}
@@ -6442,7 +6442,12 @@ function _openEmailPrintWindow(info,w){
   const e2=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const dateStr=d.toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})+', '+d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})+' Uhr';
   const bodyContent=info.bodyHtml
-    ?info.bodyHtml.replace(/<base[^>]*>/gi,'').replace(/<script[\s\S]*?<\/script>/gi,'')
+    ?info.bodyHtml
+      .replace(/<base[^>]*>/gi,'')
+      .replace(/<script[\s\S]*?<\/script>/gi,'')
+      .replace(/<link[^>]+rel=["']?stylesheet["']?[^>]*>/gi,'')
+      .replace(/@font-face\s*\{[^}]*\}/gi,'')
+      .replace(/@import\s+url\([^)]*\)[^;]*;/gi,'')
     :'<pre style="font-family:Arial,sans-serif;font-size:10pt;white-space:pre-wrap;margin:0;">'+e2(info.bodyText||'')+'</pre>';
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
 <title>${e2(info.subject||'E-Mail')}</title>
