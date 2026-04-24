@@ -950,6 +950,7 @@ input,select,textarea{font-family:inherit;}
 .toolbar{display:flex;align-items:center;justify-content:space-between;padding:8px 20px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;position:relative;z-index:50;}
 .auftrag-drop-bar{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--bg2);border-bottom:1px solid var(--border);flex:1;min-width:0;transition:background .15s;}
 .drop-zone-row{display:flex;align-items:stretch;}
+.adz-icon{font-size:16px;flex-shrink:0;}
 @media(max-width:480px){.adz-text{display:none;}}
 .auftrag-drop-bar.adz-hover{background:rgba(108,99,255,.10);border-bottom-color:var(--accent);}
 .adz-icon{font-size:18px;flex-shrink:0;}
@@ -6262,7 +6263,7 @@ async function openEmailPdfPreview(fileId,name){
   const drag=document.createElement('div');
   drag.className='pdf-preview-drag';
   drag.innerHTML='<span title="'+esc(name||'E-Mail PDF')+'">📄 '+esc(name||'E-Mail PDF')+'</span>'
-    +'<button onclick="document.getElementById(\'emailPdfPopup\').remove()" title="Schließen">✕</button>';
+    +'<button onclick="document.getElementById('emailPdfPopup').remove()" title="Schließen">✕</button>';
   // Lade-Anzeige
   const loader=document.createElement('div');
   loader.style.cssText='flex:1;display:flex;align-items:center;justify-content:center;font-size:14px;color:#666;';
