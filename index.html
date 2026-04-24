@@ -4356,10 +4356,10 @@ async function _scanDriveIntoTask(inputId,type){
     // Dateien aus Ordner laden
     let mimeFilter='';
     if(type==='email'){
-      mimeFilter='(name contains '.eml' or name contains '.msg' or mimeType='message/rfc822')';
+      mimeFilter="(name contains '.eml' or name contains '.msg' or mimeType='message/rfc822')";
     } else {
       // Anhänge: PDFs, Docs, etc. – keine Bilder, keine Ordner
-      mimeFilter='not mimeType contains 'image/' and not mimeType='application/vnd.google-apps.folder'';
+      mimeFilter="not mimeType contains 'image/' and not mimeType='application/vnd.google-apps.folder'";
     }
     const q=`'${folderId}' in parents and trashed=false and ${mimeFilter}`;
     const r=await fetch(
@@ -7634,4 +7634,31 @@ async function importTaskFromZip(file){
         ]){
           const paths=Object.keys(zip.files).filter(n=>n.startsWith(folder+'/'));
           for(const path of paths){
-            const
+            const fileName=path.split('/').pop();
+            if(!fileName)continue;
+            try{
+              const ab=await zip.file(path).async('arraybuffer');
+              const r=await _ezUpload(ab,fileName,fid);
+              if(r&&r.id){
+                pushFn({name:fileName,fileId:r.id,url:'https://drive.google.com/file/d/'+r.id+'/view',uploadedAt:new Date().toLocaleDateString('de-DE')});
+                uploaded++;
+              }
+            }catch(e){console.warn('[PTP] ZIP-Upload fehlgeschlagen:',e);}
+          }
+        }
+        if(uploaded>0){
+          renderEmailSection();renderAttachList();
+          scheduleTaskFieldSave();
+          showToast('\u2705 '+uploaded+' Datei(en) in Drive hochgeladen','success',5000);
+        }
+      }
+    }
+  }catch(e){
+    showToast('\u26a0 Fehler beim Einlesen: '+e.message,'error',6000);
+    console.error('[PTP] importTaskFromZip:',e);
+  }
+}
+
+</script>
+</body>
+</html>
