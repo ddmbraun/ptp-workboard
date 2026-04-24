@@ -1742,6 +1742,8 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
         <button class="outlook-btn-modal" id="outlookModalBtn" onclick="openOutlookCalendarFromModal()" style="display:none;margin-right:auto;">📆 Outlook Kalender</button>
         <button class="topbar-btn baustelle-only" id="abschlussBtn" onclick="createAbschlussakte()" style="display:none;margin-right:auto;background:var(--bg3);border:1px solid var(--border)">📁 Abschlussakte</button>
         <button class="topbar-btn btn-secondary" onclick="saveTaskAndBack()">← Zurück</button>
+        <button class="topbar-btn" onclick="exportTaskZip()" title="Task als ZIP sichern (Daten + Dateien + Fotos-PDF)" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);">⬇ Sichern</button>
+        <label class="topbar-btn" title="Task aus ZIP wiederherstellen" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);cursor:pointer;">↩ Wiederherstellen<input type="file" accept=".zip" style="display:none" onchange="importTaskFromZip(this.files[0]);this.value='';"></label>
         <button class="topbar-btn btn-primary" onclick="saveTask()">Speichern</button>
       </div>
     </div><!-- end .modal-scroll-body -->
@@ -4623,11 +4625,13 @@ async function createPdfFromSelected(){
     let url=f.driveId?_desktopFotoBlobCache.get(f.driveId):null;
     if(!url&&f.driveId){url=await _fetchDesktopFotoBlob(f.driveId);}
     if(!url)continue;
+    // EXIF-Korrektur (verhindert gekippte Fotos im PDF)
+    const correctedUrl=await _correctFotoForPdf(url);
     // Bildgröße ermitteln
     const imgInfo=await new Promise(res=>{
       const img=new Image();
-      img.onload=()=>res({w:img.naturalWidth,h:img.naturalHeight,src:url});
-      img.onerror=()=>res(null);img.src=url;
+      img.onload=()=>res({w:img.naturalWidth,h:img.naturalHeight,src:correctedUrl});
+      img.onerror=()=>res(null);img.src=correctedUrl;
     });
     if(!imgInfo)continue;
     const landscape=imgInfo.w>imgInfo.h;
@@ -6693,7 +6697,7 @@ function openSyncPanel(){
   document.body.appendChild(overlay);
 }
 
-// ── KARTENGRÖSSE (Schieberegler) ──
+// ── KARTENGRÖSSE ──
 function setCardSize(pct){
   const v=Math.max(60,Math.min(200,parseInt(pct,10)||100));
   document.documentElement.style.setProperty('--card-scale',(v/100).toFixed(2));
@@ -6708,7 +6712,7 @@ function setCardSize(pct){
   }catch(e){console.warn('[PTP]',e);}
 })();
 
-// ── MODAL-GRÖSSE (Schieberegler im Task-Modal) ──
+// ── MODAL-GRÖSSE ──
 function setModalSize(pct){
   const v=Math.max(70,Math.min(200,parseInt(pct,10)||100));
   const box=document.getElementById('taskModalBox');
@@ -6722,14 +6726,12 @@ function applyStoredModalSize(){
     const s=parseInt(localStorage.getItem('ptp_modal_size')||'100',10);
     setModalSize(s);
   }catch(e){console.warn('[PTP]',e);}
-  // Gespeicherte Abmessungen (Breite × Höhe) wiederherstellen
   try{
     const d=JSON.parse(localStorage.getItem('ptp_modal_dims')||'null');
     const box=document.getElementById('taskModalBox');
     if(d&&box){box.style.width=d.w+'px';box.style.height=d.h+'px';}
   }catch(e){console.warn('[PTP]',e);}
 }
-// ResizeObserver: speichert Modal-Größe nach dem Ziehen
 (function(){
   let _roSaveTimer=null;
   function _initModalRO(){
@@ -6743,10 +6745,349 @@ function applyStoredModalSize(){
       },300);
     }).observe(box);
   }
-  // Sobald DOM bereit ist initialisieren
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',_initModalRO);
   else _initModalRO();
 })();
+
+// ════════════════════════════════════════════════════
+// ── EXIF-ORIENTIERUNGSKORREKTUR FÜR FOTOS ──
+// ════════════════════════════════════════════════════
+function _readJpegOrientation(buf){
+  try{
+    const v=new DataView(buf);
+    if(v.getUint16(0)!==0xFFD8)return 1;
+    let off=2;
+    while(off<v.byteLength-4){
+      const marker=v.getUint16(off);
+      if(marker===0xFFE1){
+        if(v.getUint32(off+4)===0x45786966){
+          const le=v.getUint16(off+10)===0x4949;
+          const ifd=v.getUint32(off+14,le)+off+10;
+          const n=v.getUint16(ifd,le);
+          for(let i=0;i<n;i++){
+            const e=ifd+2+i*12;
+            if(v.getUint16(e,le)===0x0112)return v.getUint16(e+8,le);
+          }
+        }
+      }
+      if(v.getUint16(off+2)===0)break;
+      off+=2+v.getUint16(off+2);
+    }
+  }catch(e){}
+  return 1;
+}
+async function _correctFotoForPdf(blobUrl){
+  try{
+    const r=await fetch(blobUrl);
+    const buf=await r.arrayBuffer();
+    const ori=_readJpegOrientation(buf);
+    return new Promise(res=>{
+      const img=new Image();
+      img.onload=function(){
+        if(ori===1){res(blobUrl);return;}
+        const c=document.createElement('canvas');
+        const ctx=c.getContext('2d');
+        const w=img.naturalWidth,h=img.naturalHeight;
+        if([5,6,7,8].includes(ori)){c.width=h;c.height=w;}
+        else{c.width=w;c.height=h;}
+        ctx.save();
+        switch(ori){
+          case 2:ctx.transform(-1,0,0,1,w,0);break;
+          case 3:ctx.transform(-1,0,0,-1,w,h);break;
+          case 4:ctx.transform(1,0,0,-1,0,h);break;
+          case 5:ctx.transform(0,1,1,0,0,0);break;
+          case 6:ctx.transform(0,1,-1,0,h,0);break;
+          case 7:ctx.transform(0,-1,-1,0,h,w);break;
+          case 8:ctx.transform(0,-1,1,0,0,w);break;
+        }
+        ctx.drawImage(img,0,0);
+        ctx.restore();
+        res(c.toDataURL('image/jpeg',0.92));
+      };
+      img.onerror=()=>res(blobUrl);
+      img.src=blobUrl;
+    });
+  }catch(e){return blobUrl;}
+}
+
+// ════════════════════════════════════════════════════
+// ── TASK-SICHERUNG / ZIP-EXPORT & IMPORT ──
+// ════════════════════════════════════════════════════
+function _collectTaskData(){
+  const v=id=>(document.getElementById(id)||{}).value||'';
+  return {
+    _version:'1.0',
+    _exportDate:new Date().toISOString(),
+    title:v('taskTitleInput'),
+    status:v('taskStatusInput'),
+    hausverwaltung:v('tHV'),
+    adresse:v('tAdr'),
+    schadensbild:v('tSch'),
+    gdOrdner:v('tGD'),
+    gdOrdnerAlt:v('tGDOrdner'),
+    nas:v('tNAS'),
+    emailOrdner:v('tEmailOrdner'),
+    ausserhausTermine:JSON.parse(JSON.stringify(taskAusserhausTermine||[])),
+    zeitEntries:JSON.parse(JSON.stringify(taskZeitEntries||[])),
+    notizVerlauf:JSON.parse(JSON.stringify(taskNotizVerlauf||[])),
+    checkliste:JSON.parse(JSON.stringify(taskCheckliste||[])),
+    links:JSON.parse(JSON.stringify(taskLinks||[])),
+    gmailLinks:JSON.parse(JSON.stringify(taskGmailLinks||[])),
+    attachments:(taskAttachments||[]).map(a=>({name:a.name,fileId:a.fileId,url:a.url,uploadedAt:a.uploadedAt})),
+    emailOriginals:(taskEmailOriginals||[]).map(e=>({name:e.name,fileId:e.fileId,url:e.url,uploadedAt:e.uploadedAt})),
+    emailPdfs:(taskEmailPdfs||[]).map(p=>({name:p.name,fileId:p.fileId,url:p.url,uploadedAt:p.uploadedAt})),
+    fotos:(taskFotos||[]).map(f=>({name:f.name,driveId:f.driveId,caption:f.caption,url:f.url}))
+  };
+}
+
+function _buildTaskSummaryPdfBytes(data){
+  if(!window.jspdf)return null;
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const M=20,PW=210,CW=PW-2*M;
+  // Header-Balken
+  doc.setFillColor(37,99,235);doc.rect(0,0,210,28,'F');
+  doc.setTextColor(255,255,255);doc.setFontSize(16);doc.setFont('helvetica','bold');
+  doc.text('PTP Workboard – Aufgabenarchiv',M,17);
+  doc.setFontSize(9);doc.setFont('helvetica','normal');
+  doc.text(new Date().toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),PW-M,17,{align:'right'});
+  let y=38;
+  // Titel
+  doc.setTextColor(0,0,0);doc.setFontSize(14);doc.setFont('helvetica','bold');
+  doc.text(data.title||'(kein Titel)',M,y);y+=6;
+  if(data.status){doc.setFontSize(10);doc.setFont('helvetica','normal');doc.setTextColor(100,100,100);doc.text('Status: '+data.status,M,y);y+=5;}
+  doc.setDrawColor(220,220,220);doc.line(M,y,PW-M,y);y+=6;
+  // Stammdaten
+  const rows=[];
+  if(data.hausverwaltung)rows.push(['Auftraggeber / HV',data.hausverwaltung]);
+  if(data.adresse)rows.push(['Adresse',data.adresse]);
+  if(data.schadensbild)rows.push(['Beschreibung',data.schadensbild]);
+  if(data.nas)rows.push(['NAS-Pfad',data.nas]);
+  if(rows.length){
+    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);doc.text('Stammdaten',M,y);y+=4;
+    doc.autoTable({startY:y,margin:{left:M,right:M},theme:'grid',styles:{fontSize:9,cellPadding:2},
+      columnStyles:{0:{cellWidth:45,fontStyle:'bold',fillColor:[245,245,250]},1:{cellWidth:CW-45}},body:rows});
+    y=doc.lastAutoTable.finalY+6;
+  }
+  // Notizen
+  if(data.notizVerlauf&&data.notizVerlauf.length){
+    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);doc.text('Notizen ('+data.notizVerlauf.length+')',M,y);y+=4;
+    doc.autoTable({startY:y,margin:{left:M,right:M},theme:'striped',styles:{fontSize:8,cellPadding:2},
+      columnStyles:{0:{cellWidth:28,fontStyle:'italic',textColor:[120,120,120]},1:{cellWidth:CW-28}},
+      body:data.notizVerlauf.map(n=>[n.date||'',n.text||''])});
+    y=doc.lastAutoTable.finalY+6;
+  }
+  // Checkliste
+  if(data.checkliste&&data.checkliste.length){
+    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);doc.text('Checkliste ('+data.checkliste.length+')',M,y);y+=4;
+    doc.autoTable({startY:y,margin:{left:M,right:M},theme:'striped',styles:{fontSize:8,cellPadding:2},
+      columnStyles:{0:{cellWidth:10,halign:'center'},1:{cellWidth:CW-10}},
+      body:data.checkliste.map(c=>[(c.done?'✓':'○'),c.text||''])});
+    y=doc.lastAutoTable.finalY+6;
+  }
+  // Zeiterfassung
+  if(data.zeitEntries&&data.zeitEntries.length){
+    const total=data.zeitEntries.reduce((s,e)=>s+(parseInt(e.minuten,10)||0),0);
+    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);
+    doc.text('Zeiterfassung – '+Math.floor(total/60)+'h '+(total%60)+'min',M,y);y+=4;
+    doc.autoTable({startY:y,margin:{left:M,right:M},theme:'striped',styles:{fontSize:8,cellPadding:2},
+      head:[['Datum','Von','Bis','Dauer','Beschreibung']],
+      body:data.zeitEntries.map(e=>[e.datum||'',e.von||'',e.bis||'',(e.minuten||0)+'min',e.beschreibung||''])});
+    y=doc.lastAutoTable.finalY+6;
+  }
+  // Termine
+  if(data.ausserhausTermine&&data.ausserhausTermine.length){
+    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);doc.text('Außerhaus-Termine ('+data.ausserhausTermine.length+')',M,y);y+=4;
+    doc.autoTable({startY:y,margin:{left:M,right:M},theme:'striped',styles:{fontSize:8,cellPadding:2},
+      head:[['Datum','Zeit','Beschreibung']],
+      body:data.ausserhausTermine.map(t=>[t.date||'',(t.von||'')+'–'+(t.bis||''),t.beschreibung||''])});
+    y=doc.lastAutoTable.finalY+6;
+  }
+  // Dateiliste
+  const allFiles=[
+    ...(data.emailOriginals||[]).map(e=>['📨 E-Mail Original',e.name||'',e.uploadedAt||'']),
+    ...(data.emailPdfs||[]).map(p=>['📄 E-Mail PDF',p.name||'',p.uploadedAt||'']),
+    ...(data.attachments||[]).map(a=>['📎 Anhang',a.name||'',a.uploadedAt||'']),
+    ...(data.fotos||[]).map(f=>['📷 Foto',f.name||'',''])
+  ];
+  if(allFiles.length){
+    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);doc.text('Dateien & E-Mails ('+allFiles.length+')',M,y);y+=4;
+    doc.autoTable({startY:y,margin:{left:M,right:M},theme:'striped',styles:{fontSize:8,cellPadding:2},
+      head:[['Typ','Dateiname','Datum']],body:allFiles});
+    y=doc.lastAutoTable.finalY+6;
+  }
+  // Fußzeile
+  const pg=doc.internal.getNumberOfPages();
+  for(let i=1;i<=pg;i++){
+    doc.setPage(i);doc.setFontSize(8);doc.setTextColor(180,180,180);
+    doc.text('PTP Workboard – exportiert am '+new Date().toLocaleDateString('de-DE'),M,290);
+    doc.text('Seite '+i+'/'+pg,PW-M,290,{align:'right'});
+  }
+  return doc.output('arraybuffer');
+}
+
+async function _buildFotosPdfForExport(fotos){
+  if(!fotos||!fotos.length||!window.jspdf)return null;
+  const {jsPDF}=window.jspdf;
+  let doc=null;
+  for(const f of fotos){
+    let url=f.driveId?_desktopFotoBlobCache.get(f.driveId):null;
+    if(!url&&f.driveId)url=await _fetchDesktopFotoBlob(f.driveId);
+    if(!url&&f.url)url=f.url;
+    if(!url)continue;
+    const corrected=await _correctFotoForPdf(url);
+    const imgInfo=await new Promise(res=>{
+      const img=new Image();
+      img.onload=()=>res({w:img.naturalWidth,h:img.naturalHeight,src:corrected});
+      img.onerror=()=>res(null);img.src=corrected;
+    });
+    if(!imgInfo)continue;
+    const landscape=imgInfo.w>imgInfo.h;
+    const fmt=landscape?[297,210]:[210,297];
+    if(!doc)doc=new jsPDF({orientation:landscape?'landscape':'portrait',unit:'mm',format:fmt});
+    else doc.addPage(fmt,landscape?'landscape':'portrait');
+    doc.addImage(imgInfo.src,'JPEG',0,0,fmt[0],fmt[1],'','FAST');
+    const cap=f.caption||f.name||'';
+    if(cap){doc.setFontSize(9);doc.setTextColor(100);doc.text(cap,6,fmt[1]-4);}
+  }
+  return doc?doc.output('arraybuffer'):null;
+}
+
+async function _loadJSZip(){
+  if(window.JSZip)return;
+  await new Promise((res,rej)=>{
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    s.onload=res;s.onerror=rej;document.head.appendChild(s);
+  });
+}
+
+async function exportTaskZip(){
+  try{
+    showToast('⏳ ZIP wird vorbereitet…','info');
+    await _loadJSZip();
+    const data=_collectTaskData();
+    const zip=new JSZip();
+    const safe=(data.title||'Task').replace(/[^\wÄÖÜäöüß\- ]/g,'_').trim()||'Task';
+    // 1. JSON
+    zip.file('aufgabe.json',JSON.stringify(data,null,2));
+    // 2. Lesbare Zusammenfassung
+    showToast('📄 Zusammenfassung wird erstellt…','info');
+    try{const b=_buildTaskSummaryPdfBytes(data);if(b)zip.file('aufgabe_zusammenfassung.pdf',b);}catch(e){console.warn('[PTP] SummaryPDF:',e);}
+    // 3. E-Mail Originale
+    if((taskEmailOriginals||[]).length&&gdriveToken){
+      showToast('📨 E-Mails werden geladen…','info');
+      for(const e of taskEmailOriginals){
+        try{const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(e.fileId)+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}});
+          if(r.ok)zip.folder('emails').file(e.name||'email',await r.arrayBuffer());}
+        catch(err){console.warn('[PTP] Email-DL:',err);}
+      }
+    }
+    // 4. E-Mail PDFs
+    if((taskEmailPdfs||[]).length&&gdriveToken){
+      for(const p of taskEmailPdfs){
+        try{const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(p.fileId)+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}});
+          if(r.ok)zip.folder('email_pdfs').file(p.name||'email.pdf',await r.arrayBuffer());}
+        catch(err){console.warn('[PTP] PDF-DL:',err);}
+      }
+    }
+    // 5. Dateianhänge
+    if((taskAttachments||[]).filter(a=>a.fileId).length&&gdriveToken){
+      showToast('📎 Anhänge werden geladen…','info');
+      for(const a of taskAttachments){
+        if(!a.fileId)continue;
+        try{const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(a.fileId)+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}});
+          if(r.ok)zip.folder('anhaenge').file(a.name||'datei',await r.arrayBuffer());}
+        catch(err){console.warn('[PTP] Anhang-DL:',err);}
+      }
+    }
+    // 6. Fotos als PDF
+    if((taskFotos||[]).length){
+      showToast('📷 Fotos werden zusammengestellt…','info');
+      try{const b=await _buildFotosPdfForExport(taskFotos);if(b)zip.file('fotos.pdf',b);}
+      catch(e){console.warn('[PTP] FotosPDF:',e);}
+    }
+    // ZIP erstellen
+    showToast('📦 ZIP wird generiert…','info');
+    const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
+    const fname=safe+'_'+new Date().toISOString().slice(0,10)+'.zip';
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=fname;
+    document.body.appendChild(a);a.click();
+    setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},5000);
+    showToast('✅ Gesichert: '+fname,'success',6000);
+  }catch(e){showToast('⚠ Export fehlgeschlagen: '+e.message,'error',8000);console.error('[PTP] Export:',e);}
+}
+
+async function importTaskFromZip(file){
+  if(!file||!file.name.toLowerCase().endsWith('.zip')){showToast('⚠ Bitte eine .zip Datei wählen','error');return;}
+  showToast('⏳ ZIP wird eingelesen…','info');
+  try{
+    await _loadJSZip();
+    const buf=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsArrayBuffer(file);});
+    const zip=await JSZip.loadAsync(buf);
+    const jsonFile=zip.file('aufgabe.json');
+    if(!jsonFile){showToast('⚠ Keine aufgabe.json gefunden','error');return;}
+    const data=JSON.parse(await jsonFile.async('text'));
+    // Felder befüllen
+    const set=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.value=v;};
+    set('taskTitleInput',data.title);set('taskStatusInput',data.status);
+    set('tHV',data.hausverwaltung);set('tAdr',data.adresse);set('tSch',data.schadensbild);
+    set('tGD',data.gdOrdner);set('tGDOrdner',data.gdOrdnerAlt);
+    set('tNAS',data.nas);set('tEmailOrdner',data.emailOrdner);
+    // Arrays
+    taskAusserhausTermine=data.ausserhausTermine||[];
+    taskZeitEntries=data.zeitEntries||[];
+    taskNotizVerlauf=data.notizVerlauf||[];
+    taskCheckliste=data.checkliste||[];
+    taskLinks=data.links||[];
+    taskGmailLinks=data.gmailLinks||[];
+    taskEmailOriginals=data.emailOriginals||[];
+    taskEmailPdfs=data.emailPdfs||[];
+    taskAttachments=data.attachments||[];
+    taskFotos=data.fotos||[];
+    // UI
+    renderAusserhausTermine();renderZeiterfassung();renderTaskNotizen();renderCheckliste();
+    renderEmailSection();renderLinksList();renderAttachList();renderGmailLinks();
+    if(typeof renderFotoListDesktop==='function')renderFotoListDesktop();
+    scheduleTaskFieldSave();
+    // Dateien aus ZIP in Drive hochladen
+    const folderUrl=((document.getElementById('tGDOrdner')||{}).value||
+                     (document.getElementById('tGDOrdner')||{}).value||
+                     (document.getElementById('tGD')||{}).value||'').trim();
+    if(gdriveToken&&folderUrl){
+      const fid=_ezFolderId(folderUrl);
+      if(fid){
+        showToast('☁️ Dateien werden in Drive hochgeladen…','info',4000);
+        let uploaded=0;
+        for(const [folder,arr,pushFn] of [
+          ['emails',taskEmailOriginals,e=>taskEmailOriginals.push(e)],
+          ['email_pdfs',taskEmailPdfs,e=>taskEmailPdfs.push(e)],
+          ['anhaenge',taskAttachments,e=>taskAttachments.push(e)]
+        ]){
+          const paths=Object.keys(zip.files).filter(n=>n.startsWith(folder+'/'));
+          for(const path of paths){
+            const zf=zip.file(path);if(!zf||zf.dir)continue;
+            const name=path.split('/').pop();
+            try{
+              const b=await zf.async('arraybuffer');
+              const lname=name.toLowerCase();
+              const mime=lname.endsWith('.eml')?'message/rfc822':lname.endsWith('.pdf')?'application/pdf':'application/octet-stream';
+              const res=await _driveUploadGeneric(b,name,mime,fid);
+              const url='https://drive.google.com/file/d/'+res.id+'/view';
+              pushFn({name,fileId:res.id,url,uploadedAt:new Date().toLocaleDateString('de-DE')});
+              uploaded++;
+            }catch(err){console.warn('[PTP] Upload '+name+':',err);}
+          }
+        }
+        if(uploaded){renderEmailSection();renderAttachList();scheduleTaskFieldSave();}
+        showToast('✅ Wiederhergestellt – '+uploaded+' Datei(en) hochgeladen','success',6000);
+        return;
+      }
+    }
+    showToast('✅ Task-Daten wiederhergestellt'+((!gdriveToken||!folderUrl)?' (Drive verbinden & Ordner eintragen um Dateien hochzuladen)':''),'success',7000);
+  }catch(e){showToast('⚠ Fehler: '+e.message,'error',8000);console.error('[PTP] Import:',e);}
+}
 
 </script>
 </body>
