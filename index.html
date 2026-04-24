@@ -6468,10 +6468,20 @@ function _openEmailPrintWindow(info,w){
   ${info.recipient?`<div class="mr"><span class="mk">An</span><span>${e2(info.recipient)}</span></div>`:''}
 </div>
 <div class="body">${bodyContent}</div>
-<script>document.getElementById('printBtn').onclick=function(){window.print();};<\/script>
 </body></html>`;
   if(!w)w=window.open('','_blank','width=450,height=700');
-  if(w){w.document.write(html);w.document.close();}
+  if(w){
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    // Button-Handler vom Elternfenster setzen (kein inline <script> nötig → GitHub Pages sicher)
+    setTimeout(function(){
+      try{
+        const btn=w.document.getElementById('printBtn');
+        if(btn)btn.onclick=function(){w.print();};
+      }catch(e){}
+    },200);
+  }
   else showToast('⚠ Popup-Blocker aktiv – bitte Popups für diese Seite erlauben','error',6000);
 }
 
