@@ -2587,18 +2587,16 @@ function _hideDriveWarnBanner(){
   clearTimeout(_driveWarnBannerTimer);
 }
 
-// Token-Erneuerung für Banner-Button: login_hint verhindert Account-Auswahl
+// Token-Erneuerung für Banner-Button: prompt:'none' verhindert das kurze Login-Popup
 function _renewDriveTokenSilent(){
   if(!gdriveTokenClient){_showDriveWarnBanner(0);return;}
   const hint=localStorage.getItem('ptp_user_email_v1')||'';
-  // Kein prompt-Override → Google nutzt aktive Session ohne Auswahldialog
-  // login_hint sorgt dafür dass direkt das richtige Konto verwendet wird
+  // prompt:'none' → kein Popup, Google nutzt aktive Session komplett unsichtbar
+  // login_hint stellt sicher, dass das richtige Konto verwendet wird
   try{
-    if(hint){
-      gdriveTokenClient.requestAccessToken({login_hint:hint});
-    }else{
-      gdriveTokenClient.requestAccessToken({});
-    }
+    const opts={prompt:'none'};
+    if(hint)opts.login_hint=hint;
+    gdriveTokenClient.requestAccessToken(opts);
   }catch(e){
     console.warn('[PTP] Token-Erneuerung fehlgeschlagen:',e);
   }
@@ -2643,8 +2641,8 @@ setInterval(()=>{
     _showDriveWarnBanner(0);
     return;
   }
-  if(msLeft > 600000) return; // mehr als 10 Min → nichts tun
-  // Weniger als 10 Min → stille Erneuerung versuchen
+  if(msLeft > 300000) return; // mehr als 5 Min → nichts tun
+  // Weniger als 5 Min → stille Erneuerung versuchen
   _silentTokenRefresh(
     ()=>{ _hideDriveWarnBanner(); }, // Erfolg
     ()=>{ _showDriveWarnBanner(msLeft/1000); } // Fehlgeschlagen → Banner
@@ -2660,7 +2658,7 @@ document.addEventListener('visibilitychange', () => {
     _showDriveWarnBanner(0);
     return;
   }
-  if(msLeft > 600000) return;
+  if(msLeft > 300000) return;
   _silentTokenRefresh(
     ()=>{ _hideDriveWarnBanner(); },
     ()=>{ _showDriveWarnBanner(msLeft/1000); }
