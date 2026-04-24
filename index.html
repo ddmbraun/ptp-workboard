@@ -1265,14 +1265,14 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .email-orig-drop.dragover{border-color:var(--accent);background:rgba(108,99,255,.07);}
 .email-section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);margin:8px 0 5px;padding-left:2px;border-bottom:1px solid var(--border);padding-bottom:3px;}
 .email-section-label:first-child{margin-top:0;}
-.email-orig-item{display:flex;align-items:center;gap:7px;padding:6px 9px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);margin-bottom:5px;font-size:12px;}
+.email-orig-item{display:flex;align-items:center;gap:5px;padding:4px 7px;border-radius:5px;background:var(--bg3);border:1px solid var(--border);margin-bottom:3px;font-size:11px;}
 .email-orig-item .eo-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);}
 .email-orig-item .eo-date{font-size:10px;color:var(--text2);flex-shrink:0;}
 .email-orig-item a.eo-open{padding:3px 9px;border-radius:5px;border:1px solid var(--accent);background:rgba(108,99,255,.08);color:var(--accent);font-size:11px;font-weight:600;text-decoration:none;flex-shrink:0;}
 .email-orig-item a.eo-open:hover{background:rgba(108,99,255,.18);}
 .email-orig-item .eo-del{padding:2px 7px;font-size:11px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;flex-shrink:0;}
 .email-orig-item .eo-del:hover{border-color:var(--red);color:var(--red);}
-.eo-icon-btn{width:28px;height:28px;padding:0;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s,border-color .15s;}
+.eo-icon-btn{width:24px;height:24px;padding:0;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s,border-color .15s;}
 .eo-icon-btn:hover{background:var(--accent);border-color:var(--accent);filter:brightness(1.1);}
 /* PDF-Vorschau aus E-Mail-Drop */
 .email-pdf-item{border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden;background:var(--bg3);}
@@ -1552,28 +1552,18 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     </div>
 
     <!-- E-MAIL ORIGINALE (vor Checkliste) -->
-    <div class="form-collapse" id="tEmailOrigSect">
-      <div class="form-collapse-header" onclick="toggleFormSection('tEmailOrigSect')">
-        <span class="form-collapse-title" id="tEmailOrigTitle">📧 E-Mail Originale</span>
+    <!-- ZEITERFASSUNG -->
+    <div class="form-collapse" id="tZeitSect">
+      <div class="form-collapse-header" onclick="toggleFormSection('tZeitSect')">
+        <span class="form-collapse-title" id="tZeitTitle">⏱ Manuelle Zeiterfassung</span>
         <span class="form-collapse-arrow">▾</span>
       </div>
       <div class="form-collapse-body">
-        <p style="font-size:11px;color:var(--text2);margin:0 0 6px;">Outlook .msg oder .eml ablegen → wird als PDF in Drive gespeichert &amp; als Vorschau angezeigt. Zum Öffnen in Outlook: „⬇ Speichern" drücken → im Downloads-Ordner doppelklicken.</p>
-        <div class="email-section-label">📄 E-Mail PDFs</div>
-        <div id="emailPdfList"></div>
-        <div class="email-section-label">📨 Originale (.msg / .eml)</div>
-        <div id="emailOrigList"></div>
-        <div class="email-orig-drop" id="emailOrigDrop"
-          ondragenter="event.preventDefault();this.classList.add('dragover')"
-          ondragover="event.preventDefault();this.classList.add('dragover');event.dataTransfer.dropEffect='copy'"
-          ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('dragover')"
-          ondrop="event.preventDefault();this.classList.remove('dragover');_handleEmailOrigDrop(event.dataTransfer)">
-          <span id="emailOrigDropMsg" style="font-size:12px;color:var(--text2);">📨 .msg / .eml hier hineinziehen</span>
-          <label style="cursor:pointer;padding:5px 12px;border-radius:6px;border:1px solid var(--accent);background:rgba(108,99,255,.08);color:var(--accent);font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0;">
-            📁 Datei wählen
-            <input type="file" id="emailOrigInput" accept=".msg,.eml" style="display:none" onchange="_handleEmailOrigSelect(event)">
-          </label>
-        </div>
+        <div class="timer-divider" style="margin-top:0;">manuell erfassen</div>
+        <div class="termin-head"><span>Datum</span><span>Von</span><span>Bis</span><span>Beschreibung</span><span></span><span></span></div>
+        <div id="zeiterfassungList"></div>
+        <button class="add-row-btn" onclick="addZeitEntry()">+ Zeit hinzufügen</button>
+        <div class="termin-gesamt" id="zeitGesamtRow">Gesamt: 0 min</div>
       </div>
     </div>
 
@@ -1614,25 +1604,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       </div>
     </div>
 
-    <div class="form-collapse" id="tZeitSect">
-      <div class="form-collapse-header" onclick="toggleFormSection('tZeitSect')">
-        <span class="form-collapse-title" id="tZeitTitle">⏱ Manuelle Zeiterfassung</span>
-        <span class="form-collapse-arrow">▾</span>
-      </div>
-      <div class="form-collapse-body">
-        <div class="timer-divider" style="margin-top:0;">manuell erfassen</div>
-        <div class="termin-head"><span>Datum</span><span>Von</span><span>Bis</span><span>Beschreibung</span><span></span><span></span></div>
-        <div id="zeiterfassungList"></div>
-        <button class="add-row-btn" onclick="addZeitEntry()">+ Zeit hinzufügen</button>
-        <div class="termin-gesamt" id="zeitGesamtRow">Gesamt: 0 min</div>
-      </div>
-    </div>
-
-    <!-- PLATZHALTER (wird unten nicht mehr benötigt, Sektion ist bereits oben) -->
-    <div style="display:none" id="tEmailOrigSect_placeholder">
-    </div>
-
-    <!-- DATEIHAENGE -->
+    <!-- DATEIANHÄNGE -->
     <div class="form-collapse" id="tAnhangSect">
       <div class="form-collapse-header" onclick="toggleFormSection('tAnhangSect')">
         <span class="form-collapse-title">📎 Dateianhänge</span>
@@ -1644,6 +1616,55 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
           📎 Datei hier hineinziehen oder klicken
         </div>
         <input type="file" id="fileAttachInput" style="display:none" multiple onchange="handleFileAttach(event)">
+      </div>
+    </div>
+
+    <!-- E-MAIL ORIGINALE (kompakt, Doppelklick für alle) -->
+    <div class="form-collapse" id="tEmailOrigSect">
+      <div class="form-collapse-header" onclick="toggleFormSection('tEmailOrigSect')">
+        <span class="form-collapse-title" id="tEmailOrigTitle">📧 E-Mail Originale</span>
+        <span class="form-collapse-arrow">▾</span>
+      </div>
+      <div class="form-collapse-body">
+        <div class="email-section-label">📄 E-Mail PDFs</div>
+        <div id="emailPdfList"></div>
+        <div class="email-section-label" style="display:flex;align-items:center;justify-content:space-between;">
+          <span>📨 Originale (.msg / .eml)</span>
+          <span id="emailOrigMoreHint" style="font-size:10px;color:var(--accent);cursor:pointer;display:none;" ondblclick="_openEmailOrigPopup()" onclick="_openEmailOrigPopup()">Alle anzeigen →</span>
+        </div>
+        <div id="emailOrigList" ondblclick="_openEmailOrigPopup()" style="cursor:default;"></div>
+        <div class="email-orig-drop" id="emailOrigDrop"
+          ondragenter="event.preventDefault();this.classList.add('dragover')"
+          ondragover="event.preventDefault();this.classList.add('dragover');event.dataTransfer.dropEffect='copy'"
+          ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('dragover')"
+          ondrop="event.preventDefault();this.classList.remove('dragover');_handleEmailOrigDrop(event.dataTransfer)">
+          <span id="emailOrigDropMsg" style="font-size:12px;color:var(--text2);">📨 .msg / .eml hier hineinziehen</span>
+          <label style="cursor:pointer;padding:5px 12px;border-radius:6px;border:1px solid var(--accent);background:rgba(108,99,255,.08);color:var(--accent);font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0;">
+            📁 Datei wählen
+            <input type="file" id="emailOrigInput" accept=".msg,.eml" style="display:none" onchange="_handleEmailOrigSelect(event)">
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- FOTOS -->
+    <div class="form-collapse baustelle-only" id="tFotoSect">
+      <div class="form-collapse-header" onclick="toggleFormSection('tFotoSect')">
+        <span class="form-collapse-title">📷 Fotos (Drive)</span>
+        <span style="display:flex;align-items:center;gap:6px;">
+          <button onclick="event.stopPropagation();openFotoGallery()" title="Alle Fotos groß anzeigen" style="padding:3px 10px;border-radius:6px;border:1px solid var(--accent);background:rgba(108,99,255,0.1);color:var(--accent);font-size:11px;cursor:pointer;font-weight:600;">⛶ Große Ansicht</button>
+          <span class="form-collapse-arrow">▾</span>
+        </span>
+      </div>
+      <div class="form-collapse-body">
+        <div id="fotoListDesktop" style="min-height:60px;"></div>
+        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+          <button onclick="triggerFotoUploadToDrive()" title="Foto hochladen nach Google Drive" style="padding:8px 12px;border-radius:6px;border:1.5px dashed var(--accent);background:rgba(108,99,255,0.06);color:var(--accent);font-size:12px;cursor:pointer;white-space:nowrap;">📷 Drive-Foto</button>
+          <button onclick="tDriveOeffnen()" title="Foto-Ordner in Google Drive öffnen" style="padding:8px 12px;border-radius:6px;border:1.5px solid var(--border);background:var(--bg3);color:var(--text2);font-size:12px;cursor:pointer;white-space:nowrap;">📂 Ordner</button>
+          <button onclick="loadFotosFromDriveFolder()" title="Vorhandene Fotos aus Drive-Ordner laden und auswählen" style="padding:8px 12px;border-radius:6px;border:1.5px dashed #34a853;background:rgba(52,168,83,0.06);color:#34a853;font-size:12px;cursor:pointer;white-space:nowrap;">🔄 Aus Ordner wählen</button>
+        </div>
+        <div id="fotoOrdnerHint" style="font-size:11px;margin-top:4px;padding:4px 6px;border-radius:4px;display:none"></div>
+        <input type="file" id="fotoDriveInput" style="display:none" accept="image/*" multiple onchange="handleFotoUploadToDrive(event)">
       </div>
     </div>
 
@@ -1700,27 +1721,6 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
         </div>
         <div id="linksList" style="margin-top:8px;"></div>
         <button class="add-row-btn" onclick="addLinkRow()">+ weiteren Link hinzufügen</button>
-      </div>
-    </div>
-
-    <!-- FOTOS -->
-    <div class="form-collapse baustelle-only" id="tFotoSect">
-      <div class="form-collapse-header" onclick="toggleFormSection('tFotoSect')">
-        <span class="form-collapse-title">📷 Fotos (Drive)</span>
-        <span style="display:flex;align-items:center;gap:6px;">
-          <button onclick="event.stopPropagation();openFotoGallery()" title="Alle Fotos groß anzeigen" style="padding:3px 10px;border-radius:6px;border:1px solid var(--accent);background:rgba(108,99,255,0.1);color:var(--accent);font-size:11px;cursor:pointer;font-weight:600;">⛶ Große Ansicht</button>
-          <span class="form-collapse-arrow">▾</span>
-        </span>
-      </div>
-      <div class="form-collapse-body">
-        <div id="fotoListDesktop" style="min-height:60px;"></div>
-        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
-          <button onclick="triggerFotoUploadToDrive()" title="Foto hochladen nach Google Drive" style="padding:8px 12px;border-radius:6px;border:1.5px dashed var(--accent);background:rgba(108,99,255,0.06);color:var(--accent);font-size:12px;cursor:pointer;white-space:nowrap;">📷 Drive-Foto</button>
-          <button onclick="tDriveOeffnen()" title="Foto-Ordner in Google Drive öffnen" style="padding:8px 12px;border-radius:6px;border:1.5px solid var(--border);background:var(--bg3);color:var(--text2);font-size:12px;cursor:pointer;white-space:nowrap;">📂 Ordner</button>
-          <button onclick="loadFotosFromDriveFolder()" title="Vorhandene Fotos aus Drive-Ordner laden und auswählen" style="padding:8px 12px;border-radius:6px;border:1.5px dashed #34a853;background:rgba(52,168,83,0.06);color:#34a853;font-size:12px;cursor:pointer;white-space:nowrap;">🔄 Aus Ordner wählen</button>
-        </div>
-        <div id="fotoOrdnerHint" style="font-size:11px;margin-top:4px;padding:4px 6px;border-radius:4px;display:none"></div>
-        <input type="file" id="fotoDriveInput" style="display:none" accept="image/*" multiple onchange="handleFotoUploadToDrive(event)">
       </div>
     </div>
 
@@ -5587,22 +5587,58 @@ function addGmailLink(){
 }
 
 // ── E-MAIL ORIGINALE ──
+function _eoItemHtml(e,i,fromPopup){
+  const delFn=fromPopup
+    ?`taskEmailOriginals.splice(${i},1);renderEmailOriginals();scheduleTaskFieldSave();_closeEmailOrigPopup();`
+    :`taskEmailOriginals.splice(${i},1);renderEmailOriginals();scheduleTaskFieldSave();`;
+  return `<div class="email-orig-item">
+      <span style="font-size:15px;flex-shrink:0;">📨</span>
+      <span class="eo-name" title="${esc(e.name)}">${esc(e.name)}</span>
+      <span class="eo-date">${esc(e.uploadedAt||'')}</span>
+      <button type="button" class="eo-icon-btn" onclick="_downloadEmailOrig('${esc(e.fileId)}','${esc(e.filename||e.name)}')" title="In Downloads speichern">⬇</button>
+      <button type="button" class="eo-icon-btn" onclick="_printEmailFromDrive('${esc(e.fileId)}','${esc(e.filename||e.name)}')" title="Als PDF drucken">🖨</button>
+      <a class="eo-icon-btn" href="${esc(e.url)}" target="_blank" title="In Google Drive anzeigen" style="text-decoration:none;">📂</a>
+      <button type="button" class="eo-del" onclick="${delFn}" title="Eintrag entfernen">✕</button>
+    </div>`;
+}
 function renderEmailOriginals(){
   const el=document.getElementById('emailOrigList');
   if(!el)return;
   const ti=document.getElementById('tEmailOrigTitle');
-  if(ti)ti.innerHTML='📧 E-Mail Originale'+(taskEmailOriginals.length?` <span style="color:var(--accent2);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">(${taskEmailOriginals.length})</span>`:'');
-  if(!taskEmailOriginals.length){el.innerHTML='';return;}
-  el.innerHTML=taskEmailOriginals.map((e,i)=>`
-    <div class="email-orig-item">
-      <span style="font-size:16px;flex-shrink:0;">📨</span>
-      <span class="eo-name" title="${esc(e.name)}">${esc(e.name)}</span>
-      <span class="eo-date">${esc(e.uploadedAt||'')}</span>
-      <button type="button" class="eo-icon-btn" onclick="_downloadEmailOrig('${esc(e.fileId)}','${esc(e.filename||e.name)}')" title="In Downloads speichern → dort doppelklicken zum Öffnen in Outlook">⬇</button>
-      <button type="button" class="eo-icon-btn" onclick="_printEmailFromDrive('${esc(e.fileId)}','${esc(e.filename||e.name)}')" title="Als PDF drucken (pixelgenaues Abbild)">🖨</button>
-      <a class="eo-icon-btn" href="${esc(e.url)}" target="_blank" title="In Google Drive anzeigen" style="text-decoration:none;">📂</a>
-      <button type="button" class="eo-del" onclick="taskEmailOriginals.splice(${i},1);renderEmailOriginals();scheduleTaskFieldSave();" title="Eintrag entfernen (Datei bleibt in Drive)">✕</button>
-    </div>`).join('');
+  const total=taskEmailOriginals.length;
+  if(ti)ti.innerHTML='📧 E-Mail Originale'+(total?` <span style="color:var(--accent2);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">(${total})</span>`:'');
+  const hint=document.getElementById('emailOrigMoreHint');
+  if(hint)hint.style.display=total>3?'':'none';
+  if(!total){el.innerHTML='';return;}
+  const visible=taskEmailOriginals.slice(0,3);
+  el.innerHTML=visible.map((e,i)=>_eoItemHtml(e,i,false)).join('');
+  if(total>3){
+    el.innerHTML+=`<div style="font-size:10px;color:var(--text2);text-align:center;padding:3px 0;cursor:pointer;" ondblclick="_openEmailOrigPopup()" onclick="_openEmailOrigPopup()">+${total-3} weitere – Doppelklick zum Anzeigen</div>`;
+  }
+}
+function _openEmailOrigPopup(){
+  if(document.getElementById('emailOrigPopupOverlay'))return;
+  const total=taskEmailOriginals.length;
+  const overlay=document.createElement('div');
+  overlay.id='emailOrigPopupOverlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML=`
+    <div style="background:var(--bg2);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.35);padding:22px 20px 18px;width:min(520px,92vw);max-height:80vh;display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <span style="font-weight:700;font-size:14px;">📨 E-Mail Originale (${total})</span>
+        <button type="button" id="emailOrigPopupClose" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text2);padding:2px 6px;border-radius:4px;line-height:1;" title="Schließen">✕</button>
+      </div>
+      <div id="emailOrigPopupList" style="overflow-y:auto;max-height:calc(80vh - 90px);display:flex;flex-direction:column;gap:5px;">
+        ${taskEmailOriginals.map((e,i)=>_eoItemHtml(e,i,true)).join('')}
+      </div>
+    </div>`;
+  overlay.addEventListener('click',function(ev){if(ev.target===overlay)_closeEmailOrigPopup();});
+  document.body.appendChild(overlay);
+  document.getElementById('emailOrigPopupClose').addEventListener('click',_closeEmailOrigPopup);
+}
+function _closeEmailOrigPopup(){
+  const o=document.getElementById('emailOrigPopupOverlay');
+  if(o)o.remove();
 }
 
 // Download via Drive API → Datei in Downloads speichern → dort doppelklicken für Outlook
@@ -5895,7 +5931,7 @@ function _applyBoardType(boardName){
   }
 }
 
-const TASK_SECTION_IDS=['tStammSect','tObjektSect','tAnsprchSect','tTermineSect','tEmailOrigSect','tChecklisteSect','tNotizenSect','tZeitSect','tAnhangSect','tVerkSect','tFotoSect'];
+const TASK_SECTION_IDS=['tStammSect','tObjektSect','tAnsprchSect','tTermineSect','tZeitSect','tChecklisteSect','tNotizenSect','tAnhangSect','tEmailOrigSect','tFotoSect','tVerkSect'];
 function collapseAllTaskSections(){
   TASK_SECTION_IDS.forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('open');});
 }
