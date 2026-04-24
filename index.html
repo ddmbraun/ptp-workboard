@@ -284,61 +284,66 @@ async function _ezBuildPdfFromHtml(info){
 async function _ezBuildPdf(info){
   var jsPDF=window.jspdf.jsPDF;
   var doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  var M=18,PW=210,CW=PW-2*M;
+  var M=20,PW=210,CW=PW-2*M;
   var d=info.date instanceof Date&&!isNaN(info.date)?info.date:new Date();
+  var LBL=18; // Breite der Label-Spalte (Von/Datum/An)
 
-  // ── Kopfleiste ──
-  doc.setFillColor(26,54,93);
-  doc.rect(0,0,PW,16,'F');
-  doc.setTextColor(255,255,255);doc.setFontSize(10);doc.setFont('helvetica','bold');
-  doc.text('E-Mail',M,11);
-  doc.setFontSize(8);doc.setFont('helvetica','normal');
-  doc.text(d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}),PW-M,11,{align:'right'});
-
-  // ── Betreff ──
-  var y=23;
-  doc.setFontSize(14);doc.setFont('helvetica','bold');doc.setTextColor(20,30,60);
-  var sl=doc.splitTextToSize(info.subject||'(kein Betreff)',CW);
-  doc.text(sl,M,y);
-  y+=sl.length*7+3;
-
-  // ── Metadaten-Box ──
-  var metaRows=[];
-  if(info.sender)metaRows.push(['Von',info.sender]);
-  metaRows.push(['Datum',d.toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'long',year:'numeric'})+', '+d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})+' Uhr']);
-  var mh=metaRows.length*7+6;
-  doc.setFillColor(247,249,252);doc.setDrawColor(215,220,230);doc.setLineWidth(0.3);
-  doc.roundedRect(M,y,CW,mh,2,2,'FD');
-  var my=y+6.5;
-  metaRows.forEach(function(row){
-    doc.setFontSize(9);doc.setFont('helvetica','bold');doc.setTextColor(100,108,130);
-    doc.text(row[0]+':',M+4,my);
-    doc.setFont('helvetica','normal');doc.setTextColor(30,35,55);
-    var val=doc.splitTextToSize(row[1],CW-26);
-    doc.text(val,M+22,my);
-    my+=Math.max(7,val.length*5);
-  });
-  y+=mh+5;
+  // ── Outlook-Icon (vereinfacht) ──
+  doc.setFillColor(230,70,10);
+  doc.roundedRect(M,9,9,9,1.5,1.5,'F');
+  doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont('helvetica','bold');
+  doc.text('O',M+1.8,15.5);
+  doc.setTextColor(120,120,120);doc.setFontSize(12);doc.setFont('helvetica','normal');
+  doc.text('Outlook',M+12,16.5);
 
   // ── Trennlinie ──
-  doc.setDrawColor(215,220,230);doc.setLineWidth(0.4);
+  var y=22;
+  doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);
+  doc.line(M,y,PW-M,y);y+=8;
+
+  // ── Betreff ──
+  doc.setFontSize(14);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);
+  var sl=doc.splitTextToSize(info.subject||'(kein Betreff)',CW);
+  doc.text(sl,M,y);y+=sl.length*7+4;
+
+  // ── Trennlinie ──
+  doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);
+  doc.line(M,y,PW-M,y);y+=6;
+
+  // ── Metadaten: Von / Datum / An ──
+  function _metaRow(label,value){
+    if(!value)return;
+    doc.setFontSize(9);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);
+    doc.text(label,M,y);
+    doc.setFont('helvetica','normal');doc.setTextColor(50,50,50);
+    var val=doc.splitTextToSize(value,CW-LBL-2);
+    doc.text(val,M+LBL,y);
+    y+=Math.max(5.8,val.length*5.2);
+  }
+  if(info.sender)_metaRow('Von',info.sender);
+  _metaRow('Datum',d.toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})+', '+d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})+' Uhr');
+  if(info.recipient)_metaRow('An',info.recipient);
+  y+=3;
+
+  // ── Trennlinie vor Body ──
+  doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);
   doc.line(M,y,PW-M,y);y+=7;
 
   // ── E-Mail-Text ──
-  doc.setFontSize(10);doc.setFont('helvetica','normal');doc.setTextColor(30,35,55);
+  doc.setFontSize(10);doc.setFont('helvetica','normal');doc.setTextColor(0,0,0);
   var body=(info.bodyText||'').trim();
-  if(body.length>8000)body=body.substring(0,8000)+'\n\n[…]';
-  var bl=doc.splitTextToSize(body,CW),LH=5.2,PH=284;
+  if(body.length>15000)body=body.substring(0,15000)+'\n\n[…]';
+  var bl=doc.splitTextToSize(body,CW),LH=5.2,PH=282;
   for(var i=0;i<bl.length;i++){
-    if(y+LH>PH){doc.addPage();y=18;}
+    if(y+LH>PH){doc.addPage();y=M;}
     doc.text(bl[i],M,y);y+=LH;
   }
 
-  // ── Fußzeile auf jeder Seite ──
+  // ── Fußzeile ──
   var pages=doc.getNumberOfPages();
   for(var p=1;p<=pages;p++){
     doc.setPage(p);
-    doc.setDrawColor(215,220,230);doc.setLineWidth(0.2);
+    doc.setDrawColor(200,200,200);doc.setLineWidth(0.2);
     doc.line(M,288,PW-M,288);
     doc.setFontSize(7.5);doc.setFont('helvetica','normal');doc.setTextColor(160,163,175);
     doc.text('PTP Workboard',M,293);
@@ -5565,6 +5570,7 @@ function renderEmailOriginals(){
       <span class="eo-name" title="${esc(e.name)}">${esc(e.name)}</span>
       <span class="eo-date">${esc(e.uploadedAt||'')}</span>
       <button type="button" class="eo-icon-btn" onclick="_downloadEmailOrig('${esc(e.fileId)}','${esc(e.filename||e.name)}')" title="In Downloads speichern → dort doppelklicken zum Öffnen in Outlook">⬇</button>
+      <button type="button" class="eo-icon-btn" onclick="_printEmailFromDrive('${esc(e.fileId)}','${esc(e.filename||e.name)}')" title="Als PDF drucken (pixelgenaues Abbild)">🖨</button>
       <a class="eo-icon-btn" href="${esc(e.url)}" target="_blank" title="In Google Drive anzeigen" style="text-decoration:none;">📂</a>
       <button type="button" class="eo-del" onclick="taskEmailOriginals.splice(${i},1);renderEmailOriginals();scheduleTaskFieldSave();" title="Eintrag entfernen (Datei bleibt in Drive)">✕</button>
     </div>`).join('');
@@ -5599,6 +5605,25 @@ async function _downloadEmailOrig(fileId,filename){
   }catch(e){
     showToast('⚠ Fehler: '+e.message,'error');
   }
+}
+
+// ── E-Mail von Drive laden und Druckfenster öffnen ──
+async function _printEmailFromDrive(fileId,filename){
+  if(!gdriveToken){showToast('⚠ Bitte zuerst mit Google Drive verbinden.','error');return;}
+  const lname=(filename||'').toLowerCase();
+  if(!lname.endsWith('.eml')){
+    showToast('🖨 Drucken nur für .eml möglich – .msg bitte direkt in Outlook öffnen und drucken.','error',6000);
+    return;
+  }
+  try{
+    showToast('⏳ E-Mail wird geladen…','info',3000);
+    const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(fileId)+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const text=await r.text();
+    const info=_parseEmlText(text);
+    if(!info.subject)info.subject=filename.replace(/\.eml$/i,'');
+    _openEmailPrintWindow(info);
+  }catch(e){showToast('⚠ Fehler: '+e.message,'error');}
 }
 
 // PDF-Vorschau aus E-Mail-Drop-Zone rendern (Drive-Embed-Vorschau)
@@ -5700,6 +5725,8 @@ async function _uploadEmailOriginal(file){
         const text=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result||'');r.onerror=rej;r.readAsText(file);});
         const info=_parseEmlText(text);
         if(!info.subject)info.subject=file.name.replace(/\.eml$/i,'');
+        // ── Druckfenster für pixelgenaues PDF öffnen ──
+        _openEmailPrintWindow(info);
         const pdfBuf=await _ezBuildPdfFromHtml(info);
         const pdfName=_ezClean(info.subject||file.name.replace(/\.eml$/i,''))+'_Protokoll.pdf';
         const pdfResult=await _ezUpload(pdfBuf,pdfName,fid);
@@ -5726,6 +5753,45 @@ async function _uploadEmailOriginal(file){
     if(msgEl)msgEl.textContent='📨 .msg / .eml hier hineinziehen';
   }
 }
+// ── E-Mail Druckfenster – pixelgenaues Abbild via Browser-Druckdialog ──
+function _openEmailPrintWindow(info){
+  const d=info.date instanceof Date&&!isNaN(info.date)?info.date:new Date();
+  const e2=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const dateStr=d.toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})+', '+d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})+' Uhr';
+  const bodyContent=info.bodyHtml
+    ?info.bodyHtml.replace(/<base[^>]*>/gi,'').replace(/<script[\s\S]*?<\/script>/gi,'')
+    :'<pre style="font-family:Arial,sans-serif;font-size:10pt;white-space:pre-wrap;margin:0;">'+e2(info.bodyText||'')+'</pre>';
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>${e2(info.subject||'E-Mail')}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:Arial,Helvetica,sans-serif;font-size:10pt;color:#000;background:#fff;}
+  .hdr{display:flex;align-items:center;padding:10px 20px 10px;border-bottom:1.5px solid #bbb;}
+  .ico{width:22px;height:22px;background:#e64600;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:13px;margin-right:9px;flex-shrink:0;}
+  .lbl{color:#888;font-size:12pt;}
+  .subj{font-size:14pt;font-weight:bold;padding:12px 20px 10px;border-bottom:1px solid #ccc;}
+  .meta{padding:8px 20px 6px;border-bottom:1px solid #ddd;}
+  .mr{display:flex;gap:0;margin-bottom:4px;font-size:9pt;}
+  .mk{font-weight:bold;min-width:58px;flex-shrink:0;}
+  .body{padding:16px 20px;font-size:10pt;line-height:1.55;}
+  @media print{body{margin:0;}@page{margin:15mm 15mm 15mm 15mm;}}
+</style>
+</head><body>
+<div class="hdr"><div class="ico">O</div><span class="lbl">Outlook</span></div>
+<div class="subj">${e2(info.subject||'(kein Betreff)')}</div>
+<div class="meta">
+  ${info.sender?`<div class="mr"><span class="mk">Von</span><span>${e2(info.sender)}</span></div>`:''}
+  <div class="mr"><span class="mk">Datum</span><span>${dateStr}</span></div>
+  ${info.recipient?`<div class="mr"><span class="mk">An</span><span>${e2(info.recipient)}</span></div>`:''}
+</div>
+<div class="body">${bodyContent}</div>
+<script>window.addEventListener('load',function(){setTimeout(function(){window.print();},600);});<\/script>
+</body></html>`;
+  const w=window.open('','_blank','width=900,height=750');
+  if(w){w.document.write(html);w.document.close();}
+  else showToast('⚠ Popup-Blocker aktiv – bitte Popups für diese Seite erlauben','error',6000);
+}
+
 function _handleEmailOrigDrop(dt){
   const allFiles=[...(dt.files||[])];
   const files=allFiles.filter(f=>/\.(msg|eml)$/i.test(f.name));
