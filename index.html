@@ -4019,6 +4019,9 @@ function parseAuftragText(text){
     const schadensbild=getMultiline('Baustelle_Schadensbild');
     const hausverwaltung=get('Objekt_Hausverwaltung');
     const nasOrdner=get('NAS_Auftragsordner');
+    const gdriveProjOrdner=get('Google_Drive_Projektordner');
+    const gdriveFotoOrdner=get('Google_Drive_Fotoordner');
+    const gdriveEmailOrdner=get('Google_Drive_Emailordner');
     const mieterTel=get('Mieter_Telefon');
     const eigTel=get('Eigentuemer_Telefon');
     const person=mieter||eigentuemer||'';
@@ -4063,6 +4066,12 @@ function parseAuftragText(text){
     try{
       if(nasOrdner)document.getElementById('tNAS').value=nasOrdner;
     }catch(e){console.error('Fehler beim NAS-Feld:',e);}
+
+    try{
+      if(gdriveProjOrdner)document.getElementById('tGDOrdner').value=gdriveProjOrdner;
+      if(gdriveFotoOrdner)document.getElementById('tGD').value=gdriveFotoOrdner;
+      if(gdriveEmailOrdner)document.getElementById('tEmailOrdner').value=gdriveEmailOrdner;
+    }catch(e){console.error('Fehler beim GD-Ordner-Feld:',e);}
 
     try{
       const ortsDatum=deDate(terminOrt);
