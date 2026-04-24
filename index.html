@@ -1642,6 +1642,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
         <span class="start-btn-text"><span class="start-btn-label">Neue lokale Datei</span><span class="start-btn-sub">Speicherort auf dem Computer wählen</span></span>
       </button>
       <button class="start-btn ghost" onclick="skipFileSelection()">Ohne Datei starten (Daten gehen beim Schließen verloren)</button>
+      <div id="_driveInitStatus" style="display:none;margin-top:10px;padding:8px 12px;border-radius:7px;background:rgba(0,0,0,.07);font-size:12px;color:var(--text2);text-align:center;"></div>
       <button class="start-btn" id="restoreBackupBtn" style="display:none;background:linear-gradient(135deg,#e65100,#bf360c);margin-top:4px;" onclick="restoreLocalBackup()">
         <span class="start-btn-icon">💾</span>
         <span class="start-btn-text"><span class="start-btn-label">Letzten lokalen Stand wiederherstellen</span><span class="start-btn-sub" id="restoreBackupHint"></span></span>
@@ -2437,8 +2438,23 @@ let gdriveTokenClient = null;
 let gdrivePendingAction = null; // 'load' | 'new' | 'save'
 let gdriveSaving = false;
 
+function _driveSetStatus(msg, isErr) {
+  var el = document.getElementById('_driveInitStatus');
+  if (!el) return;
+  el.style.display = 'block';
+  el.style.background = isErr ? 'rgba(220,50,50,.12)' : 'rgba(37,99,235,.1)';
+  el.style.color = isErr ? '#c00' : 'var(--accent)';
+  el.textContent = msg;
+  console.log('[Drive-Diagnose]', msg);
+}
+
 function gdriveInit() {
-  if (!window.google || !window.google.accounts) return;
+  console.log('[Drive] gdriveInit aufgerufen, window.google=', !!window.google);
+  if (!window.google || !window.google.accounts) {
+    _driveSetStatus('⏳ Google-Dienst lädt noch… (bitte 3 Sek. warten)', false);
+    return;
+  }
+  _driveSetStatus('✓ Google-Dienst bereit', false);
   gdriveTokenClient = google.accounts.oauth2.initTokenClient({
     client_id: GDRIVE_CLIENT_ID,
     scope: GDRIVE_SCOPE,
@@ -2500,6 +2516,7 @@ async function ensureWorkspaceFolder() {
 }
 
 async function gdriveTokenCallback(resp) {
+  console.log('[Drive] gdriveTokenCallback:', JSON.stringify(resp).substring(0,200));
   if (resp.error) {
     // Stille Anmeldung fehlgeschlagen (prompt:none) oder Popup blockiert
     if (['interaction_required','access_denied','popup_failed_to_open','popup_closed'].includes(resp.error)) {
@@ -2518,8 +2535,10 @@ async function gdriveTokenCallback(resp) {
         const sm=document.getElementById('startModal');
         if(sm&&!sm.classList.contains('open'))sm.classList.add('open');
         if(resp.error==='popup_failed_to_open'||resp.error==='popup_closed'){
+          _driveSetStatus('⚠ Popup blockiert – Browser-Einstellungen prüfen (Popup erlauben)', true);
           showToast('⚠ Google-Anmelde-Popup wurde blockiert oder geschlossen – bitte nochmals versuchen und Popup erlauben','error',8000);
         } else {
+          _driveSetStatus('⚠ Anmeldung fehlgeschlagen: '+resp.error, true);
           showToast('⚠ Google Drive Anmeldung fehlgeschlagen ('+resp.error+') – bitte nochmals versuchen','error',8000);
         }
       }
@@ -2528,6 +2547,8 @@ async function gdriveTokenCallback(resp) {
     alert('Google Drive Anmeldefehler: ' + resp.error);
     return;
   }
+  console.log('[Drive] Token erhalten, expires_in=', resp.expires_in);
+  _driveSetStatus('✓ Angemeldet – lade Datei…', false);
   gdriveToken = resp.access_token;
   gdriveTokenExpires = Date.now() + (Number(resp.expires_in || 3600) - 60) * 1000;
   // Token in localStorage speichern (übersteht Seitenreload)
@@ -2724,10 +2745,13 @@ function _driveCheckResponse(r){
 
 function gdriveRequestToken(action) {
   gdrivePendingAction = action;
+  console.log('[Drive] gdriveRequestToken:', action, 'tokenClient=', !!gdriveTokenClient);
+  _driveSetStatus('⏳ Google-Anmeldung wird gestartet…', false);
   if (!gdriveTokenClient) {
     gdriveInit();
     if (!gdriveTokenClient) {
       // GSI noch nicht geladen → Start-Modal sichtbar lassen und Hinweis geben
+      _driveSetStatus('⚠ Google-Dienst nicht geladen – bitte Seite neu laden (F5)', true);
       showToast('⚠ Google-Dienst noch nicht geladen – bitte 2–3 Sekunden warten und nochmals drücken','error',6000);
       gdrivePendingAction = null;
       return;
@@ -2735,11 +2759,17 @@ function gdriveRequestToken(action) {
   }
   // login_hint beschleunigt den Login (überspringt Konto-Auswahl wenn bekannt)
   const hint = localStorage.getItem('ptp_user_email_v1') || '';
-  const opts = {};
-  if (hint) opts.login_hint = hint;
   try {
-    gdriveTokenClient.requestAccessToken(opts);
+    console.log('[Drive] requestAccessToken aufgerufen, hint=', hint ? 'ja' : 'nein');
+    _driveSetStatus('⏳ Google-Anmelde-Fenster öffnet sich…', false);
+    if (hint) {
+      gdriveTokenClient.requestAccessToken({ login_hint: hint });
+    } else {
+      gdriveTokenClient.requestAccessToken();
+    }
   } catch(e) {
+    console.error('[Drive] requestAccessToken Fehler:', e);
+    _driveSetStatus('⚠ Fehler: ' + e.message, true);
     showToast('⚠ Google Drive Anmeldung fehlgeschlagen: ' + e.message,'error',6000);
     gdrivePendingAction = null;
   }
@@ -6299,7 +6329,7 @@ async function openEmailPdfPreview(fileId,name){
   const drag=document.createElement('div');
   drag.className='pdf-preview-drag';
   drag.innerHTML='<span title="'+esc(name||'E-Mail PDF')+'">📄 '+esc(name||'E-Mail PDF')+'</span>'
-    +'<button onclick="document.getElementById('emailPdfPopup').remove()" title="Schließen">✕</button>';
+    +'<button onclick="document.getElementById(\'emailPdfPopup\').remove()" title="Schlie\xdfen">✕</button>';
   // Lade-Anzeige
   const loader=document.createElement('div');
   loader.style.cssText='flex:1;display:flex;align-items:center;justify-content:center;font-size:14px;color:#666;';
