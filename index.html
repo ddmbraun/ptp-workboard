@@ -133,14 +133,14 @@ async function _ezProcess(info,fid,zone){
         url:'https://drive.google.com/file/d/'+result.id+'/view',
         uploadedAt:new Date().toLocaleDateString('de-DE')
       });
-      if(typeof renderEmailPdfs==='function')renderEmailPdfs();
+      if(typeof renderEmailSection==='function')renderEmailSection();
       if(typeof scheduleTaskFieldSave==='function')scheduleTaskFieldSave();
       // E-Mail-Sektion öffnen und zur Vorschau scrollen
       var sect=document.getElementById('tEmailOrigSect');
       if(sect&&!sect.classList.contains('open'))sect.classList.add('open');
       setTimeout(function(){
-        var list=document.getElementById('emailPdfList');
-        if(list)list.scrollIntoView({behavior:'smooth',block:'start'});
+        var grid=document.getElementById('emailIconGrid');
+        if(grid)grid.scrollIntoView({behavior:'smooth',block:'start'});
       },200);
     }
   }catch(err){
@@ -1263,6 +1263,21 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 /* ── E-MAIL ORIGINALE ── */
 .email-orig-drop{border:1.5px dashed var(--border);border-radius:8px;padding:9px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;transition:border-color .2s,background .2s;margin-top:6px;}
 .email-orig-drop.dragover{border-color:var(--accent);background:rgba(108,99,255,.07);}
+/* Email Icon Grid */
+.email-icon-grid{display:flex;flex-wrap:wrap;gap:8px;padding:2px 0 6px;}
+.eic{position:relative;width:68px;cursor:default;flex-shrink:0;}
+.eic-thumb{width:68px;height:68px;border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--border);}
+.eic-thumb svg{width:68px;height:68px;display:block;}
+.eic-overlay{position:absolute;inset:0;border-radius:8px;background:rgba(0,0,0,.62);display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:3px;padding:4px;opacity:0;transition:opacity .15s;}
+.eic:hover .eic-overlay{opacity:1;}
+@media(hover:none){.eic-overlay{opacity:1;background:rgba(0,0,0,.45);}}
+.eic-btn{width:24px;height:24px;padding:0;border-radius:5px;border:none;background:rgba(255,255,255,.22);color:#fff;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background .12s;text-decoration:none;}
+.eic-btn:hover{background:rgba(255,255,255,.4);}
+.eic-btn-del{background:rgba(210,40,40,.5);}
+.eic-btn-del:hover{background:rgba(210,40,40,.85);}
+.eic-name{font-size:9px;color:var(--text2);margin-top:3px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:68px;}
+.eic-tip{position:absolute;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);background:rgba(20,20,20,.92);color:#fff;font-size:10px;padding:3px 8px;border-radius:5px;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis;pointer-events:none;opacity:0;transition:opacity .15s;z-index:10;}
+.eic:hover .eic-tip{opacity:1;}
 .email-section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);margin:8px 0 5px;padding-left:2px;border-bottom:1px solid var(--border);padding-bottom:3px;}
 .email-section-label:first-child{margin-top:0;}
 .email-orig-item{display:flex;align-items:center;gap:5px;padding:4px 7px;border-radius:5px;background:var(--bg3);border:1px solid var(--border);margin-bottom:3px;font-size:11px;}
@@ -1626,13 +1641,10 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
         <span class="form-collapse-arrow">▾</span>
       </div>
       <div class="form-collapse-body">
-        <div class="email-section-label">📄 E-Mail PDFs</div>
-        <div id="emailPdfList"></div>
-        <div class="email-section-label" style="display:flex;align-items:center;justify-content:space-between;">
-          <span>📨 Originale (.msg / .eml)</span>
-          <span id="emailOrigMoreHint" style="font-size:10px;color:var(--accent);cursor:pointer;display:none;" ondblclick="_openEmailOrigPopup()" onclick="_openEmailOrigPopup()">Alle anzeigen →</span>
+        <div style="display:flex;align-items:center;justify-content:flex-end;min-height:16px;margin-bottom:4px;">
+          <span id="emailAllHint" style="font-size:10px;color:var(--accent);cursor:pointer;display:none;" onclick="_openEmailAllPopup()">Alle anzeigen →</span>
         </div>
-        <div id="emailOrigList" ondblclick="_openEmailOrigPopup()" style="cursor:default;"></div>
+        <div id="emailIconGrid" class="email-icon-grid"></div>
         <div class="email-orig-drop" id="emailOrigDrop"
           ondragenter="event.preventDefault();this.classList.add('dragover')"
           ondragover="event.preventDefault();this.classList.add('dragover');event.dataTransfer.dropEffect='copy'"
@@ -5586,60 +5598,109 @@ function addGmailLink(){
   if(sect&&!sect.classList.contains('open'))sect.classList.add('open');
 }
 
-// ── E-MAIL ORIGINALE ──
-function _eoItemHtml(e,i,fromPopup){
-  const delFn=fromPopup
-    ?`taskEmailOriginals.splice(${i},1);renderEmailOriginals();scheduleTaskFieldSave();_closeEmailOrigPopup();`
-    :`taskEmailOriginals.splice(${i},1);renderEmailOriginals();scheduleTaskFieldSave();`;
-  return `<div class="email-orig-item">
-      <span style="font-size:15px;flex-shrink:0;">📨</span>
-      <span class="eo-name" title="${esc(e.name)}">${esc(e.name)}</span>
-      <span class="eo-date">${esc(e.uploadedAt||'')}</span>
-      <button type="button" class="eo-icon-btn" onclick="_downloadEmailOrig('${esc(e.fileId)}','${esc(e.filename||e.name)}')" title="In Downloads speichern">⬇</button>
-      <button type="button" class="eo-icon-btn" onclick="_printEmailFromDrive('${esc(e.fileId)}','${esc(e.filename||e.name)}')" title="Als PDF drucken">🖨</button>
-      <a class="eo-icon-btn" href="${esc(e.url)}" target="_blank" title="In Google Drive anzeigen" style="text-decoration:none;">📂</a>
-      <button type="button" class="eo-del" onclick="${delFn}" title="Eintrag entfernen">✕</button>
-    </div>`;
+// ── E-MAIL SEKTION (unified icon grid) ──
+function _eicEnvSvg(){
+  return `<svg viewBox="0 0 68 68" xmlns="http://www.w3.org/2000/svg">
+    <rect width="68" height="68" rx="8" fill="#e8f3ff"/>
+    <rect x="9" y="19" width="50" height="33" rx="4" fill="#1a73e8"/>
+    <path d="M9 23 L34 41 L59 23" fill="none" stroke="rgba(255,255,255,0.92)" stroke-width="2.5" stroke-linejoin="round"/>
+    <path d="M9 52 L27 36" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+    <path d="M59 52 L41 36" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+  </svg>`;
 }
-function renderEmailOriginals(){
-  const el=document.getElementById('emailOrigList');
-  if(!el)return;
+function _eicPdfSvg(){
+  return `<svg viewBox="0 0 68 68" xmlns="http://www.w3.org/2000/svg">
+    <rect width="68" height="68" rx="8" fill="#fce8e6"/>
+    <rect x="15" y="7" width="29" height="40" rx="3" fill="#ea4335"/>
+    <path d="M44 7 L44 18 L54 18 Z" fill="#f28b82"/>
+    <rect x="44" y="7" width="10" height="11" rx="0" fill="#c5221f" opacity="0.6"/>
+    <rect x="15" y="47" width="38" height="14" rx="3" fill="#c5221f"/>
+    <text x="34" y="57.5" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="white" text-anchor="middle">PDF</text>
+    <line x1="20" y1="19" x2="37" y2="19" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
+    <line x1="20" y1="24" x2="37" y2="24" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
+    <line x1="20" y1="29" x2="37" y2="29" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
+  </svg>`;
+}
+function _eicHtml(item){
+  const isPdf=item._type==='pdf';
+  const name=item.name||'';
+  const nameEsc=esc(name);
+  const short=name.length>9?name.substring(0,9)+'…':name;
+  const icon=isPdf?_eicPdfSvg():_eicEnvSvg();
+  const btnsPdf=`<button type="button" class="eic-btn" onclick="openEmailPdfPreview('${esc(item.fileId)}','${nameEsc}')" title="Vorschau öffnen">🔍</button><a class="eic-btn" href="${esc(item.url)}" target="_blank" title="In Google Drive öffnen">📂</a><button type="button" class="eic-btn eic-btn-del" onclick="taskEmailPdfs.splice(${item._idx},1);renderEmailSection();scheduleTaskFieldSave();" title="Entfernen">✕</button>`;
+  const btnsOrig=`<button type="button" class="eic-btn" onclick="_downloadEmailOrig('${esc(item.fileId)}','${nameEsc}')" title="Herunterladen">⬇</button><button type="button" class="eic-btn" onclick="_printEmailFromDrive('${esc(item.fileId)}','${nameEsc}')" title="Als PDF drucken">🖨</button><a class="eic-btn" href="${esc(item.url)}" target="_blank" title="In Google Drive öffnen">📂</a><button type="button" class="eic-btn eic-btn-del" onclick="taskEmailOriginals.splice(${item._idx},1);renderEmailSection();scheduleTaskFieldSave();" title="Entfernen">✕</button>`;
+  return `<div class="eic">
+    <div class="eic-thumb">${icon}</div>
+    <div class="eic-overlay">${isPdf?btnsPdf:btnsOrig}</div>
+    <div class="eic-tip">${nameEsc}</div>
+    <div class="eic-name">${esc(short)}</div>
+  </div>`;
+}
+function renderEmailSection(){
+  const grid=document.getElementById('emailIconGrid');
+  if(!grid)return;
   const ti=document.getElementById('tEmailOrigTitle');
-  const total=taskEmailOriginals.length;
+  const allItems=[
+    ...taskEmailPdfs.map((p,i)=>({...p,_type:'pdf',_idx:i})),
+    ...taskEmailOriginals.map((e,i)=>({...e,_type:'orig',_idx:i}))
+  ];
+  const total=allItems.length;
   if(ti)ti.innerHTML='📧 E-Mail Originale'+(total?` <span style="color:var(--accent2);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">(${total})</span>`:'');
-  const hint=document.getElementById('emailOrigMoreHint');
-  if(hint)hint.style.display=total>3?'':'none';
-  if(!total){el.innerHTML='';return;}
-  const visible=taskEmailOriginals.slice(0,3);
-  el.innerHTML=visible.map((e,i)=>_eoItemHtml(e,i,false)).join('');
-  if(total>3){
-    el.innerHTML+=`<div style="font-size:10px;color:var(--text2);text-align:center;padding:3px 0;cursor:pointer;" ondblclick="_openEmailOrigPopup()" onclick="_openEmailOrigPopup()">+${total-3} weitere – Doppelklick zum Anzeigen</div>`;
-  }
+  const hint=document.getElementById('emailAllHint');
+  if(hint)hint.style.display=total>4?'':'none';
+  grid.innerHTML=allItems.slice(0,4).map(item=>_eicHtml(item)).join('');
 }
-function _openEmailOrigPopup(){
+// Stubs so old call sites still work
+function renderEmailOriginals(){renderEmailSection();}
+function renderEmailPdfs(){renderEmailSection();}
+
+function _emailAllListItem(item){
+  const isPdf=item._type==='pdf';
+  const name=item.name||'';
+  const nameEsc=esc(name);
+  const icon=isPdf?'📄':'📨';
+  const delFn=isPdf
+    ?`taskEmailPdfs.splice(${item._idx},1);renderEmailSection();scheduleTaskFieldSave();_closeEmailAllPopup();`
+    :`taskEmailOriginals.splice(${item._idx},1);renderEmailSection();scheduleTaskFieldSave();_closeEmailAllPopup();`;
+  const btnsPdf=`<button type="button" class="eo-icon-btn" onclick="openEmailPdfPreview('${esc(item.fileId)}','${nameEsc}')" title="Vorschau">🔍</button><a class="eo-icon-btn" href="${esc(item.url)}" target="_blank" title="Drive" style="text-decoration:none;">📂</a><button type="button" class="eo-del" onclick="${delFn}" title="Entfernen">✕</button>`;
+  const btnsOrig=`<button type="button" class="eo-icon-btn" onclick="_downloadEmailOrig('${esc(item.fileId)}','${nameEsc}')" title="Download">⬇</button><button type="button" class="eo-icon-btn" onclick="_printEmailFromDrive('${esc(item.fileId)}','${nameEsc}')" title="Als PDF drucken">🖨</button><a class="eo-icon-btn" href="${esc(item.url)}" target="_blank" title="Drive" style="text-decoration:none;">📂</a><button type="button" class="eo-del" onclick="${delFn}" title="Entfernen">✕</button>`;
+  return `<div class="email-orig-item">
+    <span style="font-size:15px;flex-shrink:0;">${icon}</span>
+    <span class="eo-name" title="${nameEsc}">${nameEsc}</span>
+    <span class="eo-date">${esc(item.uploadedAt||'')}</span>
+    ${isPdf?btnsPdf:btnsOrig}
+  </div>`;
+}
+function _openEmailAllPopup(){
   if(document.getElementById('emailOrigPopupOverlay'))return;
-  const total=taskEmailOriginals.length;
+  const allItems=[
+    ...taskEmailPdfs.map((p,i)=>({...p,_type:'pdf',_idx:i})),
+    ...taskEmailOriginals.map((e,i)=>({...e,_type:'orig',_idx:i}))
+  ];
   const overlay=document.createElement('div');
   overlay.id='emailOrigPopupOverlay';
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;';
   overlay.innerHTML=`
     <div style="background:var(--bg2);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.35);padding:22px 20px 18px;width:min(520px,92vw);max-height:80vh;display:flex;flex-direction:column;gap:10px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-        <span style="font-weight:700;font-size:14px;">📨 E-Mail Originale (${total})</span>
+        <span style="font-weight:700;font-size:14px;">📧 Alle E-Mail Dateien (${allItems.length})</span>
         <button type="button" id="emailOrigPopupClose" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text2);padding:2px 6px;border-radius:4px;line-height:1;" title="Schließen">✕</button>
       </div>
-      <div id="emailOrigPopupList" style="overflow-y:auto;max-height:calc(80vh - 90px);display:flex;flex-direction:column;gap:5px;">
-        ${taskEmailOriginals.map((e,i)=>_eoItemHtml(e,i,true)).join('')}
+      <div style="overflow-y:auto;max-height:calc(80vh - 90px);display:flex;flex-direction:column;gap:4px;">
+        ${allItems.map(item=>_emailAllListItem(item)).join('')}
       </div>
     </div>`;
-  overlay.addEventListener('click',function(ev){if(ev.target===overlay)_closeEmailOrigPopup();});
+  overlay.addEventListener('click',ev=>{if(ev.target===overlay)_closeEmailAllPopup();});
   document.body.appendChild(overlay);
-  document.getElementById('emailOrigPopupClose').addEventListener('click',_closeEmailOrigPopup);
+  document.getElementById('emailOrigPopupClose').addEventListener('click',_closeEmailAllPopup);
 }
-function _closeEmailOrigPopup(){
+// Keep old name as alias so any leftover calls work
+function _openEmailOrigPopup(){_openEmailAllPopup();}
+function _closeEmailAllPopup(){
   const o=document.getElementById('emailOrigPopupOverlay');
   if(o)o.remove();
 }
+function _closeEmailOrigPopup(){_closeEmailAllPopup();}
 
 // Download via Drive API → Datei in Downloads speichern → dort doppelklicken für Outlook
 async function _downloadEmailOrig(fileId,filename){
@@ -5691,23 +5752,7 @@ async function _printEmailFromDrive(fileId,filename){
   }catch(e){showToast('⚠ Fehler: '+e.message,'error');}
 }
 
-// PDF-Vorschau aus E-Mail-Drop-Zone rendern (Drive-Embed-Vorschau)
-function renderEmailPdfs(){
-  const el=document.getElementById('emailPdfList');
-  if(!el)return;
-  if(!taskEmailPdfs.length){el.innerHTML='';return;}
-  el.innerHTML=taskEmailPdfs.map((p,i)=>`
-    <div class="email-pdf-item">
-      <div class="email-pdf-header">
-        <span style="font-size:15px;flex-shrink:0;">📄</span>
-        <span class="eo-name" title="${esc(p.name)}">${esc(p.name)}</span>
-        <span class="eo-date">${esc(p.uploadedAt||'')}</span>
-        <button type="button" class="eo-icon-btn" onclick="openEmailPdfPreview('${esc(p.fileId)}','${esc(p.name)}')" title="Vorschau öffnen">🔍</button>
-        <a class="eo-icon-btn" href="${esc(p.url)}" target="_blank" title="In Google Drive öffnen" style="text-decoration:none;">📂</a>
-        <button type="button" class="eo-del" onclick="taskEmailPdfs.splice(${i},1);renderEmailPdfs();scheduleTaskFieldSave();" title="Eintrag entfernen (Datei bleibt in Drive)">✕</button>
-      </div>
-    </div>`).join('');
-}
+// PDF-Vorschau rendern → jetzt über unified renderEmailSection()
 function openEmailPdfPreview(fileId,name){
   if(!fileId)return;
   // Vorhandenes Popup entfernen
@@ -5799,8 +5844,8 @@ async function _uploadEmailOriginal(file){
         // PDF-Vorschau einblenden und hinscrolled
         const sect=document.getElementById('tEmailOrigSect');
         if(sect&&!sect.classList.contains('open'))sect.classList.add('open');
-        const pdfList=document.getElementById('emailPdfList');
-        if(pdfList)setTimeout(()=>pdfList.scrollIntoView({behavior:'smooth',block:'nearest'}),250);
+        const emailGrid=document.getElementById('emailIconGrid');
+        if(emailGrid)setTimeout(()=>emailGrid.scrollIntoView({behavior:'smooth',block:'nearest'}),250);
       }catch(pdfErr){
         console.warn('[PTP] PDF-Vorschau konnte nicht erstellt werden:',pdfErr);
         showToast('⚠ Original gespeichert – PDF-Vorschau konnte nicht erstellt werden.','error',5000);
