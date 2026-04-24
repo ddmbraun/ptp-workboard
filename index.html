@@ -389,35 +389,48 @@ function _decodeEmlMimeWord(str){
     }catch(e){return dat;}
   });
 }
-function _decodeQP(s){
-  // Quoted-Printable dekodieren: =\n entfernen (soft break), =XX → Zeichen
-  return s.replace(/=\r?\n/g,'').replace(/=([0-9A-Fa-f]{2})/g,function(_,h){return String.fromCharCode(parseInt(h,16));});
+function _decodeQP(s,charset){
+  // Quoted-Printable dekodieren mit Charset-Unterstützung (utf-8, iso-8859-1, etc.)
+  var raw=s.replace(/=\r?\n/g,'');
+  var bytes=[],i=0;
+  while(i<raw.length){
+    if(raw[i]==='='&&i+2<raw.length&&/^[0-9A-Fa-f]{2}$/.test(raw.substring(i+1,i+3))){
+      bytes.push(parseInt(raw.substring(i+1,i+3),16));i+=3;
+    }else{
+      var code=raw.charCodeAt(i);
+      if(code<128){bytes.push(code);}
+      else{var enc=new TextEncoder().encode(raw[i]);for(var b=0;b<enc.length;b++)bytes.push(enc[b]);}
+      i++;
+    }
+  }
+  try{return new TextDecoder(charset||'utf-8').decode(new Uint8Array(bytes));}
+  catch(e){return bytes.map(function(b){return String.fromCharCode(b);}).join('');}
 }
 function _decodeB64Body(s,cs){
   try{var bin=atob(s.replace(/\s/g,''));var b=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)b[i]=bin.charCodeAt(i);return new TextDecoder(cs||'utf-8').decode(b);}catch(e){return s;}
 }
 function _parseEmlText(rawText){
-  // Trennung Header / Body an erster Leerzeile
   var he=rawText.search(/\r?\n\r?\n/);
   var hdr=he>=0?rawText.substring(0,he):rawText.substring(0,2000);
   var bdy=he>=0?rawText.substring(he).replace(/^\r?\n/,''):'';
-  // Gefaltete Header-Zeilen zusammenführen
   var hl=hdr.replace(/\r?\n([ \t])/g,' ').split(/\r?\n/);
-  var subject='',sender='',date=new Date(),ctype='',tenc='';
+  var subject='',sender='',date=new Date(),ctype='',tenc='',charset='utf-8';
   hl.forEach(function(l){
     if(/^Subject:/i.test(l))subject=_decodeEmlMimeWord(l.replace(/^Subject:\s*/i,'').trim());
     if(/^From:/i.test(l))sender=_decodeEmlMimeWord(l.replace(/^From:\s*/i,'').trim());
     if(/^Date:/i.test(l)){try{var d=new Date(l.replace(/^Date:\s*/i,''));if(!isNaN(d))date=d;}catch(e){}}
-    if(/^Content-Type:/i.test(l))ctype=l.replace(/^Content-Type:\s*/i,'');
+    if(/^Content-Type:/i.test(l)){ctype=l.replace(/^Content-Type:\s*/i,'');var cm=ctype.match(/charset=["']?([^"';\s]+)/i);if(cm)charset=cm[1];}
     if(/^Content-Transfer-Encoding:/i.test(l))tenc=l.replace(/^Content-Transfer-Encoding:\s*/i,'').trim().toLowerCase().replace(/['"]/g,'');
   });
-  // Bei Multipart: text/plain-Teil extrahieren
-  var plain='',htmlBody='';
-  var bm=ctype.match(/boundary="?([^";]+)"?/i);
-  if(bm){
+
+  // Rekursiver Multipart-Extraktor – verarbeitet beliebig tief verschachtelte MIME-Strukturen
+  function _extractParts(ctypeStr,body){
+    var res={plain:'',html:''};
+    var bm=ctypeStr.match(/boundary="?([^";]+)"?/i);
+    if(!bm)return res;
     var sep=bm[1].trim();
     var safeRe=sep.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-    var parts=bdy.split(new RegExp('\\r?\\n?--'+safeRe+'(?:--)?\\r?\\n?'));
+    var parts=body.split(new RegExp('\\r?\\n?--'+safeRe+'(?:--)?\\r?\\n?'));
     for(var i=0;i<parts.length;i++){
       var p=parts[i];
       var ph=p.search(/\r?\n\r?\n/);if(ph<0)continue;
@@ -425,19 +438,35 @@ function _parseEmlText(rawText){
       var pb=p.substring(ph).replace(/^\r?\n/,'');
       var peArr=phdr.match(/Content-Transfer-Encoding:\s*(\S+)/i);
       var pe=(peArr?peArr[1]:'').toLowerCase().replace(/['"]/g,'');
-      if(!plain&&/content-type:\s*text\/plain/i.test(phdr)){
-        plain=pe==='quoted-printable'?_decodeQP(pb):pe==='base64'?_decodeB64Body(pb):pb;
-      }
-      if(!htmlBody&&/content-type:\s*text\/html/i.test(phdr)){
-        htmlBody=pe==='quoted-printable'?_decodeQP(pb):pe==='base64'?_decodeB64Body(pb):pb;
+      var pctArr=phdr.match(/Content-Type:\s*([^;\r\n]+)/i);
+      var pct=(pctArr?pctArr[1]:'').trim().toLowerCase();
+      var pcsArr=phdr.match(/charset=["']?([^"';\s]+)/i);
+      var pcs=pcsArr?pcsArr[1]:'utf-8';
+      var pfullct=phdr.match(/Content-Type:\s*([^\r\n]+)/i);
+      if(pct.startsWith('multipart/')&&pfullct){
+        // Rekursiv in verschachtelte Teile eintauchen
+        var sub=_extractParts(pfullct[1],pb);
+        if(!res.plain&&sub.plain)res.plain=sub.plain;
+        if(!res.html&&sub.html)res.html=sub.html;
+      }else if(!res.plain&&pct==='text/plain'){
+        res.plain=pe==='quoted-printable'?_decodeQP(pb,pcs):pe==='base64'?_decodeB64Body(pb,pcs):pb;
+      }else if(!res.html&&pct==='text/html'){
+        res.html=pe==='quoted-printable'?_decodeQP(pb,pcs):pe==='base64'?_decodeB64Body(pb,pcs):pb;
       }
     }
+    return res;
+  }
+
+  var plain='',htmlBody='';
+  if(/^multipart\//i.test(ctype)){
+    var extracted=_extractParts(ctype,bdy);
+    plain=extracted.plain;htmlBody=extracted.html;
   }
   if(!plain&&!htmlBody){
-    plain=tenc==='quoted-printable'?_decodeQP(bdy):tenc==='base64'?_decodeB64Body(bdy):bdy;
+    plain=tenc==='quoted-printable'?_decodeQP(bdy,charset):tenc==='base64'?_decodeB64Body(bdy,charset):bdy;
   }
   plain=plain.replace(/\r\n/g,'\n').replace(/\r/g,'\n').trim();
-  return{subject:subject,sender:sender,date:date,bodyText:plain.substring(0,4000),bodyHtml:htmlBody||''};
+  return{subject:subject,sender:sender,date:date,bodyText:plain.substring(0,8000),bodyHtml:htmlBody||''};
 }
 
 function tEmailOrdnerOeffnen(){var u=(document.getElementById('tEmailOrdner')||{}).value||'';if(u.trim())window.open(u,'_blank');else alert('Bitte zuerst eine Google Drive Ordner-URL eintragen.');}
@@ -5775,7 +5804,7 @@ function _openEmailPrintWindow(info){
   @media print{body{margin:0;}@page{margin:15mm 15mm 15mm 15mm;}}
 </style>
 </head><body>
-<div class="hdr"><div class="ico">O</div><span class="lbl">Outlook</span></div>
+<div class="hdr"><div class="ico">O</div><span class="lbl">Outlook</span><button id="printBtn" style="margin-left:auto;padding:6px 16px;background:#0078d4;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11pt;">🖨 Als PDF drucken</button></div>
 <div class="subj">${e2(info.subject||'(kein Betreff)')}</div>
 <div class="meta">
   ${info.sender?`<div class="mr"><span class="mk">Von</span><span>${e2(info.sender)}</span></div>`:''}
@@ -5783,7 +5812,7 @@ function _openEmailPrintWindow(info){
   ${info.recipient?`<div class="mr"><span class="mk">An</span><span>${e2(info.recipient)}</span></div>`:''}
 </div>
 <div class="body">${bodyContent}</div>
-<script>window.addEventListener('load',function(){setTimeout(function(){window.print();},600);});<\/script>
+<script>document.getElementById('printBtn').onclick=function(){window.print();};<\/script>
 </body></html>`;
   const w=window.open('','_blank','width=900,height=750');
   if(w){w.document.write(html);w.document.close();}
