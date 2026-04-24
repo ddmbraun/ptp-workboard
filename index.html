@@ -224,29 +224,30 @@ async function _ezBuildPdfFromHtml(info){
         fetch(img.src,{mode:'no-cors'})
           .then(function(r){return r.blob();})
           .then(function(blob){
-            var reader=new FileReader();
-            reader.onload=function(e){
-              if(done)return;done=true;
-              clearTimeout(timer);
-              img.src=e.target.result; // Base64 ersetzen
-              resolve();
+            // URL.createObjectURL statt FileReader – funktioniert auch bei opakem Blob ohne MIME-Typ
+            var objUrl=URL.createObjectURL(blob);
+            var t2=setTimeout(function(){
+              if(done)return;done=true;clearTimeout(timer);
+              URL.revokeObjectURL(objUrl);img.style.display='none';resolve();
+            },3000);
+            img.onload=function(){
+              if(done)return;done=true;clearTimeout(timer);clearTimeout(t2);resolve();
             };
-            reader.onerror=function(){
-              if(done)return;done=true;
-              clearTimeout(timer);
-              img.style.display='none';
-              resolve();
+            img.onerror=function(){
+              if(done)return;done=true;clearTimeout(timer);clearTimeout(t2);
+              URL.revokeObjectURL(objUrl);img.style.display='none';resolve();
             };
-            reader.readAsDataURL(blob);
+            img.src=objUrl;
+            if(img.complete&&img.naturalWidth>0){done=true;clearTimeout(timer);clearTimeout(t2);resolve();}
           })
           .catch(function(){
-            // CORS-Fehler → Bild als normales img-onload abwarten
+            // Fetch fehlgeschlagen → normales img-onload abwarten
             var t2=setTimeout(function(){
               if(done)return;done=true;img.style.display='none';resolve();
             },2000);
             img.onload=function(){if(done)return;done=true;clearTimeout(t2);resolve();};
             img.onerror=function(){if(done)return;done=true;clearTimeout(t2);img.style.display='none';resolve();};
-            if(img.complete)img.onload();
+            if(img.complete&&img.naturalWidth>0)img.onload();
           });
       });
     }));
