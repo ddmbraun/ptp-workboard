@@ -1904,6 +1904,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
               <input type="url" id="tGD" placeholder="https://drive.google.com/drive/folders/…" oninput="_updateFotoOrdnerHint()">
               <button class="link-btn-2" onclick="_pickDriveFolder('tGD')" title="Ordner aus Drive wählen">📂</button>
               <button class="link-btn-2" onclick="tDriveOeffnen()" title="Ordner öffnen">📁</button>
+              <button class="link-btn-2" onclick="loadFotosFromDriveFolder()" title="Fotos aus diesem Ordner in Task einlesen" style="color:var(--accent);font-weight:700;">🔄</button>
             </div>
           </div>
           <div class="modal-field full">
@@ -1912,6 +1913,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
               <input type="url" id="tGDOrdner" placeholder="https://drive.google.com/drive/folders/…" oninput="_updateFotoOrdnerHint()">
               <button class="link-btn-2" onclick="_pickDriveFolder('tGDOrdner')" title="Ordner aus Drive wählen">📂</button>
               <button class="link-btn-2" onclick="tDriveOrdnerOeffnen()" title="Ordner öffnen">📁</button>
+              <button class="link-btn-2" onclick="_scanDriveIntoTask('tGDOrdner','anhang')" title="Dateien aus Projektordner in Anhänge einlesen" style="color:var(--accent);font-weight:700;">🔄</button>
             </div>
           </div>
           <div class="modal-field full baustelle-only">
@@ -1927,6 +1929,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
               <input type="url" id="tEmailOrdner" placeholder="https://drive.google.com/drive/folders/…">
               <button class="link-btn-2" onclick="_pickDriveFolder('tEmailOrdner')" title="Ordner aus Drive wählen">📂</button>
               <button class="link-btn-2" onclick="tEmailOrdnerOeffnen()" title="Ordner öffnen">📁</button>
+              <button class="link-btn-2" onclick="_scanDriveIntoTask('tEmailOrdner','email')" title="E-Mails aus Ordner in Task einlesen" style="color:var(--accent);font-weight:700;">🔄</button>
             </div>
           </div>
         </div>
@@ -4338,6 +4341,113 @@ async function loadFotosFromDriveFolder(){
   await _dfpLoadFolder(folderId,'Foto-Ordner');
 }
 
+// ── DRIVE-ORDNER IN TASK EINLESEN ──
+// type: 'email' → emailOriginals, 'anhang' → attachments
+async function _scanDriveIntoTask(inputId,type){
+  if(!gdriveToken){showToast('⚠ Bitte zuerst mit Google Drive verbinden','error');return;}
+  const url=(document.getElementById(inputId)||{}).value||'';
+  const folderId=_ezFolderId(url);
+  if(!folderId){
+    showToast('⚠ Bitte zuerst einen Drive-Ordner-Link eintragen','error',5000);
+    return;
+  }
+  showToast('⏳ Ordner wird durchsucht…','info',4000);
+  try{
+    // Dateien aus Ordner laden
+    let mimeFilter='';
+    if(type==='email'){
+      mimeFilter='(name contains '.eml' or name contains '.msg' or mimeType='message/rfc822')';
+    } else {
+      // Anhänge: PDFs, Docs, etc. – keine Bilder, keine Ordner
+      mimeFilter='not mimeType contains 'image/' and not mimeType='application/vnd.google-apps.folder'';
+    }
+    const q=`'${folderId}' in parents and trashed=false and ${mimeFilter}`;
+    const r=await fetch(
+      'https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)
+      +'&fields=files(id,name,mimeType,size)&orderBy=name&pageSize=200',
+      {headers:{Authorization:'Bearer '+gdriveToken}});
+    if(!r.ok){showToast('⚠ Drive-Fehler: HTTP '+r.status,'error');return;}
+    const d=await r.json();
+    const files=d.files||[];
+    if(!files.length){showToast('ℹ Keine passenden Dateien im Ordner gefunden','info',4000);return;}
+    // Bereits vorhandene IDs sammeln (zum Überspringen)
+    let existingIds=new Set();
+    if(type==='email'){
+      (taskEmailOriginals||[]).forEach(e=>{if(e.fileId)existingIds.add(e.fileId);});
+    } else {
+      (taskAttachments||[]).forEach(a=>{if(a.fileId)existingIds.add(a.fileId);});
+    }
+    // Auswahl-Dialog anzeigen
+    _scanDriveShowDialog(files,existingIds,type,folderId);
+  }catch(e){
+    showToast('⚠ Fehler: '+e.message,'error',6000);
+    console.error('[PTP] _scanDriveIntoTask:',e);
+  }
+}
+
+function _scanDriveShowDialog(files,existingIds,type,folderId){
+  const old=document.getElementById('_scanDriveOverlay');if(old)old.remove();
+  const newFiles=files.filter(f=>!existingIds.has(f.id));
+  const alreadyCount=files.length-newFiles.length;
+  const typeLabel=type==='email'?'E-Mail':'Anhang';
+  const ov=document.createElement('div');
+  ov.id='_scanDriveOverlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:4000;display:flex;align-items:center;justify-content:center;';
+  const rows=newFiles.map((f,i)=>{
+    const icon=f.mimeType==='application/pdf'?'📕':f.name.endsWith('.eml')||f.name.endsWith('.msg')?'✉️':'📄';
+    const sz=f.size?formatBytes(Number(f.size)):'';
+    return`<label style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid var(--border);cursor:pointer;">
+      <input type="checkbox" class="_sdFile" data-id="${esc(f.id)}" data-name="${esc(f.name)}" data-mime="${esc(f.mimeType||'')}" checked style="width:15px;height:15px;flex-shrink:0;">
+      <span style="font-size:16px;flex-shrink:0;">${icon}</span>
+      <span style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(f.name)}">${esc(f.name)}</span>
+      <span style="font-size:10px;color:var(--text2);flex-shrink:0;">${sz}</span>
+    </label>`;
+  }).join('');
+  const alreadyNote=alreadyCount?`<div style="font-size:11px;color:var(--text2);margin-bottom:8px;">ℹ ${alreadyCount} Datei${alreadyCount===1?'':'en'} bereits im Task – werden übersprungen.</div>`:'';
+  ov.innerHTML=`<div style="background:var(--bg2);border-radius:14px;width:min(560px,94vw);max-height:80vh;display:flex;flex-direction:column;overflow:hidden;">
+    <div style="display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <span style="font-weight:700;font-size:14px;flex:1;">🔄 ${newFiles.length} ${typeLabel}${newFiles.length===1?'':'s'} gefunden</span>
+      <button onclick="document.getElementById('_scanDriveOverlay').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2);">✕</button>
+    </div>
+    <div style="padding:10px 14px;flex:1;overflow-y:auto;">
+      ${alreadyNote}
+      ${newFiles.length?rows:'<div style="color:var(--text2);font-size:13px;padding:20px 0;text-align:center;">Alle Dateien sind bereits im Task vorhanden.</div>'}
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;padding:10px 14px;border-top:1px solid var(--border);flex-shrink:0;">
+      <button onclick="document.getElementById('_scanDriveOverlay').remove()" style="padding:7px 16px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;font-size:13px;">Abbrechen</button>
+      ${newFiles.length?`<button onclick="_scanDriveImport('${type}')" style="padding:7px 18px;border-radius:6px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:13px;font-weight:600;">✓ Ausgewählte einlesen</button>`:''}
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+}
+
+async function _scanDriveImport(type){
+  const checks=[...document.querySelectorAll('._sdFile:checked')];
+  if(!checks.length){showToast('Keine Dateien ausgewählt','error');return;}
+  document.getElementById('_scanDriveOverlay').remove();
+  showToast('⏳ '+checks.length+' Datei(en) werden eingelesen…','info',5000);
+  let added=0;
+  for(const cb of checks){
+    const id=cb.dataset.id;
+    const name=cb.dataset.name;
+    const mime=cb.dataset.mime||'';
+    const url='https://drive.google.com/file/d/'+id+'/view';
+    if(type==='email'){
+      if(!taskEmailOriginals)taskEmailOriginals=[];
+      taskEmailOriginals.push({subject:name.replace(/\.(eml|msg)$/i,''),sender:'',date:new Date().toISOString(),body:'',fileId:id,url,name});
+      added++;
+    } else {
+      if(!taskAttachments)taskAttachments=[];
+      taskAttachments.push({name,fileId:id,url,type:mime,uploadedAt:new Date().toLocaleDateString('de-DE')});
+      added++;
+    }
+  }
+  if(type==='email'){renderEmailSection();}
+  else{renderAttachList();}
+  scheduleTaskFieldSave();
+  showToast('✅ '+added+' Datei(en) eingelesen','success',4000);
+}
+
 function _dfpOpenOverlay(){
   let ov=document.getElementById('driveFolderPickerOverlay');
   if(ov)ov.remove();
@@ -4582,13 +4692,14 @@ function renderAttachList(){
   const fileGrid=nonImgItems.length?`<div class="aic-grid">`+nonImgItems.map(({a,i})=>{
     const hasDrive=isDrive(a);
     const hasData=!!a.data;
-    const canPreview=hasData&&(a.type==='application/pdf'||a.name.toLowerCase().endsWith('.pdf')||(a.type&&a.type.startsWith('image/'))||a.type==='text/plain');
+    const isPdf=a.type==='application/pdf'||(a.name||'').toLowerCase().endsWith('.pdf');
+    const canPreview=(hasData&&(isPdf||(a.type&&a.type.startsWith('image/'))||a.type==='text/plain'))||(hasDrive&&isPdf);
     const thumb=a.type&&a.type.startsWith('image/')&&a.data
-      ?`<img src="${a.data}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML='${_aicSvgIcon(a.type,a.name).replace(/'/g,"\'")}'">`
+      ?`<img src="${a.data}" style="width:100%;height:100%;object-fit:cover;">`
       :_aicSvgIcon(a.type,a.name);
     const previewBtn=canPreview?`<button class="aic-btn" onclick="event.stopPropagation();openPreview(${i})" title="Vorschau">👁</button>`:'';
     const driveBtn=hasDrive&&a.url?`<a class="aic-btn" href="${esc(a.url)}" target="_blank" title="In Drive öffnen" onclick="event.stopPropagation()">📂</a>`:'';
-    const dlBtn=hasDrive?`<button class="aic-btn" onclick="event.stopPropagation();downloadAttach(${i})" title="Herunterladen">⬇</button>`:hasData?`<button class="aic-btn" onclick="event.stopPropagation();downloadAttach(${i})" title="Herunterladen">⬇</button>`:'';
+    const dlBtn=(hasDrive||hasData)?`<button class="aic-btn" onclick="event.stopPropagation();downloadAttach(${i})" title="Herunterladen">⬇</button>`:'';
     return`<div class="aic">
       <div class="aic-tip">${esc(a.name)}${a.size?' ('+formatBytes(a.size)+')':''}</div>
       <div class="aic-thumb">${thumb}</div>
@@ -5702,7 +5813,24 @@ function _openAttachLightbox(a){
   // Inhalt
   let inner='';
   if(a.type&&a.type.startsWith('image/')){
-    inner='<img src="'+a.data+'" style="max-width:90vw;max-height:82vh;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.7);cursor:default;object-fit:contain;" onclick="event.stopPropagation()">';
+    const imgSrc=a.data||(a.url||'');
+    inner='<img src="'+imgSrc+'" style="max-width:90vw;max-height:82vh;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.7);cursor:default;object-fit:contain;" onclick="event.stopPropagation()">';
+    // Drive-Bild ohne data: via API laden
+    if(!a.data&&a.fileId&&gdriveToken){
+      inner='<div id="_attachLbImgWrap" style="color:#fff;padding:40px;text-align:center">⏳ Bild wird geladen…</div>';
+      setTimeout(async()=>{
+        try{
+          const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(a.fileId)+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}});
+          if(!r.ok)throw new Error('HTTP '+r.status);
+          const blob=await r.blob();const url=URL.createObjectURL(blob);
+          const img=document.createElement('img');
+          img.src=url;img.style.cssText='max-width:90vw;max-height:82vh;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.7);cursor:default;object-fit:contain;';
+          img.onclick=e=>e.stopPropagation();
+          const ph=document.getElementById('_attachLbImgWrap');
+          if(ph)ph.replaceWith(img);
+        }catch(e){const ph=document.getElementById('_attachLbImgWrap');if(ph)ph.textContent='⚠ '+e.message;}
+      },100);
+    }
   } else if(a.type==='application/pdf'||a.name.toLowerCase().endsWith('.pdf')){
     const pdfSrc=a.data||(a.url?a.url:'');
     if(pdfSrc){
