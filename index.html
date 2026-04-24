@@ -1176,6 +1176,21 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .attach-download:hover{background:var(--accent);color:#fff;border-color:var(--accent);}
 .attach-remove{width:22px;height:22px;border-radius:4px;background:transparent;color:var(--text2);font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .attach-remove:hover{color:var(--red);}
+/* Attachment Icon Grid */
+.aic-grid{display:flex;flex-wrap:wrap;gap:8px;padding:2px 0 6px;}
+.aic{position:relative;width:68px;cursor:default;flex-shrink:0;}
+.aic-thumb{width:68px;height:68px;border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--border);background:var(--bg3);}
+.aic-thumb img{width:100%;height:100%;object-fit:cover;}
+.aic-label{font-size:9px;color:var(--text2);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:3px;max-width:68px;}
+.aic-overlay{position:absolute;inset:0 0 18px 0;border-radius:8px;background:rgba(0,0,0,.62);display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:3px;padding:4px;opacity:0;transition:opacity .15s;}
+.aic:hover .aic-overlay{opacity:1;}
+@media(hover:none){.aic-overlay{opacity:1;background:rgba(0,0,0,.45);}}
+.aic-btn{width:22px;height:22px;border-radius:5px;border:none;background:rgba(255,255,255,.18);color:#fff;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .12s;}
+.aic-btn:hover{background:rgba(255,255,255,.35);}
+.aic-btn-del{background:rgba(220,53,69,.35);}
+.aic-btn-del:hover{background:rgba(220,53,69,.7);}
+.aic-tip{position:absolute;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);color:#fff;font-size:10px;padding:3px 7px;border-radius:5px;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;pointer-events:none;z-index:100;opacity:0;transition:opacity .15s;}
+.aic:hover .aic-tip{opacity:1;}
 .attach-drop-zone{border:1.5px dashed var(--border);border-radius:6px;padding:12px;text-align:center;font-size:12px;color:var(--text2);cursor:pointer;transition:all .15s;}
 .attach-drop-zone:hover,.attach-drop-zone.dragover{border-color:var(--accent);background:rgba(108,99,255,0.06);color:var(--text);}
 .email-drop-zone{border:1.5px dashed #27ae60;border-radius:6px;padding:14px 12px;text-align:center;font-size:12px;color:#27ae60;cursor:default;transition:all .15s;margin-top:8px;background:rgba(39,174,96,0.04);}
@@ -4547,24 +4562,43 @@ function toggleAttachImgs(){
   if(toggle)toggle.classList.toggle('open',_attachImgsOpen);
   if(body)body.classList.toggle('open',_attachImgsOpen);
 }
+function _aicSvgIcon(type,name){
+  const n=(name||'').toLowerCase();
+  if(type&&type.startsWith('image/')) return '<svg viewBox="0 0 40 40" width="38" height="38"><rect width="40" height="40" rx="7" fill="#1a73e8"/><text x="20" y="27" text-anchor="middle" font-size="20" fill="#fff">🖼</text></svg>';
+  if(type==='application/pdf'||n.endsWith('.pdf')) return '<svg viewBox="0 0 40 40" width="38" height="38"><rect width="40" height="40" rx="7" fill="#e53935"/><text x="20" y="26" text-anchor="middle" font-size="13" font-weight="bold" fill="#fff">PDF</text></svg>';
+  if(n.endsWith('.doc')||n.endsWith('.docx')) return '<svg viewBox="0 0 40 40" width="38" height="38"><rect width="40" height="40" rx="7" fill="#1565c0"/><text x="20" y="26" text-anchor="middle" font-size="11" font-weight="bold" fill="#fff">DOC</text></svg>';
+  if(n.endsWith('.xls')||n.endsWith('.xlsx')) return '<svg viewBox="0 0 40 40" width="38" height="38"><rect width="40" height="40" rx="7" fill="#2e7d32"/><text x="20" y="26" text-anchor="middle" font-size="11" font-weight="bold" fill="#fff">XLS</text></svg>';
+  if(n.endsWith('.zip')||n.endsWith('.rar')) return '<svg viewBox="0 0 40 40" width="38" height="38"><rect width="40" height="40" rx="7" fill="#6d4c41"/><text x="20" y="26" text-anchor="middle" font-size="11" font-weight="bold" fill="#fff">ZIP</text></svg>';
+  if(n.endsWith('.eml')||n.endsWith('.msg')) return '<svg viewBox="0 0 40 40" width="38" height="38"><rect width="40" height="40" rx="7" fill="#6c63ff"/><text x="20" y="27" text-anchor="middle" font-size="20" fill="#fff">✉</text></svg>';
+  return '<svg viewBox="0 0 40 40" width="38" height="38"><rect width="40" height="40" rx="7" fill="#546e7a"/><text x="20" y="27" text-anchor="middle" font-size="20" fill="#fff">📄</text></svg>';
+}
 function renderAttachList(){
   const el=document.getElementById('attachList');
   if(!taskAttachments.length){el.innerHTML='';return;}
   const imgItems=taskAttachments.map((a,i)=>({a,i})).filter(({a})=>a.type&&a.type.startsWith('image/'));
   const nonImgItems=taskAttachments.map((a,i)=>({a,i})).filter(({a})=>!a.type||!a.type.startsWith('image/'));
-  // Dateiliste: NUR Nicht-Bild-Dateien (Bilder erscheinen nur in Foto-Vorschau)
-  const fileRows=nonImgItems.map(({a,i})=>{
-    const isPdf=a.type==='application/pdf';
-    const isTxt=a.type==='text/plain'||a.name.endsWith('.txt');
-    const canPreview=isPdf||isTxt;
-    return`<div class="attach-row">
-      <span class="attach-icon">${attachIcon(a.type)}</span>
-      <div class="attach-info"><div class="attach-name" title="${esc(a.name)}">${esc(a.name)}</div><div class="attach-size">${formatBytes(a.size)}</div></div>
-      ${canPreview?`<button class="attach-download" onclick="openPreview(${i})" style="background:var(--bg3)">👁</button>`:''}
-      <button class="attach-download" onclick="downloadAttach(${i})">↓</button>
-      <button class="attach-remove" onclick="removeAttach(${i})">✕</button>
+  // Icon-Grid für Nicht-Bild-Dateien
+  const isDrive=a=>!!(a.fileId||a.url);
+  const fileGrid=nonImgItems.length?`<div class="aic-grid">`+nonImgItems.map(({a,i})=>{
+    const hasDrive=isDrive(a);
+    const hasData=!!a.data;
+    const canPreview=hasData&&(a.type==='application/pdf'||a.name.toLowerCase().endsWith('.pdf')||(a.type&&a.type.startsWith('image/'))||a.type==='text/plain');
+    const thumb=a.type&&a.type.startsWith('image/')&&a.data
+      ?`<img src="${a.data}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML='${_aicSvgIcon(a.type,a.name).replace(/'/g,"\'")}'">`
+      :_aicSvgIcon(a.type,a.name);
+    const previewBtn=canPreview?`<button class="aic-btn" onclick="event.stopPropagation();openPreview(${i})" title="Vorschau">👁</button>`:'';
+    const driveBtn=hasDrive&&a.url?`<a class="aic-btn" href="${esc(a.url)}" target="_blank" title="In Drive öffnen" onclick="event.stopPropagation()">📂</a>`:'';
+    const dlBtn=hasDrive?`<button class="aic-btn" onclick="event.stopPropagation();downloadAttach(${i})" title="Herunterladen">⬇</button>`:hasData?`<button class="aic-btn" onclick="event.stopPropagation();downloadAttach(${i})" title="Herunterladen">⬇</button>`:'';
+    return`<div class="aic">
+      <div class="aic-tip">${esc(a.name)}${a.size?' ('+formatBytes(a.size)+')':''}</div>
+      <div class="aic-thumb">${thumb}</div>
+      <div class="aic-overlay">
+        ${previewBtn}${driveBtn}${dlBtn}
+        <button class="aic-btn aic-btn-del" onclick="event.stopPropagation();removeAttach(${i})" title="Entfernen">✕</button>
+      </div>
+      <div class="aic-label">${esc(a.name)}</div>
     </div>`;
-  }).join('');
+  }).join('')+`</div>`:'';
   // Ausklappbarer Fotobereich (alle Bilder, inkl. 360°)
   let imgSection='';
   if(imgItems.length){
@@ -4591,7 +4625,7 @@ function renderAttachList(){
     </div>
     <div class="attach-imgs-body${_attachImgsOpen?' open':''}">${thumbs}</div>`;
   }
-  el.innerHTML=fileRows+imgSection;
+  el.innerHTML=fileGrid+imgSection;
 }
 function _markIf360(imgEl,i){
   // Ratio ≥ 1.8 → 360°-Badge nachträglich setzen + merken
@@ -5472,10 +5506,35 @@ function editFotoCaptionDesktop(i){
   taskFotos[i].caption=trimmed;
   renderFotoListDesktop();
 }
-function downloadAttach(i){
+async function downloadAttach(i){
   const a=taskAttachments[i];
-  const el=document.createElement('a');
-  el.href=a.data;el.download=a.name;el.click();
+  if(!a)return;
+  // Drive-Anhang: via API herunterladen
+  if(a.fileId&&gdriveToken){
+    try{
+      showToast('⏳ Wird geladen…','info',3000);
+      const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(a.fileId)+'?alt=media',
+        {headers:{Authorization:'Bearer '+gdriveToken}});
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      const blob=await r.blob();
+      const url=URL.createObjectURL(blob);
+      const el=document.createElement('a');el.href=url;el.download=a.name;el.click();
+      setTimeout(()=>URL.revokeObjectURL(url),5000);
+      return;
+    }catch(e){
+      // Fallback: URL direkt öffnen
+      if(a.url){window.open(a.url,'_blank');return;}
+      showToast('⚠ Download fehlgeschlagen: '+e.message,'error');return;
+    }
+  }
+  // Drive-Anhang ohne Token: URL öffnen
+  if(a.url){window.open(a.url,'_blank');return;}
+  // Lokaler Base64-Anhang
+  if(a.data){
+    const el=document.createElement('a');el.href=a.data;el.download=a.name;el.click();
+    return;
+  }
+  showToast('⚠ Keine Datei verfügbar','error');
 }
 function removeAttach(i){taskAttachments.splice(i,1);renderAttachList();}
 
@@ -5645,7 +5704,27 @@ function _openAttachLightbox(a){
   if(a.type&&a.type.startsWith('image/')){
     inner='<img src="'+a.data+'" style="max-width:90vw;max-height:82vh;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.7);cursor:default;object-fit:contain;" onclick="event.stopPropagation()">';
   } else if(a.type==='application/pdf'||a.name.toLowerCase().endsWith('.pdf')){
-    inner='<iframe src="'+a.data+'" style="width:85vw;height:85vh;border:none;border-radius:8px;background:#fff;" onclick="event.stopPropagation()"></iframe>';
+    const pdfSrc=a.data||(a.url?a.url:'');
+    if(pdfSrc){
+      inner='<iframe src="'+pdfSrc+'" style="width:85vw;height:85vh;border:none;border-radius:8px;background:#fff;" onclick="event.stopPropagation()"></iframe>';
+    } else if(a.fileId&&gdriveToken){
+      inner='<div style="color:#fff;padding:40px;text-align:center"><div style="font-size:14px;margin-bottom:12px;">⏳ PDF wird geladen…</div></div>';
+      // async nachladen
+      setTimeout(async()=>{
+        try{
+          const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(a.fileId)+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}});
+          if(!r.ok)throw new Error('HTTP '+r.status);
+          const blob=await r.blob();
+          const url=URL.createObjectURL(blob);
+          const iframe=document.createElement('iframe');
+          iframe.src=url;iframe.style.cssText='width:85vw;height:85vh;border:none;border-radius:8px;background:#fff;';
+          const ph=document.querySelector('#_attachLbOverlay div[style*="padding:40px"]');
+          if(ph)ph.replaceWith(iframe);
+        }catch(e){const ph=document.querySelector('#_attachLbOverlay div[style*="padding:40px"]');if(ph)ph.textContent='⚠ Fehler: '+e.message;}
+      },100);
+    } else {
+      inner='<div style="color:#fff;padding:40px;text-align:center">PDF nicht verfügbar</div>';
+    }
   } else if(a.type==='text/plain'||a.name.toLowerCase().endsWith('.txt')){
     try{
       const b64=(a.data||'').split(',')[1]||'';
@@ -7427,28 +7506,4 @@ async function importTaskFromZip(file){
         ]){
           const paths=Object.keys(zip.files).filter(n=>n.startsWith(folder+'/'));
           for(const path of paths){
-            const zf=zip.file(path);if(!zf||zf.dir)continue;
-            const name=path.split('/').pop();
-            try{
-              const b=await zf.async('arraybuffer');
-              const lname=name.toLowerCase();
-              const mime=lname.endsWith('.eml')?'message/rfc822':lname.endsWith('.pdf')?'application/pdf':'application/octet-stream';
-              const res=await _driveUploadGeneric(b,name,mime,fid);
-              const url='https://drive.google.com/file/d/'+res.id+'/view';
-              pushFn({name,fileId:res.id,url,uploadedAt:new Date().toLocaleDateString('de-DE')});
-              uploaded++;
-            }catch(err){console.warn('[PTP] Upload '+name+':',err);}
-          }
-        }
-        if(uploaded){renderEmailSection();renderAttachList();scheduleTaskFieldSave();}
-        showToast('✅ Wiederhergestellt – '+uploaded+' Datei(en) hochgeladen','success',6000);
-        return;
-      }
-    }
-    showToast('✅ Task-Daten wiederhergestellt'+((!gdriveToken||!folderUrl)?' (Drive verbinden & Ordner eintragen um Dateien hochzuladen)':''),'success',7000);
-  }catch(e){showToast('⚠ Fehler: '+e.message,'error',8000);console.error('[PTP] Import:',e);}
-}
-
-</script>
-</body>
-</html>
+            const
