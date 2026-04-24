@@ -873,12 +873,12 @@ async function _auftragConfirm(){
 // setModalSize / applyStoredModalSize → siehe Hauptblock unten
 
 </script>
-<script src="https://cdn.jsdelivr.net/npm/piexifjs@1.0.6/piexif.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/piexifjs@1.0.6/piexif.js" defer></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css">
-<script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 <style>
 :root {
   --bg:#ffffff; --bg2:#f4f4f8; --bg3:#eaeaf0; --bg4:#dcdce8;
@@ -950,7 +950,6 @@ input,select,textarea{font-family:inherit;}
 .toolbar{display:flex;align-items:center;justify-content:space-between;padding:8px 20px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;position:relative;z-index:50;}
 .auftrag-drop-bar{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--bg2);border-bottom:1px solid var(--border);flex:1;min-width:0;transition:background .15s;}
 .drop-zone-row{display:flex;align-items:stretch;}
-.adz-icon{font-size:16px;flex-shrink:0;}
 @media(max-width:480px){.adz-text{display:none;}}
 .auftrag-drop-bar.adz-hover{background:rgba(108,99,255,.10);border-bottom-color:var(--accent);}
 .adz-icon{font-size:18px;flex-shrink:0;}
@@ -4733,12 +4732,12 @@ function renderAttachList(){
     const hasDrive=isDrive(a);
     const hasData=!!a.data;
     const isPdf=a.type==='application/pdf'||(a.name||'').toLowerCase().endsWith('.pdf');
-    const canPreview=(hasData&&(isPdf||(a.type&&a.type.startsWith('image/'))||a.type==='text/plain'))||(hasDrive&&isPdf);
+    const canPreview=(hasData&&(isPdf||(a.type&&a.type.startsWith('image/'))||a.type==='text/plain'))||hasDrive;
     const thumb=a.type&&a.type.startsWith('image/')&&a.data
       ?`<img src="${a.data}" style="width:100%;height:100%;object-fit:cover;">`
       :_aicSvgIcon(a.type,a.name);
     const previewBtn=canPreview?`<button class="aic-btn" onclick="event.stopPropagation();openPreview(${i})" title="Vorschau">👁</button>`:'';
-    const driveBtn=hasDrive&&a.url?`<a class="aic-btn" href="${esc(a.url)}" target="_blank" title="In Drive öffnen" onclick="event.stopPropagation()">📂</a>`:'';
+    const driveBtn='';
     const dlBtn=(hasDrive||hasData)?`<button class="aic-btn" onclick="event.stopPropagation();downloadAttach(${i})" title="Herunterladen">⬇</button>`:'';
     return`<div class="aic">
       <div class="aic-tip">${esc(a.name)}${a.size?' ('+formatBytes(a.size)+')':''}</div>
@@ -5905,6 +5904,26 @@ function _openAttachLightbox(a){
       const text=b64?decodeURIComponent(escape(atob(b64))):a.data||'';
       inner='<div style="color:#e0e0e0;background:rgba(20,20,20,.95);border-radius:8px;padding:20px 24px;max-width:80vw;max-height:78vh;overflow:auto;font-family:monospace;font-size:13px;white-space:pre-wrap;line-height:1.6;cursor:default;" onclick="event.stopPropagation()">'+esc(text)+'</div>';
     }catch(e){inner='<div style="color:#fff;padding:30px">Text konnte nicht geladen werden</div>';}
+  } else if(a.fileId&&gdriveToken){
+    // Drive-Datei: via API laden → neuen Tab öffnen (kein Browser-Login nötig)
+    inner='<div id="_attachLbDlWrap" style="color:#fff;padding:40px;text-align:center;font-size:15px;">⏳ Datei wird geladen…<br><span style="opacity:.6;font-size:12px;">'+esc(a.name)+'</span></div>';
+    setTimeout(async()=>{
+      try{
+        const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(a.fileId)+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}});
+        if(!r.ok)throw new Error('HTTP '+r.status);
+        const blob=await r.blob();
+        const url=URL.createObjectURL(blob);
+        const ph=document.getElementById('_attachLbDlWrap');
+        // Versuche zuerst in neuem Tab anzuzeigen; Browser entscheidet ob Anzeige oder Download
+        window.open(url,'_blank');
+        if(ph)ph.innerHTML='✅ Datei geöffnet (neuer Tab)<br><span style="font-size:12px;opacity:.7">'+esc(a.name)+'</span><br><a href="'+url+'" download="'+esc(a.name)+'" style="display:inline-block;margin-top:12px;padding:8px 18px;background:rgba(255,255,255,.2);color:#fff;border-radius:6px;font-size:13px;text-decoration:none;">⬇ Herunterladen</a>';
+        setTimeout(()=>URL.revokeObjectURL(url),30000);
+      }catch(e){
+        const ph=document.getElementById('_attachLbDlWrap');
+        if(ph)ph.innerHTML='⚠ Fehler: '+esc(e.message)+'<br><span style="font-size:12px;opacity:.6">'+esc(a.name)+'</span>';
+        if(e.message.includes('401'))_handleDrive401();
+      }
+    },100);
   } else {
     inner='<div style="color:#fff;padding:40px;text-align:center;font-size:15px;">'+esc(a.name)+'<br><span style="opacity:.55;font-size:12px;margin-top:8px;display:block;">Keine Vorschau für diesen Dateityp</span></div>';
   }
