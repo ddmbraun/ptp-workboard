@@ -1673,6 +1673,8 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       <div class="modal-timer-bar" id="modalTimerBar" style="margin-bottom:0;flex:1;">
         <div id="timerDisplayTop" class="timer-display">00:00:00</div>
         <button id="timerBtnTop" type="button" class="timer-toggle-btn" onclick="toggleTimer()">▶ Start</button>
+        <input id="timerDesc" type="text" placeholder="Betreff / Tätigkeit…" maxlength="120"
+          style="width:100%;margin-top:5px;padding:4px 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:11px;box-sizing:border-box;">
         <div id="timerEntries" class="timer-entries" style="font-size:11px;color:var(--text2);width:100%;display:none;"></div>
       </div>
       <div class="email-drop-zone" id="emailDropZone"
@@ -2471,6 +2473,14 @@ function gdriveInit() {
     client_id: GDRIVE_CLIENT_ID,
     scope: GDRIVE_SCOPE,
     callback: gdriveTokenCallback,
+    error_callback: (err) => {
+      console.warn('[PTP] GIS error_callback:', JSON.stringify(err));
+      _silentRefreshInProgress = false; // Flag immer zurücksetzen
+      if(err && (err.type==='popup_failed_to_open'||err.type==='popup_closed')){
+        showToast('⚠ Google-Popup wurde blockiert oder geschlossen – bitte Popup-Blocker prüfen','error',7000);
+        _showDriveWarnBanner(0);
+      }
+    }
   });
   // ── AUTO-CONNECT: gespeicherten Token + zuletzt geladene Datei wiederherstellen ──
   let storedFile = null;
@@ -2530,6 +2540,7 @@ async function ensureWorkspaceFolder() {
 async function gdriveTokenCallback(resp) {
   console.log('[Drive] gdriveTokenCallback:', JSON.stringify(resp).substring(0,200));
   if (resp.error) {
+    _silentRefreshInProgress=false; // Flag bei jedem Fehler zurücksetzen
     // Stille Anmeldung fehlgeschlagen (prompt:none) oder Popup blockiert
     if (['interaction_required','access_denied','popup_failed_to_open','popup_closed'].includes(resp.error)) {
       const _pendingAction = gdrivePendingAction;
@@ -2626,7 +2637,7 @@ function _showDriveWarnBanner(secondsLeft){
     banner.id = '_driveWarnBanner';
     banner.style.cssText = 'position:relative;z-index:999;background:#e67e22;color:#fff;display:flex;align-items:center;justify-content:center;gap:12px;padding:10px 16px;font-size:13px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.3);';
     banner.innerHTML = '<span id="_driveWarnMsg">⚠ Google Drive Verbindung läuft ab</span>'
-      + '<button onclick="_renewDriveTokenSilent()" style="background:#fff;color:#e67e22;border:none;border-radius:6px;padding:5px 14px;font-size:13px;font-weight:700;cursor:pointer;">🔄 Jetzt erneuern</button>';
+      + '<button onclick="_renewDriveTokenSilent()" style="background:#fff;color:#e67e22;border:none;border-radius:6px;padding:5px 14px;font-size:13px;font-weight:700;cursor:pointer;">🔑 Erneut anmelden</button>';
     // Vor der Topbar einfügen, damit er den Inhalt nach unten schiebt statt zu überdecken
     const topbar=document.querySelector('.topbar');
     if(topbar)topbar.parentNode.insertBefore(banner,topbar);
@@ -2645,51 +2656,31 @@ function _hideDriveWarnBanner(){
 }
 
 // Token-Erneuerung für Banner-Button:
-// Strategie: erst stille Erneuerung (kein Popup), schlägt das fehl → echtes Login-Popup
+// Nutzer hat explizit geklickt → direkt Login-Popup (kein stiller Versuch der oft fehlschlägt)
 function _renewDriveTokenSilent(){
   if(!gdriveTokenClient){
-    // GSI noch nicht geladen – sofort Popup-Login versuchen
-    gdriveRequestToken('reconnect');
+    showToast('⏳ Google-Dienst lädt noch – bitte 3 Sekunden warten und nochmals drücken','error',5000);
+    setTimeout(()=>{ if(gdriveTokenClient) gdriveRequestToken('reconnect'); },3000);
     return;
   }
-  const hint=localStorage.getItem('ptp_user_email_v1')||'';
-  // Schritt 1: stille Erneuerung versuchen
-  const prev=gdriveTokenClient.callback;
-  gdriveTokenClient.callback=(r)=>{
-    gdriveTokenClient.callback=prev; // Callback immer zurücksetzen
-    if(r&&r.access_token){
-      // ✅ Stille Erneuerung erfolgreich
-      gdriveToken=r.access_token;
-      gdriveTokenExpires=Date.now()+(Number(r.expires_in||3600)-60)*1000;
-      try{localStorage.setItem(PC_TOKEN_KEY,JSON.stringify({token:gdriveToken,exp:gdriveTokenExpires}));}catch(e){}
-      _hideDriveWarnBanner();
-      updateDriveBtnBar();
-      showToast('✅ Drive-Verbindung erneuert – neue Stunde läuft','ok',4000);
-    } else {
-      // ❌ Stille Erneuerung fehlgeschlagen (Google-Session abgelaufen)
-      // Schritt 2: echtes Login-Popup öffnen → neue Stunde beginnt
-      console.info('[PTP] Stille Erneuerung fehlgeschlagen – öffne Login-Popup');
-      gdriveTokenClient.callback=prev;
-      gdriveRequestToken('reconnect');
-    }
-  };
-  try{
-    const opts={prompt:'none'};
-    if(hint)opts.login_hint=hint;
-    gdriveTokenClient.requestAccessToken(opts);
-  }catch(e){
-    gdriveTokenClient.callback=prev;
-    console.warn('[PTP] Token-Erneuerung fehlgeschlagen:',e);
-    // Direkt Popup-Login versuchen
-    gdriveRequestToken('reconnect');
-  }
+  // Zurücksetzen falls stiller Refresh feststeckt
+  _silentRefreshInProgress=false;
+  // Direkt Popup öffnen – Nutzer hat aktiv geklickt, kein stiller Versuch nötig
+  gdriveRequestToken('reconnect');
 }
 
 let _silentRefreshInProgress=false;
+let _silentRefreshStartedAt=0;
 function _silentTokenRefresh(onSuccess, onFail){
   if(!gdriveTokenClient||!gdriveToken)return;
-  if(_silentRefreshInProgress){return;} // bereits in Arbeit
+  // Feststeck-Schutz: nach 20 Sek. Flag zurücksetzen
+  if(_silentRefreshInProgress){
+    if(Date.now()-_silentRefreshStartedAt<20000)return;
+    console.warn('[PTP] _silentRefreshInProgress zurückgesetzt (Timeout)');
+    _silentRefreshInProgress=false;
+  }
   _silentRefreshInProgress=true;
+  _silentRefreshStartedAt=Date.now();
   const prev=gdriveTokenClient.callback;
   gdriveTokenClient.callback=(r)=>{
     gdriveTokenClient.callback=prev;
@@ -2816,13 +2807,12 @@ function gdriveRequestToken(action) {
   // login_hint beschleunigt den Login (überspringt Konto-Auswahl wenn bekannt)
   const hint = localStorage.getItem('ptp_user_email_v1') || '';
   try {
-    console.log('[Drive] requestAccessToken aufgerufen, hint=', hint ? 'ja' : 'nein');
+    console.log('[Drive] requestAccessToken aufgerufen, hint=', hint ? 'ja' : 'nein', 'action=', action);
     _driveSetStatus('⏳ Google-Anmelde-Fenster öffnet sich…', false);
-    if (hint) {
-      gdriveTokenClient.requestAccessToken({ login_hint: hint });
-    } else {
-      gdriveTokenClient.requestAccessToken();
-    }
+    // Bei Reconnect: prompt leer lassen damit Google-Popup auf jeden Fall erscheint
+    const opts = {};
+    if(hint) opts.login_hint = hint;
+    gdriveTokenClient.requestAccessToken(opts);
   } catch(e) {
     console.error('[Drive] requestAccessToken Fehler:', e);
     _driveSetStatus('⚠ Fehler: ' + e.message, true);
@@ -6016,7 +6006,9 @@ function toggleTimer(){
 function startTimer(taskId){
   const task=findTaskById(taskId);if(!task)return;
   if(!task.timeEntries)task.timeEntries=[];
-  task.timeEntries.push({start:Date.now(),end:null});
+  const descEl=document.getElementById('timerDesc');
+  const timerBeschreibung=(descEl?descEl.value.trim():'')||'';
+  task.timeEntries.push({start:Date.now(),end:null,beschreibung:timerBeschreibung});
   activeTimerTaskId=taskId;
   persistTimerState();
   activeTimerIntervalId=setInterval(()=>{renderTimerDisplay();updateCardTimerBadge(taskId);},1000);
@@ -6043,7 +6035,7 @@ function stopTimer(){
       const datum=s.toISOString().split('T')[0];
       const von=String(s.getHours()).padStart(2,'0')+':'+String(s.getMinutes()).padStart(2,'0');
       const bis=String(e.getHours()).padStart(2,'0')+':'+String(e.getMinutes()).padStart(2,'0');
-      const entry={date:datum,von,bis,beschreibung:'Stoppuhr'};
+      const entry={date:datum,von,bis,beschreibung:running.beschreibung||'Stoppuhr'};
       const openId=document.getElementById('taskId')&&document.getElementById('taskId').value;
       // Always write directly to task.zeitEntries so pushToSync can read it
       if(!task.zeitEntries)task.zeitEntries=[];
@@ -6056,6 +6048,7 @@ function stopTimer(){
   const stoppedId=activeTimerTaskId;
   activeTimerTaskId=null;activeTimerIntervalId=null;
   persistTimerState();
+  const _td=document.getElementById('timerDesc');if(_td)_td.value='';
   // ActiveTimer in Sync löschen, wenn er von uns kam
   try{
     if(syncData&&syncData.activeTimer&&syncData.activeTimer.deviceId===DEVICE_ID){
@@ -6741,7 +6734,7 @@ function _openEmailThumbnailGrid(){
     }
     tile.onclick=()=>{
       if(item._type==='pdf') _openEmailPdfGallery(item._idx);
-      else if(item.url) window.open(item.url,'_blank');
+      else _openEmailOrigInlinePreview(item);
     };
     const label=document.createElement('div');
     label.style.cssText='padding:8px 10px;font-size:11px;color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-top:1px solid var(--border);background:var(--bg2);';
@@ -7143,6 +7136,105 @@ async function _uploadEmailOriginal(file){
   }
 }
 // ── E-Mail Druckfenster – pixelgenaues Abbild via Browser-Druckdialog ──
+// ── E-Mail-Original Inline-Vorschau (Overlay, kein neues Fenster) ────────────
+async function _openEmailOrigInlinePreview(item){
+  const GID='_emlPreviewOverlay';
+  const old=document.getElementById(GID);if(old)old.remove();
+  const ov=document.createElement('div');
+  ov.id=GID;
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:999999;display:flex;flex-direction:column;';
+  // Header
+  const head=document.createElement('div');
+  head.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 14px;flex-shrink:0;background:rgba(0,0,0,.4);';
+  const titleEl=document.createElement('span');
+  titleEl.style.cssText='flex:1;color:#fff;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+  titleEl.textContent='📨 '+(item.name||item.subject||'E-Mail Original');
+  const driveBtn=document.createElement('a');
+  driveBtn.href=item.url||'#';driveBtn.target='_blank';
+  driveBtn.style.cssText='color:#7af;font-size:11px;text-decoration:none;flex-shrink:0;padding:3px 8px;border:1px solid rgba(100,180,255,.4);border-radius:5px;';
+  driveBtn.textContent='📂 Drive';
+  const dlBtn=document.createElement('button');
+  dlBtn.textContent='⬇ Laden';
+  dlBtn.title='Als .eml/.msg herunterladen und in Outlook öffnen';
+  dlBtn.style.cssText='background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:11px;padding:3px 10px;border-radius:5px;cursor:pointer;flex-shrink:0;';
+  dlBtn.onclick=()=>_downloadEmailOrig(item.fileId,item.name||'email.eml');
+  const closeBtn=document.createElement('button');
+  closeBtn.textContent='✕';
+  closeBtn.style.cssText='background:none;border:none;color:rgba(255,255,255,.7);font-size:18px;cursor:pointer;padding:0 4px;flex-shrink:0;';
+  closeBtn.onclick=_closeEmlPreview;
+  head.append(titleEl,driveBtn,dlBtn,closeBtn);
+  // Content area
+  const content=document.createElement('div');
+  content.style.cssText='flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;background:#f0f0f0;';
+  const loader=document.createElement('div');
+  loader.style.cssText='color:#333;font-size:14px;text-align:center;background:#fff;padding:40px 60px;border-radius:8px;';
+  loader.textContent='⏳ E-Mail wird geladen…';
+  content.appendChild(loader);
+  ov.append(head,content);
+  document.body.appendChild(ov);
+  // ESC closes this overlay
+  function _kbEml(e){if(e.key==='Escape'){e.stopImmediatePropagation();_closeEmlPreview();document.removeEventListener('keydown',_kbEml);}}
+  document.addEventListener('keydown',_kbEml);
+  ov.addEventListener('click',e=>{if(e.target===ov)_closeEmlPreview();});
+  // Load & render
+  const name=(item.name||'').toLowerCase();
+  const isMsg=name.endsWith('.msg');
+  if(isMsg){
+    // .msg cannot be parsed in browser — show Drive preview iframe
+    if(item.url){
+      loader.remove();
+      const fr=document.createElement('iframe');
+      fr.src='https://drive.google.com/file/d/'+encodeURIComponent(item.fileId)+'/preview';
+      fr.style.cssText='width:100%;height:100%;border:none;';
+      fr.allow='autoplay';
+      content.appendChild(fr);
+    }else{
+      loader.innerHTML='⚠ .msg-Datei kann nicht im Browser angezeigt werden.<br><small>Bitte über ⬇ herunterladen und in Outlook öffnen.</small>';
+    }
+    return;
+  }
+  // .eml: fetch from Drive, parse, render inline
+  if(!item.fileId||!gdriveToken){
+    loader.textContent='⚠ Keine Drive-Verbindung oder fileId fehlt.';
+    return;
+  }
+  try{
+    const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(item.fileId)+'?alt=media',
+      {headers:{Authorization:'Bearer '+gdriveToken}});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const text=await r.text();
+    if(!document.getElementById(GID))return; // overlay was closed
+    const info=_parseEmlText(text);
+    if(info.subject)titleEl.textContent='📨 '+(info.subject||item.name||'E-Mail');
+    // Build preview HTML (reuse _openEmailPrintWindow logic, but as blob)
+    const e2=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const d=info.date instanceof Date&&!isNaN(info.date)?info.date:new Date();
+    const dateStr=d.toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})+', '+d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})+' Uhr';
+    const bodyContent=info.bodyHtml
+      ?info.bodyHtml.replace(/<base[^>]*>/gi,'').replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<link[^>]+rel=["']?stylesheet["']?[^>]*>/gi,'')
+      :'<pre style="font-family:Arial,sans-serif;font-size:10pt;white-space:pre-wrap;margin:0;">'+e2(info.bodyText||'(kein Inhalt)')+'</pre>';
+    const previewHtml='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,Helvetica,sans-serif;font-size:10pt;color:#000;background:#fff;}.subj{font-size:14pt;font-weight:bold;padding:12px 20px 10px;border-bottom:1px solid #ccc;}.meta{padding:8px 20px 6px;border-bottom:1px solid #ddd;}.mr{display:flex;gap:0;margin-bottom:4px;font-size:9pt;}.mk{font-weight:bold;min-width:58px;flex-shrink:0;}.body{padding:16px 20px;font-size:10pt;line-height:1.55;}</style></head><body>'
+      +'<div class="subj">'+e2(info.subject||'(kein Betreff)')+'</div>'
+      +'<div class="meta">'
+      +(info.sender?'<div class="mr"><span class="mk">Von</span><span>'+e2(info.sender)+'</span></div>':'')
+      +'<div class="mr"><span class="mk">Datum</span><span>'+dateStr+'</span></div>'
+      +(info.recipient?'<div class="mr"><span class="mk">An</span><span>'+e2(info.recipient)+'</span></div>':'')
+      +'</div><div class="body">'+bodyContent+'</div></body></html>';
+    const blob=new Blob([previewHtml],{type:'text/html'});
+    const blobUrl=URL.createObjectURL(blob);
+    loader.remove();
+    const fr=document.createElement('iframe');
+    fr.src=blobUrl;
+    fr.style.cssText='width:90vw;max-width:860px;height:86vh;border:none;border-radius:8px;background:#fff;box-shadow:0 8px 32px rgba(0,0,0,.4);';
+    fr.onload=()=>URL.revokeObjectURL(blobUrl);
+    content.appendChild(fr);
+  }catch(e){
+    loader.innerHTML='⚠ Fehler beim Laden: '+esc(e.message)+'<br><small>Bitte über 📂 Drive oder ⬇ öffnen.</small>';
+    if(e.message&&e.message.includes('401'))_handleDrive401();
+  }
+}
+function _closeEmlPreview(){const o=document.getElementById('_emlPreviewOverlay');if(o)o.remove();}
+
 function _openEmailPrintWindow(info,w){
   const d=info.date instanceof Date&&!isNaN(info.date)?info.date:new Date();
   const e2=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
