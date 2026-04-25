@@ -1038,8 +1038,8 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 
 /* TERMIN / ZEITERFASSUNG ROWS */
 .termin-table{width:100%;border-collapse:collapse;}
-.termin-head{display:grid;grid-template-columns:105px 64px 64px 1fr 26px 26px;gap:5px;padding:3px 8px;font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;}
-.termin-row{display:grid;grid-template-columns:105px 64px 64px 1fr 26px 26px;gap:5px;align-items:center;padding:5px 8px;background:var(--bg3);border-radius:6px;margin-bottom:4px;}
+.termin-head{display:grid;grid-template-columns:105px 80px 80px 1fr 26px 26px;gap:5px;padding:3px 8px;font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;}
+.termin-row{display:grid;grid-template-columns:105px 80px 80px 1fr 26px 26px;gap:5px;align-items:center;padding:5px 8px;background:var(--bg3);border-radius:6px;margin-bottom:4px;}
 .termin-row input[type="date"],.termin-row input[type="time"],.termin-row input[type="text"]{width:100%;padding:4px 6px;border-radius:4px;border:1px solid var(--border);background:var(--bg4);color:var(--text);font-size:12px;outline:none;font-family:inherit;}
 .termin-row input:focus{border-color:var(--accent);}
 .termin-row-btn{width:26px;height:26px;border-radius:4px;background:transparent;color:var(--text2);font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;border:none;}
@@ -1668,11 +1668,12 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <div class="modal-scroll-body">
     <input type="hidden" id="taskId">
     <!-- Timer-Bar oben: Stoppuhr direkt zugänglich ohne Sektion aufzuklappen -->
-    <div style="display:flex;gap:10px;margin-bottom:12px;max-width:50%;">
+    <div style="position:sticky;top:0;z-index:50;background:var(--bg2);padding-bottom:6px;margin-bottom:8px;border-bottom:1px solid var(--border);">
+    <div style="display:flex;gap:10px;align-items:stretch;">
       <div class="modal-timer-bar" id="modalTimerBar" style="margin-bottom:0;flex:1;">
         <div id="timerDisplayTop" class="timer-display">00:00:00</div>
         <button id="timerBtnTop" type="button" class="timer-toggle-btn" onclick="toggleTimer()">▶ Start</button>
-        <div id="timerEntries" class="timer-entries" style="font-size:11px;color:var(--text2);width:100%;"></div>
+        <div id="timerEntries" class="timer-entries" style="font-size:11px;color:var(--text2);width:100%;display:none;"></div>
       </div>
       <div class="email-drop-zone" id="emailDropZone"
         ondragenter="event.preventDefault();this.classList.add('dragover')"
@@ -1687,6 +1688,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
           <input type="file" id="emailMsgInput" accept=".msg,.eml,.pdf" style="display:none" onchange="handleEmailFileSelect(event)">
         </label>
       </div>
+    </div>
     </div>
     <!-- STAMMDATEN kompakt -->
     <div class="modal-field" style="margin-bottom:5px"><label>Titel *</label><input type="text" id="taskTitleInput" placeholder="Task-Titel eingeben…" oninput="scheduleTaskFieldSave();_updateStammSummary()"></div>
@@ -4508,45 +4510,8 @@ async function loadFotosFromDriveFolder(){
 // ── DRIVE-ORDNER IN TASK EINLESEN ──
 // type: 'email' → emailOriginals, 'anhang' → attachments
 async function _scanDriveIntoTask(inputId,type){
-  if(!gdriveToken){showToast('⚠ Bitte zuerst mit Google Drive verbinden','error');return;}
-  const url=(document.getElementById(inputId)||{}).value||'';
-  const folderId=_ezFolderId(url);
-  if(!folderId){
-    showToast('⚠ Bitte zuerst einen Drive-Ordner-Link eintragen','error',5000);
-    return;
-  }
-  showToast('⏳ Ordner wird durchsucht…','info',4000);
-  try{
-    // Dateien aus Ordner laden
-    let mimeFilter='';
-    if(type==='email'){
-      mimeFilter="(name contains '.eml' or name contains '.msg' or mimeType='message/rfc822')";
-    } else {
-      // Anhänge: PDFs, Docs, etc. – keine Bilder, keine Ordner
-      mimeFilter="not mimeType contains 'image/' and not mimeType='application/vnd.google-apps.folder'";
-    }
-    const q=`'${folderId}' in parents and trashed=false and ${mimeFilter}`;
-    const r=await fetch(
-      'https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)
-      +'&fields=files(id,name,mimeType,size)&orderBy=name&pageSize=200',
-      {headers:{Authorization:'Bearer '+gdriveToken}});
-    if(!r.ok){showToast('⚠ Drive-Fehler: HTTP '+r.status,'error');return;}
-    const d=await r.json();
-    const files=d.files||[];
-    if(!files.length){showToast('ℹ Keine passenden Dateien im Ordner gefunden','info',4000);return;}
-    // Bereits vorhandene IDs sammeln (zum Überspringen)
-    let existingIds=new Set();
-    if(type==='email'){
-      (taskEmailOriginals||[]).forEach(e=>{if(e.fileId)existingIds.add(e.fileId);});
-    } else {
-      (taskAttachments||[]).forEach(a=>{if(a.fileId)existingIds.add(a.fileId);});
-    }
-    // Auswahl-Dialog anzeigen
-    _scanDriveShowDialog(files,existingIds,type,folderId);
-  }catch(e){
-    showToast('⚠ Fehler: '+e.message,'error',6000);
-    console.error('[PTP] _scanDriveIntoTask:',e);
-  }
+  // Delegiere an neuen Drive-Browser mit freier Navigation
+  _openScanDriveBrowser(inputId,type);
 }
 
 function _scanDriveShowDialog(files,existingIds,type,folderId){
@@ -4610,6 +4575,204 @@ async function _scanDriveImport(type){
   else{renderAttachList();}
   scheduleTaskFieldSave();
   showToast('✅ '+added+' Datei(en) eingelesen','success',4000);
+}
+
+
+// ── Drive-Browser mit freier Navigation (ersetzt fixen Scan-Dialog) ──────────
+let _sbHistory=[];
+let _sbCurrentId='';
+let _sbCurrentName='';
+let _sbType='';
+let _sbSelected=new Map(); // fileId → {id,name,mime}
+
+async function _openScanDriveBrowser(inputId,type){
+  if(!gdriveToken){showToast('⚠ Bitte zuerst mit Google Drive verbinden','error');return;}
+  const url=(document.getElementById(inputId)||{}).value||'';
+  const startId=_ezFolderId(url)||'root';
+  _sbHistory=[];
+  _sbType=type;
+  _sbSelected=new Map();
+  const old=document.getElementById('_scanBrowserOverlay');if(old)old.remove();
+  const ov=document.createElement('div');
+  ov.id='_scanBrowserOverlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:5000;display:flex;align-items:center;justify-content:center;';
+  ov.onclick=e=>{if(e.target===ov)_sbClose();};
+  const box=document.createElement('div');
+  box.id='_scanBrowserBox';
+  box.style.cssText='background:var(--bg2);border-radius:14px;width:min(620px,96vw);max-height:85vh;display:flex;flex-direction:column;overflow:hidden;';
+  // Header
+  const hdr=document.createElement('div');
+  hdr.style.cssText='display:flex;align-items:center;gap:7px;padding:11px 14px;border-bottom:1px solid var(--border);flex-shrink:0;';
+  const backBtn=document.createElement('button');
+  backBtn.id='_sbBackBtn';
+  backBtn.textContent='← Zurück';
+  backBtn.style.cssText='padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:12px;cursor:pointer;flex-shrink:0;display:none;white-space:nowrap;';
+  backBtn.onclick=_sbBack;
+  const homeBtn=document.createElement('button');
+  homeBtn.textContent='🏠';
+  homeBtn.title='Zu Mein Drive';
+  homeBtn.style.cssText='padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:14px;cursor:pointer;flex-shrink:0;';
+  homeBtn.onclick=()=>_sbLoad('root','Mein Drive');
+  const pathEl=document.createElement('span');
+  pathEl.id='_sbPath';
+  pathEl.style.cssText='flex:1;font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+  const closeBtn=document.createElement('button');
+  closeBtn.textContent='✕';
+  closeBtn.style.cssText='background:none;border:none;font-size:18px;cursor:pointer;color:var(--text2);padding:0 4px;flex-shrink:0;';
+  closeBtn.onclick=_sbClose;
+  hdr.append(backBtn,homeBtn,pathEl,closeBtn);
+  // List
+  const listEl=document.createElement('div');
+  listEl.id='_sbList';
+  listEl.style.cssText='flex:1;overflow-y:auto;padding:8px 10px;min-height:120px;';
+  // Footer
+  const ftr=document.createElement('div');
+  ftr.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;border-top:1px solid var(--border);flex-shrink:0;';
+  const countEl=document.createElement('span');
+  countEl.id='_sbCount';
+  countEl.style.cssText='font-size:12px;color:var(--text2);';
+  countEl.textContent='0 ausgewählt';
+  const btns=document.createElement('div');
+  btns.style.cssText='display:flex;gap:8px;';
+  const cancelBtn=document.createElement('button');
+  cancelBtn.textContent='Abbrechen';
+  cancelBtn.style.cssText='padding:7px 16px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;font-size:13px;';
+  cancelBtn.onclick=_sbClose;
+  const importBtn=document.createElement('button');
+  importBtn.id='_sbImportBtn';
+  importBtn.textContent='✓ Einlesen';
+  importBtn.style.cssText='padding:7px 18px;border-radius:6px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:13px;font-weight:600;';
+  importBtn.onclick=_sbImport;
+  btns.append(cancelBtn,importBtn);
+  ftr.append(countEl,btns);
+  box.append(hdr,listEl,ftr);
+  ov.appendChild(box);
+  document.body.appendChild(ov);
+  // Start: konfigurierter Ordner (mit root in History) oder root
+  if(startId!=='root'){
+    _sbHistory=[{id:'root',name:'Mein Drive'}];
+    try{
+      const mr=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(startId)+'?fields=id,name',
+        {headers:{Authorization:'Bearer '+gdriveToken}});
+      const meta=mr.ok?await mr.json():{};
+      await _sbLoad(startId,meta.name||'Konfigurierter Ordner');
+    }catch(e){await _sbLoad(startId,'Konfigurierter Ordner');}
+  }else{
+    await _sbLoad('root','Mein Drive');
+  }
+}
+
+async function _sbLoad(folderId,folderName){
+  _sbCurrentId=folderId;
+  _sbCurrentName=folderName;
+  const pathEl=document.getElementById('_sbPath');
+  const backBtn=document.getElementById('_sbBackBtn');
+  const listEl=document.getElementById('_sbList');
+  if(pathEl){
+    const crumbs=[..._sbHistory.map(h=>h.name),folderName];
+    pathEl.textContent=crumbs.join(' › ');
+    pathEl.title=crumbs.join(' › ');
+  }
+  if(backBtn)backBtn.style.display=_sbHistory.length?'':'none';
+  if(!listEl)return;
+  listEl.innerHTML='<div style="padding:24px;color:var(--text2);text-align:center;">⏳ Lade…</div>';
+  try{
+    const folderQ=folderId==='root'
+      ?`mimeType='application/vnd.google-apps.folder' and 'root' in parents and trashed=false`
+      :`'${folderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+    const fileQ=_sbType==='email'
+      ?`'${folderId}' in parents and trashed=false and (name contains '.eml' or name contains '.msg' or mimeType='message/rfc822')`
+      :`'${folderId}' in parents and trashed=false and not mimeType contains 'image/' and not mimeType='application/vnd.google-apps.folder'`;
+    const [fr,dr]=await Promise.all([
+      fetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(folderQ)+'&fields=files(id,name)&orderBy=name&pageSize=100',
+        {headers:{Authorization:'Bearer '+gdriveToken}}),
+      folderId==='root'
+        ?Promise.resolve({ok:true,json:()=>Promise.resolve({files:[]})})
+        :fetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(fileQ)+'&fields=files(id,name,mimeType,size)&orderBy=name&pageSize=200',
+          {headers:{Authorization:'Bearer '+gdriveToken}})
+    ]);
+    const folders=(fr.ok?await fr.json():{files:[]}).files||[];
+    const files=(dr.ok?await dr.json():{files:[]}).files||[];
+    listEl.innerHTML='';
+    if(!folders.length&&!files.length){
+      listEl.innerHTML='<div style="padding:30px;color:var(--text2);text-align:center;">Keine Dateien oder Unterordner vorhanden</div>';
+    }
+    if(folders.length){
+      const lbl=document.createElement('div');
+      lbl.style.cssText='font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);padding:6px 4px 3px;';
+      lbl.textContent='\uD83D\uDCC1 Unterordner';
+      listEl.appendChild(lbl);
+      folders.forEach(f=>{
+        const row=document.createElement('div');
+        row.style.cssText='display:flex;align-items:center;gap:8px;padding:8px;border-radius:7px;cursor:pointer;';
+        row.onmouseenter=()=>row.style.background='var(--bg3)';
+        row.onmouseleave=()=>row.style.background='';
+        row.onclick=()=>_sbEnter(f.id,f.name);
+        row.innerHTML='<span>\uD83D\uDCC1</span><span style="flex:1;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(f.name)+'</span><span style="color:var(--accent);font-size:12px;flex-shrink:0;">\u25B6</span>';
+        listEl.appendChild(row);
+      });
+    }
+    if(files.length){
+      if(folders.length){const sep=document.createElement('div');sep.style.cssText='border-top:1px solid var(--border);margin:6px 0;';listEl.appendChild(sep);}
+      const lbl2=document.createElement('div');
+      lbl2.style.cssText='font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);padding:6px 4px 3px;';
+      lbl2.textContent='\uD83D\uDCC4 Dateien';
+      listEl.appendChild(lbl2);
+      files.forEach(f=>{
+        const icon=f.mimeType==='application/pdf'?'\uD83D\uDCD5':(f.name.endsWith('.eml')||f.name.endsWith('.msg'))?'\u2709\uFE0F':'\uD83D\uDCC4';
+        const sz=f.size?formatBytes(Number(f.size)):'';
+        const label=document.createElement('label');
+        label.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:7px;cursor:pointer;';
+        label.onmouseenter=()=>label.style.background='var(--bg3)';
+        label.onmouseleave=()=>label.style.background='';
+        const cb=document.createElement('input');
+        cb.type='checkbox';
+        cb.checked=_sbSelected.has(f.id);
+        cb.style.cssText='width:15px;height:15px;flex-shrink:0;accent-color:var(--accent);';
+        cb.onchange=()=>{if(cb.checked)_sbSelected.set(f.id,{id:f.id,name:f.name,mime:f.mimeType||''});else _sbSelected.delete(f.id);_sbUpdateCount();};
+        const ico=document.createElement('span');ico.style.cssText='font-size:16px;flex-shrink:0;';ico.textContent=icon;
+        const nm=document.createElement('span');nm.style.cssText='font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';nm.textContent=f.name;nm.title=f.name;
+        const szEl=document.createElement('span');szEl.style.cssText='font-size:10px;color:var(--text2);flex-shrink:0;';szEl.textContent=sz;
+        label.append(cb,ico,nm,szEl);
+        listEl.appendChild(label);
+      });
+    }
+    _sbUpdateCount();
+  }catch(e){
+    console.error('[PTP] _sbLoad:',e);
+    if(e.message&&e.message.includes('401'))_handleDrive401();
+    if(listEl)listEl.innerHTML='<div style="padding:20px;color:#c00;">⚠ Fehler: '+esc(e.message)+'</div>';
+  }
+}
+function _sbEnter(id,name){_sbHistory.push({id:_sbCurrentId,name:_sbCurrentName});_sbLoad(id,name);}
+function _sbBack(){if(!_sbHistory.length)return;const p=_sbHistory.pop();_sbLoad(p.id,p.name);}
+function _sbToggle(id,name,mime,checked){if(checked)_sbSelected.set(id,{id,name,mime});else _sbSelected.delete(id);_sbUpdateCount();}
+function _sbUpdateCount(){const el=document.getElementById('_sbCount');if(el)el.textContent=_sbSelected.size+' Datei'+(_sbSelected.size===1?'':'en')+' ausgewählt';}
+function _sbClose(){const o=document.getElementById('_scanBrowserOverlay');if(o)o.remove();}
+async function _sbImport(){
+  if(!_sbSelected.size){showToast('Keine Dateien ausgewählt','error');return;}
+  _sbClose();
+  let existingIds=new Set();
+  if(_sbType==='email'){(taskEmailOriginals||[]).forEach(e=>{if(e.fileId)existingIds.add(e.fileId);});}
+  else{(taskAttachments||[]).forEach(a=>{if(a.fileId)existingIds.add(a.fileId);});}
+  let added=0,skipped=0;
+  for(const[id,{name,mime}]of _sbSelected){
+    if(existingIds.has(id)){skipped++;continue;}
+    const url='https://drive.google.com/file/d/'+id+'/view';
+    if(_sbType==='email'){
+      if(!taskEmailOriginals)taskEmailOriginals=[];
+      taskEmailOriginals.push({subject:name.replace(/\.(eml|msg)$/i,''),sender:'',date:new Date().toISOString(),body:'',fileId:id,url,name});
+    }else{
+      if(!taskAttachments)taskAttachments=[];
+      taskAttachments.push({name,fileId:id,url,type:mime,uploadedAt:new Date().toLocaleDateString('de-DE')});
+    }
+    added++;
+  }
+  if(_sbType==='email'){renderEmailSection();}else{renderAttachList();}
+  scheduleTaskFieldSave();
+  let msg='✅ '+added+' Datei'+(added===1?'':'en')+' eingelesen';
+  if(skipped)msg+=' ('+skipped+' bereits vorhanden)';
+  showToast(msg,'success',4000);
 }
 
 function _dfpOpenOverlay(){
@@ -5985,7 +6148,7 @@ function _openAttachLightbox(a){
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:zoom-out;gap:10px;';
   // Schließen per Klick auf Hintergrund oder Escape
   ov.addEventListener('click',function(e){if(e.target===ov||e.target.id==='_attachLbClose')ov.remove();});
-  document.addEventListener('keydown',function _lbEsc(e){if(e.key==='Escape'){ov.remove();document.removeEventListener('keydown',_lbEsc);}});
+  document.addEventListener('keydown',function _lbEsc(e){if(e.key==='Escape'){e.stopImmediatePropagation();ov.remove();document.removeEventListener('keydown',_lbEsc);}});
   // Inhalt
   let inner='';
   if(a.type&&a.type.startsWith('image/')){
@@ -6131,7 +6294,7 @@ function _openAttachGallery(startNonImgIdx){
   function _revoke(){if(curBlobUrl){URL.revokeObjectURL(curBlobUrl);curBlobUrl=null;}}
   function _closeGal(){_revoke();ov.remove();document.removeEventListener('keydown',_kb);}
   function _kb(e){
-    if(e.key==='Escape')_closeGal();
+    if(e.key==='Escape'){e.stopImmediatePropagation();_closeGal();}
     else if(e.key==='ArrowLeft')_navGal(-1);
     else if(e.key==='ArrowRight')_navGal(1);
   }
@@ -6526,7 +6689,7 @@ function _openEmailThumbnailGrid(){
   ov.id=GID;
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:99998;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:30px 20px;box-sizing:border-box;';
   function _closeGrid(){blobUrls.forEach(u=>URL.revokeObjectURL(u));ov.remove();document.removeEventListener('keydown',_esc);}
-  function _esc(e){if(e.key==='Escape')_closeGrid();}
+  function _esc(e){if(e.key==='Escape'&&!document.getElementById('_emailPdfGalleryOverlay'))_closeGrid();}
   document.addEventListener('keydown',_esc);
   ov.addEventListener('click',e=>{if(e.target===ov)_closeGrid();});
   const card=document.createElement('div');
@@ -6577,7 +6740,6 @@ function _openEmailThumbnailGrid(){
       previewArea.appendChild(iconDiv);
     }
     tile.onclick=()=>{
-      _closeGrid();
       if(item._type==='pdf') _openEmailPdfGallery(item._idx);
       else if(item.url) window.open(item.url,'_blank');
     };
@@ -6604,7 +6766,7 @@ function _openAttachThumbnailGrid(){
   ov.id=GID;
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:99998;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:30px 20px;box-sizing:border-box;';
   function _closeGrid(){blobUrls.forEach(u=>URL.revokeObjectURL(u));ov.remove();document.removeEventListener('keydown',_esc2);}
-  function _esc2(e){if(e.key==='Escape')_closeGrid();}
+  function _esc2(e){if(e.key==='Escape'&&!document.getElementById('_attachGalleryOverlay')&&!document.getElementById('_attachLbOverlay'))_closeGrid();}
   document.addEventListener('keydown',_esc2);
   ov.addEventListener('click',e=>{if(e.target===ov)_closeGrid();});
   const card=document.createElement('div');
@@ -6683,7 +6845,6 @@ function _openAttachThumbnailGrid(){
       previewArea.appendChild(iconDiv);
     }
     tile.onclick=()=>{
-      _closeGrid();
       if(isImg) openPreview(i);
       else{const ni=nonImgItems.findIndex(x=>x.i===i);_openAttachGallery(ni>=0?ni:0);}
     };
@@ -6855,7 +7016,7 @@ function _openEmailPdfGallery(startIdx){
   function _revokeCurrent(){if(curBlobUrl){URL.revokeObjectURL(curBlobUrl);curBlobUrl=null;}}
   function _closeGallery(){_revokeCurrent();ov.remove();document.removeEventListener('keydown',_kbHandler);}
   function _kbHandler(e){
-    if(e.key==='Escape')_closeGallery();
+    if(e.key==='Escape'){e.stopImmediatePropagation();_closeGallery();}
     else if(e.key==='ArrowLeft')_navigate(-1);
     else if(e.key==='ArrowRight')_navigate(1);
   }
