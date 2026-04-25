@@ -2569,6 +2569,24 @@ async function gdriveTokenCallback(resp) {
   if (action === 'load') gdrivePickAndLoad();
   else if (action === 'new') gdriveCreateFile();
   else if (action === 'save') gdriveSaveData();
+  else if (action === 'reconnect') {
+    // Token erneuert – Datei bleibt im Speicher, einfach weiterarbeiten
+    // Falls gdriveFileId noch gesetzt: sofort speichern um Datenverlust zu verhindern
+    if (gdriveFileId) {
+      showToast('✅ Drive-Verbindung erneuert – neue Stunde läuft','ok',4000);
+      gdriveSaveData();
+    } else {
+      // fileId verloren (z.B. nach längerem Offline) → gespeicherte Datei neu laden
+      let sf=null;
+      try{sf=JSON.parse(localStorage.getItem(PC_FILE_KEY)||'null');}catch(e){}
+      if(sf&&sf.id&&sf.name){
+        showToast('✅ Drive-Verbindung erneuert – lade Datei…','ok',3000);
+        gdriveLoadFile(sf.id,sf.name).catch(()=>{});
+      } else {
+        showToast('✅ Drive-Verbindung erneuert','ok',3000);
+      }
+    }
+  }
   else if (action === 'autoload' || !action) {
     // Auto-Connect: gespeicherte Datei direkt laden
     let sf=null;
@@ -2614,18 +2632,44 @@ function _hideDriveWarnBanner(){
   clearTimeout(_driveWarnBannerTimer);
 }
 
-// Token-Erneuerung für Banner-Button: prompt:'none' verhindert das kurze Login-Popup
+// Token-Erneuerung für Banner-Button:
+// Strategie: erst stille Erneuerung (kein Popup), schlägt das fehl → echtes Login-Popup
 function _renewDriveTokenSilent(){
-  if(!gdriveTokenClient){_showDriveWarnBanner(0);return;}
+  if(!gdriveTokenClient){
+    // GSI noch nicht geladen – sofort Popup-Login versuchen
+    gdriveRequestToken('reconnect');
+    return;
+  }
   const hint=localStorage.getItem('ptp_user_email_v1')||'';
-  // prompt:'none' → kein Popup, Google nutzt aktive Session komplett unsichtbar
-  // login_hint stellt sicher, dass das richtige Konto verwendet wird
+  // Schritt 1: stille Erneuerung versuchen
+  const prev=gdriveTokenClient.callback;
+  gdriveTokenClient.callback=(r)=>{
+    gdriveTokenClient.callback=prev; // Callback immer zurücksetzen
+    if(r&&r.access_token){
+      // ✅ Stille Erneuerung erfolgreich
+      gdriveToken=r.access_token;
+      gdriveTokenExpires=Date.now()+(Number(r.expires_in||3600)-60)*1000;
+      try{localStorage.setItem(PC_TOKEN_KEY,JSON.stringify({token:gdriveToken,exp:gdriveTokenExpires}));}catch(e){}
+      _hideDriveWarnBanner();
+      updateDriveBtnBar();
+      showToast('✅ Drive-Verbindung erneuert – neue Stunde läuft','ok',4000);
+    } else {
+      // ❌ Stille Erneuerung fehlgeschlagen (Google-Session abgelaufen)
+      // Schritt 2: echtes Login-Popup öffnen → neue Stunde beginnt
+      console.info('[PTP] Stille Erneuerung fehlgeschlagen – öffne Login-Popup');
+      gdriveTokenClient.callback=prev;
+      gdriveRequestToken('reconnect');
+    }
+  };
   try{
     const opts={prompt:'none'};
     if(hint)opts.login_hint=hint;
     gdriveTokenClient.requestAccessToken(opts);
   }catch(e){
+    gdriveTokenClient.callback=prev;
     console.warn('[PTP] Token-Erneuerung fehlgeschlagen:',e);
+    // Direkt Popup-Login versuchen
+    gdriveRequestToken('reconnect');
   }
 }
 
@@ -2803,8 +2847,16 @@ function gdriveCreateNew() {
 }
 
 function gdriveConnectFromBar() {
+  // ── Token fehlt oder ist abgelaufen → sofort neues Login-Popup (neue Stunde) ──
+  const tokenOk = gdriveToken && Date.now() < gdriveTokenExpires - 5000;
+  if (!tokenOk) {
+    // Bereits eine Datei verbunden? → Nach Login Verbindung wiederherstellen
+    const action = gdriveFileId ? 'reconnect' : (localStorage.getItem(PC_FILE_KEY) ? 'reconnect' : 'load');
+    gdriveRequestToken(action);
+    return;
+  }
   if (gdriveFileId) {
-    // Bereits verbunden – Info + Optionen
+    // Verbunden + Token gültig → Info + Optionen
     const choice = confirm(
       '☁️ Verbunden mit: ' + gdriveFileName +
       '\nDatei-ID: ' + gdriveFileId.substring(0,12) + '…' +
@@ -2813,18 +2865,14 @@ function gdriveConnectFromBar() {
     if (choice) {
       gdriveFileId = null;
       try{localStorage.removeItem(PC_FILE_KEY);}catch(e){}
-      if (!gdriveToken) { gdriveRequestToken('load'); return; }
       gdrivePickAndLoad();
     }
     return;
   }
-  // Noch nicht verbunden
+  // Noch nicht verbunden, Token gültig
   const choice = confirm('Google Drive verbinden:\n\nOK = Vorhandene workboard.json laden\nAbbrechen = Neue Datei in Drive erstellen (aktuelle Daten bleiben erhalten)');
   if (choice) { gdriveOpenExisting(); }
-  else {
-    if (!gdriveToken) { gdriveRequestToken('new'); return; }
-    gdriveCreateFile(true);
-  }
+  else { gdriveCreateFile(true); }
 }
 
 async function gdrivePickAndLoad() {
@@ -4795,27 +4843,37 @@ function renderAttachList(){
   const nonImgItems=taskAttachments.map((a,i)=>({a,i})).filter(({a})=>!a.type||!a.type.startsWith('image/'));
   // Icon-Grid für Nicht-Bild-Dateien
   const isDrive=a=>!!(a.fileId||a.url);
-  const fileGrid=nonImgItems.length?`<div class="aic-grid">`+nonImgItems.map(({a,i})=>{
-    const hasDrive=isDrive(a);
-    const hasData=!!a.data;
-    const isPdf=a.type==='application/pdf'||(a.name||'').toLowerCase().endsWith('.pdf');
-    const canPreview=(hasData&&(isPdf||(a.type&&a.type.startsWith('image/'))||a.type==='text/plain'))||hasDrive;
-    const thumb=a.type&&a.type.startsWith('image/')&&a.data
-      ?`<img src="${a.data}" style="width:100%;height:100%;object-fit:cover;">`
-      :_aicSvgIcon(a.type,a.name);
-    const previewBtn=canPreview?`<button class="aic-btn" onclick="event.stopPropagation();openPreview(${i})" title="Vorschau">👁</button>`:'';
-    const driveBtn='';
-    const dlBtn=(hasDrive||hasData)?`<button class="aic-btn" onclick="event.stopPropagation();downloadAttach(${i})" title="Herunterladen">⬇</button>`:'';
-    return`<div class="aic">
-      <div class="aic-tip">${esc(a.name)}${a.size?' ('+formatBytes(a.size)+')':''}</div>
-      <div class="aic-thumb">${thumb}</div>
-      <div class="aic-overlay">
-        ${previewBtn}${driveBtn}${dlBtn}
-        <button class="aic-btn aic-btn-del" onclick="event.stopPropagation();removeAttach(${i})" title="Entfernen">✕</button>
-      </div>
-      <div class="aic-label">${esc(a.name)}</div>
-    </div>`;
-  }).join('')+`</div>`:'';
+  const allNonImg=nonImgItems; // alias für Galerie-Aufruf
+  const fileGrid=nonImgItems.length?(()=>{
+    // "Alle ansehen"-Button (nur wenn mehr als 1 Datei)
+    const alleBtn=nonImgItems.length>1
+      ?`<button onclick="_openAttachGallery(0)" style="float:right;margin-bottom:4px;font-size:10px;padding:2px 8px;border:1px solid var(--border);background:var(--bg2);border-radius:4px;cursor:pointer;color:var(--fg2);">Alle ansehen (${nonImgItems.length})</button><div style="clear:both"></div>`
+      :'';
+    const gridHtml=`<div class="aic-grid">`+nonImgItems.map(({a,i})=>{
+      const hasDrive=isDrive(a);
+      const hasData=!!a.data;
+      const isPdf=a.type==='application/pdf'||(a.name||'').toLowerCase().endsWith('.pdf');
+      const canPreview=(hasData&&(isPdf||(a.type&&a.type.startsWith('image/'))||a.type==='text/plain'))||hasDrive;
+      const thumb=a.type&&a.type.startsWith('image/')&&a.data
+        ?`<img src="${a.data}" style="width:100%;height:100%;object-fit:cover;">`
+        :_aicSvgIcon(a.type,a.name);
+      // Klick auf Icon öffnet Galerie an dieser Position (nonImgItems-Index)
+      const nonImgIdx=nonImgItems.findIndex(x=>x.i===i);
+      const previewBtn=canPreview?`<button class="aic-btn" onclick="event.stopPropagation();_openAttachGallery(${nonImgIdx>=0?nonImgIdx:0})" title="Vollbild-Galerie">👁</button>`:'';
+      const driveBtn='';
+      const dlBtn=(hasDrive||hasData)?`<button class="aic-btn" onclick="event.stopPropagation();downloadAttach(${i})" title="Herunterladen">⬇</button>`:'';
+      return`<div class="aic">
+        <div class="aic-tip">${esc(a.name)}${a.size?' ('+formatBytes(a.size)+')':''}</div>
+        <div class="aic-thumb" onclick="event.stopPropagation();_openAttachGallery(${nonImgIdx>=0?nonImgIdx:0})" style="cursor:pointer;">${thumb}</div>
+        <div class="aic-overlay">
+          ${previewBtn}${driveBtn}${dlBtn}
+          <button class="aic-btn aic-btn-del" onclick="event.stopPropagation();removeAttach(${i})" title="Entfernen">✕</button>
+        </div>
+        <div class="aic-label">${esc(a.name)}</div>
+      </div>`;
+    }).join('')+`</div>`;
+    return alleBtn+gridHtml;
+  })():'';
   // Ausklappbarer Fotobereich (alle Bilder, inkl. 360°)
   let imgSection='';
   if(imgItems.length){
@@ -6001,6 +6059,140 @@ function _openAttachLightbox(a){
   ov.innerHTML=closeBtn+nameLabel+inner;
   document.body.appendChild(ov);
 }
+// Vollbild-Galerie für Datei-Anhänge (Nicht-Bilder im aic-grid)
+function _openAttachGallery(startNonImgIdx){
+  // nonImgItems: alle Anhänge die KEIN Bild sind
+  const nonImgItems=taskAttachments.map((a,i)=>({a,i})).filter(({a})=>!a.type||!a.type.startsWith('image/'));
+  if(!nonImgItems.length)return;
+  const GID='_attachGalleryOverlay';
+  const old=document.getElementById(GID);if(old)old.remove();
+
+  let curNonImgIdx=Math.max(0,Math.min(startNonImgIdx,nonImgItems.length-1));
+  let curBlobUrl=null;
+
+  // Overlay
+  const ov=document.createElement('div');
+  ov.id=GID;
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:999999;display:flex;flex-direction:column;';
+  ov.addEventListener('click',e=>{if(e.target===ov)_closeGal();});
+
+  // Kopfzeile
+  const head=document.createElement('div');
+  head.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 14px;flex-shrink:0;background:rgba(0,0,0,.4);';
+  const titleEl=document.createElement('span');
+  titleEl.style.cssText='flex:1;color:#fff;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+  const counterEl=document.createElement('span');
+  counterEl.style.cssText='color:rgba(255,255,255,.6);font-size:11px;flex-shrink:0;';
+  const dlBtn=document.createElement('button');
+  dlBtn.textContent='⬇ Laden';
+  dlBtn.style.cssText='background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:11px;padding:3px 10px;border-radius:5px;cursor:pointer;flex-shrink:0;';
+  dlBtn.onclick=()=>{const{i}=nonImgItems[curNonImgIdx];downloadAttach(i);};
+  const closeBtn2=document.createElement('button');
+  closeBtn2.textContent='✕';
+  closeBtn2.style.cssText='background:none;border:none;color:rgba(255,255,255,.7);font-size:18px;cursor:pointer;padding:0 4px;flex-shrink:0;';
+  closeBtn2.onclick=_closeGal;
+  head.append(titleEl,counterEl,dlBtn,closeBtn2);
+
+  // Inhaltsbereich
+  const content=document.createElement('div');
+  content.style.cssText='flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;';
+
+  // Pfeile
+  const mkNav=(lbl,dir)=>{
+    const b=document.createElement('button');
+    b.textContent=lbl;
+    b.style.cssText='position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.12);border:none;color:#fff;font-size:26px;cursor:pointer;z-index:2;padding:14px 18px;border-radius:50%;line-height:1;'+(dir<0?'left:14px;':'right:14px;');
+    b.onmouseenter=()=>b.style.background='rgba(255,255,255,.25)';
+    b.onmouseleave=()=>b.style.background='rgba(255,255,255,.12)';
+    b.onclick=e=>{e.stopPropagation();_navGal(dir);};
+    return b;
+  };
+  const prevBtn2=mkNav('‹',-1);
+  const nextBtn2=mkNav('›', 1);
+  content.append(prevBtn2,nextBtn2);
+
+  ov.append(head,content);
+  document.body.appendChild(ov);
+
+  function _revoke(){if(curBlobUrl){URL.revokeObjectURL(curBlobUrl);curBlobUrl=null;}}
+  function _closeGal(){_revoke();ov.remove();document.removeEventListener('keydown',_kb);}
+  function _kb(e){
+    if(e.key==='Escape')_closeGal();
+    else if(e.key==='ArrowLeft')_navGal(-1);
+    else if(e.key==='ArrowRight')_navGal(1);
+  }
+  document.addEventListener('keydown',_kb);
+
+  function _navGal(dir){
+    const n=nonImgItems.length;if(n<=1)return;
+    curNonImgIdx=(curNonImgIdx+dir+n)%n;
+    _showCurrent();
+  }
+
+  async function _showCurrent(){
+    _revoke();
+    const{a,i}=nonImgItems[curNonImgIdx];
+    titleEl.textContent=(a.type&&a.type.includes('pdf')||(a.name||'').toLowerCase().endsWith('.pdf')?'📄 ':'📎 ')+(a.name||'Anhang');
+    titleEl.title=a.name||'';
+    counterEl.textContent=nonImgItems.length>1?`${curNonImgIdx+1} / ${nonImgItems.length}`:'';
+    prevBtn2.style.display=nonImgItems.length>1?'':'none';
+    nextBtn2.style.display=nonImgItems.length>1?'':'none';
+    // Placeholder entfernen
+    content.querySelectorAll(':scope > *:not(button)').forEach(el=>el.remove());
+
+    const isPdf=a.type==='application/pdf'||(a.name||'').toLowerCase().endsWith('.pdf');
+    const isDriveFile=!!(a.fileId&&gdriveToken);
+
+    if(isPdf&&isDriveFile){
+      const loader=document.createElement('div');
+      loader.style.cssText='color:#fff;font-size:14px;text-align:center;';
+      loader.textContent='⏳ PDF wird geladen…';
+      content.appendChild(loader);
+      try{
+        const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(a.fileId)+'?alt=media',
+          {headers:{Authorization:'Bearer '+gdriveToken}});
+        if(!r.ok)throw new Error('HTTP '+r.status);
+        const blob=await r.blob();curBlobUrl=URL.createObjectURL(blob);
+        const fr=document.createElement('iframe');
+        fr.src=curBlobUrl;fr.style.cssText='width:90vw;height:86vh;border:none;border-radius:8px;background:#fff;';
+        loader.replaceWith(fr);
+      }catch(e){
+        loader.innerHTML='<span style="color:#f88">⚠ '+esc(e.message)+'</span>';
+        if(e.message.includes('401'))_handleDrive401();
+      }
+    } else if(isPdf&&a.data){
+      const fr=document.createElement('iframe');
+      fr.src=a.data;fr.style.cssText='width:90vw;height:86vh;border:none;border-radius:8px;background:#fff;';
+      content.appendChild(fr);
+    } else if(a.type&&a.type.startsWith('image/')){
+      const img=document.createElement('img');
+      img.src=a.data||(a.url||'');
+      img.style.cssText='max-width:90vw;max-height:86vh;border-radius:10px;object-fit:contain;';
+      content.appendChild(img);
+    } else if(a.type==='text/plain'||(a.name||'').toLowerCase().endsWith('.txt')){
+      try{
+        const b64=(a.data||'').split(',')[1]||'';
+        const text=b64?decodeURIComponent(escape(atob(b64))):a.data||'';
+        const pre=document.createElement('div');
+        pre.style.cssText='color:#e0e0e0;background:rgba(20,20,20,.95);border-radius:8px;padding:20px 24px;max-width:80vw;max-height:78vh;overflow:auto;font-family:monospace;font-size:13px;white-space:pre-wrap;line-height:1.6;';
+        pre.textContent=text;
+        content.appendChild(pre);
+      }catch(e){
+        const msg=document.createElement('div');msg.style.cssText='color:#f88;';msg.textContent='Text konnte nicht geladen werden';content.appendChild(msg);
+      }
+    } else {
+      const info=document.createElement('div');
+      info.style.cssText='color:#fff;font-size:14px;text-align:center;';
+      info.innerHTML='<div style="font-size:40px;margin-bottom:12px;">📎</div>'
+        +'<div>'+esc(a.name||'Datei')+'</div>'
+        +(a.size?'<div style="font-size:11px;opacity:.6;margin-top:4px;">'+formatBytes(a.size)+'</div>':'')
+        +'<button onclick="downloadAttach('+i+')" style="margin-top:18px;padding:8px 20px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:6px;cursor:pointer;font-size:13px;">⬇ Herunterladen</button>';
+      content.appendChild(info);
+    }
+  }
+  _showCurrent();
+}
+
 function closePreview(){
   _deskClosePannellum();deskDiscardDraw();
   const lb=document.getElementById('previewLightbox');
@@ -6175,7 +6367,7 @@ function _eicHtml(item){
   const nameEsc=esc(name);
   const short=name.length>9?name.substring(0,9)+'…':name;
   const icon=isPdf?_eicPdfSvg():_eicEnvSvg();
-  const btnsPdf=`<button type="button" class="eic-btn" onclick="openEmailPdfPreview('${esc(item.fileId)}','${nameEsc}')" title="Vorschau öffnen">🔍</button><a class="eic-btn" href="${esc(item.url)}" target="_blank" title="In Google Drive öffnen">📂</a><button type="button" class="eic-btn eic-btn-del" onclick="taskEmailPdfs.splice(${item._idx},1);renderEmailSection();scheduleTaskFieldSave();" title="Entfernen">✕</button>`;
+  const btnsPdf=`<button type="button" class="eic-btn" onclick="_openEmailPdfGallery(${item._idx})" title="Vollbild-Galerie">🔍</button><a class="eic-btn" href="${esc(item.url)}" target="_blank" title="In Google Drive öffnen">📂</a><button type="button" class="eic-btn eic-btn-del" onclick="taskEmailPdfs.splice(${item._idx},1);renderEmailSection();scheduleTaskFieldSave();" title="Entfernen">✕</button>`;
   const btnsOrig=`<button type="button" class="eic-btn" onclick="_downloadEmailOrig('${esc(item.fileId)}','${nameEsc}')" title="Herunterladen">⬇</button><button type="button" class="eic-btn" onclick="_printEmailFromDrive('${esc(item.fileId)}','${nameEsc}')" title="Als PDF drucken">🖨</button><a class="eic-btn" href="${esc(item.url)}" target="_blank" title="In Google Drive öffnen">📂</a><button type="button" class="eic-btn eic-btn-del" onclick="taskEmailOriginals.splice(${item._idx},1);renderEmailSection();scheduleTaskFieldSave();" title="Entfernen">✕</button>`;
   return `<div class="eic">
     <div class="eic-thumb">${icon}</div>
@@ -6210,7 +6402,7 @@ function _emailAllListItem(item){
   const delFn=isPdf
     ?`taskEmailPdfs.splice(${item._idx},1);renderEmailSection();scheduleTaskFieldSave();_closeEmailAllPopup();`
     :`taskEmailOriginals.splice(${item._idx},1);renderEmailSection();scheduleTaskFieldSave();_closeEmailAllPopup();`;
-  const btnsPdf=`<button type="button" class="eo-icon-btn" onclick="openEmailPdfPreview('${esc(item.fileId)}','${nameEsc}')" title="Vorschau">🔍</button><a class="eo-icon-btn" href="${esc(item.url)}" target="_blank" title="Drive" style="text-decoration:none;">📂</a><button type="button" class="eo-del" onclick="${delFn}" title="Entfernen">✕</button>`;
+  const btnsPdf=`<button type="button" class="eo-icon-btn" onclick="_openEmailPdfGallery(${item._idx})" title="Vollbild-Galerie">🔍</button><a class="eo-icon-btn" href="${esc(item.url)}" target="_blank" title="Drive" style="text-decoration:none;">📂</a><button type="button" class="eo-del" onclick="${delFn}" title="Entfernen">✕</button>`;
   const btnsOrig=`<button type="button" class="eo-icon-btn" onclick="_downloadEmailOrig('${esc(item.fileId)}','${nameEsc}')" title="Download">⬇</button><button type="button" class="eo-icon-btn" onclick="_printEmailFromDrive('${esc(item.fileId)}','${nameEsc}')" title="Als PDF drucken">🖨</button><a class="eo-icon-btn" href="${esc(item.url)}" target="_blank" title="Drive" style="text-decoration:none;">📂</a><button type="button" class="eo-del" onclick="${delFn}" title="Entfernen">✕</button>`;
   return `<div class="email-orig-item">
     <span style="font-size:15px;flex-shrink:0;">${icon}</span>
@@ -6312,59 +6504,116 @@ async function _printEmailFromDrive(fileId,filename){
 }
 
 // PDF-Vorschau rendern → jetzt über unified renderEmailSection()
-async function openEmailPdfPreview(fileId,name){
-  if(!fileId)return;
+// Vollbild-Galerie für E-Mail-PDFs (ersetzt die alte kleine Vorschau)
+function _openEmailPdfGallery(startIdx){
+  if(!taskEmailPdfs||!taskEmailPdfs.length)return;
   if(!gdriveToken){showToast('⚠ Bitte zuerst mit Google Drive verbinden.','error');return;}
-  // Vorhandenes Popup entfernen
-  const old=document.getElementById('emailPdfPopup');if(old)old.remove();
+  const GID='_emailPdfGalleryOverlay';
+  const old=document.getElementById(GID);if(old)old.remove();
+
+  let curIdx=Math.max(0,Math.min(startIdx,taskEmailPdfs.length-1));
+  let curBlobUrl=null;
+
   // Overlay
-  const overlay=document.createElement('div');
-  overlay.id='emailPdfPopup';
-  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:3005;';
-  overlay.onclick=function(e){if(e.target===overlay)overlay.remove();};
-  // Popup-Box
-  const box=document.createElement('div');
-  box.className='pdf-preview-box';
-  // Titelzeile (Drag-Handle)
-  const drag=document.createElement('div');
-  drag.className='pdf-preview-drag';
-  drag.innerHTML='<span title="'+esc(name||'E-Mail PDF')+'">📄 '+esc(name||'E-Mail PDF')+'</span>'
-    +'<button onclick="document.getElementById(\'emailPdfPopup\').remove()" title="Schlie\xdfen">✕</button>';
-  // Lade-Anzeige
-  const loader=document.createElement('div');
-  loader.style.cssText='flex:1;display:flex;align-items:center;justify-content:center;font-size:14px;color:#666;';
-  loader.textContent='⏳ PDF wird geladen…';
-  box.appendChild(drag);box.appendChild(loader);
-  overlay.appendChild(box);document.body.appendChild(overlay);
-  // PDF via API laden → Blob-URL (kein Browser-Login nötig)
-  try{
-    const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(fileId)+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}});
-    if(!r.ok)throw new Error('HTTP '+r.status);
-    const blob=await r.blob();
-    const url=URL.createObjectURL(blob);
-    const frame=document.createElement('iframe');
-    frame.src=url;
-    frame.allow='autoplay';frame.style.cssText='flex:1;border:none;min-height:0;';
-    loader.replaceWith(frame);
-  }catch(e){
-    loader.textContent='⚠ Fehler beim Laden: '+e.message;
-    loader.style.color='#c0392b';
-    if(e.message.includes('401'))_handleDrive401();
+  const ov=document.createElement('div');
+  ov.id=GID;
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:999999;display:flex;flex-direction:column;';
+
+  // ── Kopfzeile ──────────────────────────────────────────────────────────
+  const head=document.createElement('div');
+  head.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 14px;flex-shrink:0;background:rgba(0,0,0,.4);';
+  const titleEl=document.createElement('span');
+  titleEl.style.cssText='flex:1;color:#fff;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+  const counterEl=document.createElement('span');
+  counterEl.style.cssText='color:rgba(255,255,255,.6);font-size:11px;flex-shrink:0;';
+  const driveBtn=document.createElement('a');
+  driveBtn.target='_blank';driveBtn.style.cssText='color:#7af;font-size:11px;text-decoration:none;flex-shrink:0;';driveBtn.textContent='📂 Drive';
+  const closeBtn=document.createElement('button');
+  closeBtn.textContent='✕';
+  closeBtn.style.cssText='background:none;border:none;color:rgba(255,255,255,.7);font-size:18px;cursor:pointer;padding:0 4px;flex-shrink:0;';
+  closeBtn.onclick=()=>_closeGallery();
+  head.append(titleEl,counterEl,driveBtn,closeBtn);
+
+  // ── Inhaltsbereich ──────────────────────────────────────────────────────
+  const content=document.createElement('div');
+  content.style.cssText='flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;';
+
+  // ── Navigations-Pfeile ──────────────────────────────────────────────────
+  const mkNav=(label,dir)=>{
+    const b=document.createElement('button');
+    b.textContent=label;
+    b.style.cssText='position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.12);border:none;color:#fff;font-size:26px;cursor:pointer;z-index:2;padding:14px 18px;border-radius:50%;line-height:1;'+(dir<0?'left:14px;':'right:14px;');
+    b.onmouseenter=()=>b.style.background='rgba(255,255,255,.25)';
+    b.onmouseleave=()=>b.style.background='rgba(255,255,255,.12)';
+    b.onclick=e=>{e.stopPropagation();_navigate(dir);};
+    return b;
+  };
+  const prevBtn=mkNav('‹',-1);
+  const nextBtn=mkNav('›', 1);
+  content.append(prevBtn,nextBtn);
+
+  ov.append(head,content);
+  document.body.appendChild(ov);
+
+  // ── Hilfsfunktionen ─────────────────────────────────────────────────────
+  function _revokeCurrent(){if(curBlobUrl){URL.revokeObjectURL(curBlobUrl);curBlobUrl=null;}}
+  function _closeGallery(){_revokeCurrent();ov.remove();document.removeEventListener('keydown',_kbHandler);}
+  function _kbHandler(e){
+    if(e.key==='Escape')_closeGallery();
+    else if(e.key==='ArrowLeft')_navigate(-1);
+    else if(e.key==='ArrowRight')_navigate(1);
   }
-  // Drag-Logik
-  let dragging=false,ox=0,oy=0;
-  drag.addEventListener('mousedown',function(e){
-    if(e.target.tagName==='BUTTON')return;
-    const r=box.getBoundingClientRect();
-    box.style.left=r.left+'px';box.style.top=r.top+'px';box.style.width=r.width+'px';box.style.height=r.height+'px';
-    box.classList.add('is-placed');ox=e.clientX-r.left;oy=e.clientY-r.top;dragging=true;e.preventDefault();
-  });
-  document.addEventListener('mousemove',function mv(e){
-    if(!dragging)return;
-    box.style.left=Math.max(0,Math.min(window.innerWidth-120,e.clientX-ox))+'px';
-    box.style.top=Math.max(0,Math.min(window.innerHeight-60,e.clientY-oy))+'px';
-  });
-  document.addEventListener('mouseup',function up(){dragging=false;});
+  document.addEventListener('keydown',_kbHandler);
+
+  function _navigate(dir){
+    const n=taskEmailPdfs.length;if(n<=1)return;
+    curIdx=(curIdx+dir+n)%n;
+    _loadPdf();
+  }
+
+  async function _loadPdf(){
+    _revokeCurrent();
+    const pdf=taskEmailPdfs[curIdx];
+    if(!pdf)return;
+    // Kopfzeile aktualisieren
+    titleEl.textContent='📄 '+(pdf.name||'E-Mail PDF');
+    titleEl.title=pdf.name||'';
+    counterEl.textContent=taskEmailPdfs.length>1?`${curIdx+1} / ${taskEmailPdfs.length}`:'';
+    driveBtn.href=pdf.url||'#';
+    // Navigations-Pfeile zeigen/ausblenden
+    prevBtn.style.display=taskEmailPdfs.length>1?'':'none';
+    nextBtn.style.display=taskEmailPdfs.length>1?'':'none';
+    // Lade-Platzhalter
+    // altes iframe/placeholder entfernen
+    content.querySelectorAll(':scope > *:not(button)').forEach(el=>el.remove());
+    const loader=document.createElement('div');
+    loader.style.cssText='color:#fff;font-size:14px;text-align:center;';
+    loader.textContent='⏳ PDF wird geladen…';
+    content.appendChild(loader);
+    // PDF via Drive API laden
+    try{
+      const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(pdf.fileId)+'?alt=media',
+        {headers:{Authorization:'Bearer '+gdriveToken}});
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      const blob=await r.blob();
+      curBlobUrl=URL.createObjectURL(blob);
+      const frame=document.createElement('iframe');
+      frame.src=curBlobUrl;
+      frame.style.cssText='width:90vw;height:86vh;border:none;border-radius:8px;background:#fff;display:block;';
+      loader.replaceWith(frame);
+    }catch(e){
+      loader.innerHTML='<span style="color:#f88">⚠ Fehler beim Laden: '+esc(e.message)+'</span><br>'
+        +'<a href="'+esc(pdf.url||'#')+'" target="_blank" style="color:#7af;font-size:12px;margin-top:8px;display:inline-block;">In Drive öffnen 🔗</a>';
+      if(e.message.includes('401'))_handleDrive401();
+    }
+  }
+
+  _loadPdf();
+}
+// Rückwärtskompatibilität (alte Aufrufe falls noch vorhanden)
+function openEmailPdfPreview(fileId,name){
+  const idx=(taskEmailPdfs||[]).findIndex(p=>p.fileId===fileId);
+  _openEmailPdfGallery(idx>=0?idx:0);
 }
 
 // Generischer Drive-Upload (beliebiger MIME-Typ)
@@ -7610,189 +7859,6 @@ async function exportTaskZip(){
     const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
     const fname=safe+'_'+new Date().toISOString().slice(0,10)+'.zip';
     // Drive-Ordner ermitteln: erst Projektordner, dann Drive-Link
-    const folderUrl=((document.getElementById('tGDOrdner')||{}).value||
-                     (document.getElementById('tGD')||{}).value||'').trim();
-    const fid2=folderUrl?_ezFolderId(folderUrl):null;
-    if(!fid2&&folderUrl){
-      // URL vorhanden aber ID konnte nicht extrahiert werden
-      console.warn('[PTP] ZIP-Export: Ordner-ID konnte nicht aus URL extrahiert werden:',folderUrl);
-    }
-    if(fid2&&gdriveToken){
-      showToast('☁️ ZIP wird in Drive gespeichert… (Ordner: '+fid2.slice(0,8)+'…)','info');
-      try{
-        const ab=await blob.arrayBuffer();
-        const res=await _driveUploadGeneric(ab,fname,'application/zip',fid2);
-        const driveLink=res&&res.id?'https://drive.google.com/file/d/'+res.id+'/view':'';
-        // Erfolg: Link anklickbar machen
-        const toastMsg='✅ In Drive gesichert: '+fname+(driveLink?' – <a href="'+driveLink+'" target="_blank" style="color:#fff;text-decoration:underline;">Öffnen ↗</a>':'');
-        showToast(toastMsg,'success',10000);
-        // Auch als direkter Link in Konsole
-        if(driveLink)console.info('[PTP] ZIP in Drive:',driveLink);
-      }catch(e){
-        showToast('⚠ Drive-Upload fehlgeschlagen – lokaler Download: '+e.message,'error',8000);
-        console.error('[PTP] ZIP Drive-Upload:',e);
-        const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=fname;
-        document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},5000);
-      }
-    }else{
-      // Kein Ordner hinterlegt oder ID nicht erkannt → lokaler Download
-      const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=fname;
-      document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},5000);
-      const reason=!folderUrl?' (kein Drive-Ordner im Task hinterlegt)':!fid2?' (Ordner-URL nicht erkannt)':!gdriveToken?' (Drive nicht verbunden)':'';
-      showToast('💾 Lokal gespeichert: '+fname+reason,'info',8000);
-    }
-  }catch(e){showToast('⚠ Export fehlgeschlagen: '+e.message,'error',8000);console.error('[PTP] Export:',e);}
-}
-
-// ── ZIP-WIEDERHERSTELLUNG VOM BOARD (erstellt neuen Task) ──
-async function _zipRestoreDrop(file){
-  if(!file||!file.name.toLowerCase().endsWith('.zip')){showToast('⚠ Bitte eine .zip Datei wählen','error');return;}
-  showToast('⏳ ZIP wird gelesen…','info');
-  try{
-    await _loadJSZip();
-    const buf=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsArrayBuffer(file);});
-    const zip=await JSZip.loadAsync(buf);
-    const jsonFile=zip.file('aufgabe.json');
-    if(!jsonFile){showToast('⚠ Keine aufgabe.json in der ZIP gefunden','error');return;}
-    const data=JSON.parse(await jsonFile.async('text'));
-    // Board-Auswahl Popup
-    _zipRestorePending={zip,data};
-    document.getElementById('auftragPopupMode').value='ziprestore';
-    _auftragShowPopup('↩ '+( data.title||'Task wiederherstellen'));
-  }catch(e){showToast('⚠ Fehler: '+e.message,'error',8000);console.error('[PTP] ZIP-Restore:',e);}
-}
-
-async function _zipRestoreCreate(boardName){
-  const p=_zipRestorePending;_zipRestorePending=null;
-  if(!p)return;
-  const {zip,data}=p;
-  const _isNotiz=(boardTypes[boardName]||'baustelle')==='notiz';
-  const _folderDefault=_isNotiz
-    ?'https://drive.google.com/drive/u/0/folders/18z9bRXtzUteTCf0Xu58gKti0ykHuZEGB'
-    :'https://drive.google.com/drive/u/0/folders/1GBcSWtUkKw7pJJ2CKvbTs_WZCZ1_RJ07';
-  // Neuen Task aus JSON-Daten aufbauen
-  const _statuses=getBoardStatuses(boardName)||[];
-  const _savedStatus=data.status;
-  const _status=(_statuses.includes(_savedStatus)&&_savedStatus)||_statuses[0]||'';
-  const newTask={
-    id:generateId(),
-    title:data.title||'Wiederhergestellter Task',
-    desc:data.desc||'',
-    owner:data.owner||'Braun',
-    due:data.due||'',
-    status:_status,
-    ampel:data.ampel||'grün',
-    ausführungsdatum:data.ausführungsdatum||'',
-    tags:(data.tags||'').split(',').map(s=>s.trim()).filter(Boolean),
-    source:data.source||'',
-    repNr:data.repNr||'',
-    kundenNr:data.kundenNr||'',
-    hausverwaltung:data.hausverwaltung||'',
-    adresse:data.adresse||'',
-    schadensbild:data.schadensbild||'',
-    kontakte:data.kontakte||[],
-    links:data.links||[],
-    attachments:data.attachments||[],
-    ausserhausTermine:data.ausserhausTermine||[],
-    zeitEntries:data.zeitEntries||[],
-    notizVerlauf:data.notizVerlauf||[],
-    fotos:data.fotos||[],
-    checkliste:data.checkliste||[],
-    gmailLinks:data.gmailLinks||[],
-    emailPdfs:data.emailPdfs||[],
-    emailOriginals:data.emailOriginals||[],
-    gdriveOrdner:data.gdriveOrdner||_folderDefault,
-    emailOrdner:data.emailOrdner||_folderDefault,
-    gdrive:data.gdrive||'',
-    nas:data.nas||''
-  };
-  if(!boards[boardName])boards[boardName]=[];
-  boards[boardName].push(newTask);
-  if(currentBoard!==boardName){currentBoard=boardName;render();}
-  await autoSave();
-  showToast('⏳ Task angelegt – Dateien werden in Drive hochgeladen…','info',5000);
-  // Dateien aus ZIP in Drive hochladen
-  const folderUrl=newTask.gdriveOrdner||newTask.emailOrdner||'';
-  const fid=folderUrl?_ezFolderId(folderUrl):null;
-  if(fid&&gdriveToken){
-    let uploaded=0;
-    for(const [folder,pushFn] of [
-      ['emails', e=>newTask.emailOriginals.push(e)],
-      ['email_pdfs', e=>newTask.emailPdfs.push(e)],
-      ['anhaenge', e=>newTask.attachments.push(e)]
-    ]){
-      const paths=Object.keys(zip.files).filter(n=>n.startsWith(folder+'/'));
-      for(const path of paths){
-        const zf=zip.file(path);if(!zf||zf.dir)continue;
-        const name=path.split('/').pop();
-        try{
-          const b=await zf.async('arraybuffer');
-          const lname=name.toLowerCase();
-          const mime=lname.endsWith('.eml')?'message/rfc822':lname.endsWith('.pdf')?'application/pdf':'application/octet-stream';
-          const res=await _driveUploadGeneric(b,name,mime,fid);
-          pushFn({name,fileId:res.id,url:'https://drive.google.com/file/d/'+res.id+'/view',uploadedAt:new Date().toLocaleDateString('de-DE')});
-          uploaded++;
-        }catch(err){console.warn('[PTP] ZIP-Upload '+name+':',err);}
-      }
-    }
-    if(uploaded)await autoSave();
-    showToast('✅ Task wiederhergestellt – '+uploaded+' Datei(en) hochgeladen','success',6000);
-  }else{
-    showToast('✅ Task-Daten wiederhergestellt'+((!gdriveToken||!fid)?' (Drive verbinden & Ordner prüfen für Dateien)':''),'success',6000);
-  }
-  setTimeout(()=>openEditTaskModal(newTask.id),300);
-}
-
-var _zipRestorePending=null;
-
-async function importTaskFromZip(file){
-  if(!file||!file.name.toLowerCase().endsWith('.zip')){showToast('⚠ Bitte eine .zip Datei wählen','error');return;}
-  showToast('⏳ ZIP wird eingelesen…','info');
-  try{
-    await _loadJSZip();
-    const buf=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsArrayBuffer(file);});
-    const zip=await JSZip.loadAsync(buf);
-    const jsonFile=zip.file('aufgabe.json');
-    if(!jsonFile){showToast('⚠ Keine aufgabe.json gefunden','error');return;}
-    const data=JSON.parse(await jsonFile.async('text'));
-    // Felder befüllen
-    const set=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.value=v;};
-    set('taskTitleInput',data.title);
-    set('taskDescInput',data.desc);
-    set('taskOwnerInput',data.owner);
-    set('taskDueInput',data.due);
-    set('taskStatusInput',data.status);
-    set('taskAmpelInput',data.ampel);
-    set('taskAusfInput',data.ausführungsdatum);
-    set('taskTagsInput',data.tags);
-    set('taskSourceInput',data.source);
-    set('taskRepNr',data.repNr);
-    set('taskKundenNr',data.kundenNr);
-    set('tHV',data.hausverwaltung);
-    set('tAdr',data.adresse);
-    set('tSch',data.schadensbild);
-    set('tGDOrdner',data.gdriveOrdner);
-    set('tGD',data.gdrive);
-    set('tNAS',data.nas);
-    set('tEmailOrdner',data.emailOrdner);
-    if(data.kontakte&&typeof renderKontaktePTP==='function')renderKontaktePTP(data.kontakte);
-    // Arrays
-    taskAusserhausTermine=data.ausserhausTermine||[];
-    taskZeitEntries=data.zeitEntries||[];
-    taskNotizVerlauf=data.notizVerlauf||[];
-    taskCheckliste=data.checkliste||[];
-    taskLinks=data.links||[];
-    taskGmailLinks=data.gmailLinks||[];
-    taskEmailOriginals=data.emailOriginals||[];
-    taskEmailPdfs=data.emailPdfs||[];
-    taskAttachments=data.attachments||[];
-    taskFotos=data.fotos||[];
-    // UI
-    renderAusserhausTermine();renderZeiterfassung();renderTaskNotizen();renderCheckliste();
-    renderEmailSection();renderLinksList();renderAttachList();renderGmailLinks();
-    if(typeof renderFotoListDesktop==='function')renderFotoListDesktop();
-    scheduleTaskFieldSave();
-    // Dateien aus ZIP in Drive hochladen
     const folderUrl=((document.getElementById('tGDOrdner')||{}).value||
                      (document.getElementById('tGDOrdner')||{}).value||
                      (document.getElementById('tGD')||{}).value||'').trim();
