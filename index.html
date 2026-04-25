@@ -1211,7 +1211,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 /* TIMER */
 .timer-display{font-size:34px;font-weight:700;color:var(--accent2);font-variant-numeric:tabular-nums;letter-spacing:3px;text-align:center;padding:10px 0 8px;font-family:'Courier New',monospace;}
 .timer-display.running{color:var(--green);animation:timerPulse 1s ease-in-out infinite;}
-.modal-timer-bar{display:flex;align-items:center;gap:10px;padding:4px 12px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);margin-bottom:12px;}
+.modal-timer-bar{display:flex;flex-direction:column;align-items:stretch;gap:5px;padding:8px 12px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);margin-bottom:12px;}
 .modal-timer-bar .timer-display{font-size:22px;letter-spacing:2px;padding:0;flex:1;text-align:left;}
 .modal-timer-bar .timer-toggle-btn{padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;background:rgba(46,204,113,.15);color:var(--green);border:1.5px solid var(--green);white-space:nowrap;}
 .modal-timer-bar .timer-toggle-btn.stop{background:rgba(231,76,60,.15);color:var(--red);border-color:var(--red);}
@@ -1435,7 +1435,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .email-orig-drop.dragover{border-color:var(--accent);background:rgba(108,99,255,.07);}
 /* Email Icon Grid */
 .email-icon-grid{display:flex;flex-wrap:wrap;gap:8px;padding:2px 0 6px;}
-.eic{position:relative;width:68px;cursor:default;flex-shrink:0;}
+.eic{position:relative;width:68px;cursor:pointer;flex-shrink:0;}.eic.eic-sel .eic-thumb{outline:2px solid var(--accent);border-radius:8px;}
 .eic-thumb{width:68px;height:68px;border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--border);}
 .eic-thumb svg{width:68px;height:68px;display:block;}
 .eic-overlay{position:absolute;inset:0;border-radius:8px;background:rgba(0,0,0,.62);display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:3px;padding:4px;opacity:0;transition:opacity .15s;}
@@ -1671,10 +1671,12 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <div style="position:sticky;top:0;z-index:50;background:var(--bg2);padding-bottom:6px;margin-bottom:8px;border-bottom:1px solid var(--border);">
     <div style="display:flex;gap:10px;align-items:stretch;">
       <div class="modal-timer-bar" id="modalTimerBar" style="margin-bottom:0;flex:1;">
-        <div id="timerDisplayTop" class="timer-display">00:00:00</div>
-        <button id="timerBtnTop" type="button" class="timer-toggle-btn" onclick="toggleTimer()">▶ Start</button>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div id="timerDisplayTop" class="timer-display" style="flex:1;">00:00:00</div>
+          <button id="timerBtnTop" type="button" class="timer-toggle-btn" onclick="toggleTimer()">▶ Start</button>
+        </div>
         <input id="timerDesc" type="text" placeholder="Betreff / Tätigkeit…" maxlength="120"
-          style="width:100%;margin-top:5px;padding:4px 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:11px;box-sizing:border-box;">
+          style="padding:4px 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:11px;box-sizing:border-box;">
         <div id="timerEntries" class="timer-entries" style="font-size:11px;color:var(--text2);width:100%;display:none;"></div>
       </div>
       <div class="email-drop-zone" id="emailDropZone"
@@ -6678,72 +6680,148 @@ function _openEmailThumbnailGrid(){
   const GID='_emailThumbGridOverlay';
   const old=document.getElementById(GID);if(old)old.remove();
   const blobUrls=[];
+
   const ov=document.createElement('div');
   ov.id=GID;
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:99998;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:30px 20px;box-sizing:border-box;';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:99998;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
   function _closeGrid(){blobUrls.forEach(u=>URL.revokeObjectURL(u));ov.remove();document.removeEventListener('keydown',_esc);}
-  function _esc(e){if(e.key==='Escape'&&!document.getElementById('_emailPdfGalleryOverlay'))_closeGrid();}
+  function _esc(e){if(e.key==='Escape'&&!document.getElementById('_emailPdfGalleryOverlay')){e.stopImmediatePropagation();_closeGrid();}}
   document.addEventListener('keydown',_esc);
   ov.addEventListener('click',e=>{if(e.target===ov)_closeGrid();});
+
+  /* ── Hauptkarte ── */
   const card=document.createElement('div');
-  card.style.cssText='background:var(--bg2);border-radius:14px;padding:20px 20px 24px;width:min(960px,96vw);flex-shrink:0;';
+  card.style.cssText='background:var(--bg2);border-radius:14px;width:min(1050px,96vw);height:min(720px,92vh);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 16px 48px rgba(0,0,0,.5);';
+
+  /* Header */
   const hdr=document.createElement('div');
-  hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;';
+  hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:13px 18px;border-bottom:1px solid var(--border);flex-shrink:0;';
   const titleEl=document.createElement('span');
   titleEl.style.cssText='font-weight:700;font-size:15px;color:var(--text1);';
   titleEl.textContent='📧 E-Mail Dateien ('+allItems.length+')';
   const closeBtn=document.createElement('button');
   closeBtn.textContent='✕';
-  closeBtn.style.cssText='background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2);padding:2px 8px;border-radius:4px;';
+  closeBtn.type='button';
+  closeBtn.style.cssText='background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2);padding:2px 8px;border-radius:4px;line-height:1;';
   closeBtn.onclick=_closeGrid;
   hdr.append(titleEl,closeBtn);
-  const grid=document.createElement('div');
-  grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;';
-  allItems.forEach(item=>{
+
+  /* Body: sidebar links + Vorschau rechts */
+  const body=document.createElement('div');
+  body.style.cssText='display:flex;flex:1;overflow:hidden;';
+
+  /* Sidebar */
+  const sidebar=document.createElement('div');
+  sidebar.style.cssText='width:155px;flex-shrink:0;overflow-y:auto;border-right:1px solid var(--border);padding:10px 8px;display:flex;flex-direction:column;gap:8px;background:var(--bg3);';
+
+  /* Vorschau-Bereich */
+  const previewWrap=document.createElement('div');
+  previewWrap.style.cssText='flex:1;display:flex;flex-direction:column;overflow:hidden;';
+  const previewContent=document.createElement('div');
+  previewContent.id='_ethgPreview';
+  previewContent.style.cssText='flex:1;overflow-y:auto;';
+  previewContent.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text2);font-size:13px;">&#8592; Datei auswählen</div>';
+  previewWrap.appendChild(previewContent);
+
+  let _activeTile=null;
+
+  /* Vorschau laden */
+  function _loadPrev(item, tileEl){
+    if(_activeTile){_activeTile.style.borderColor='var(--border)';_activeTile.style.boxShadow='';}
+    _activeTile=tileEl;
+    tileEl.style.borderColor='var(--accent)';
+    tileEl.style.boxShadow='0 0 0 2px var(--accent)';
+
+    if(item._type==='pdf'){
+      if(item.fileId&&gdriveToken){
+        previewContent.style.cssText='flex:1;overflow:hidden;';
+        previewContent.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text2);font-size:13px;">⏳ PDF lädt…</div>';
+        fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(item.fileId)+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}})
+          .then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.blob();})
+          .then(blob=>{
+            const url=URL.createObjectURL(blob);blobUrls.push(url);
+            if(!document.getElementById(GID)){URL.revokeObjectURL(url);return;}
+            const fr=document.createElement('iframe');
+            fr.src=url+'#toolbar=0&navpanes=0&view=FitH';
+            fr.style.cssText='width:100%;height:100%;border:none;';
+            previewContent.innerHTML='';previewContent.appendChild(fr);
+          })
+          .catch(ex=>{previewContent.style.cssText='flex:1;overflow-y:auto;';previewContent.innerHTML='<div style="padding:20px;color:var(--red);font-size:12px;">⚠ '+esc(ex.message)+'</div>';});
+      } else {
+        previewContent.style.cssText='flex:1;overflow-y:auto;';
+        previewContent.innerHTML='<div style="padding:20px;font-size:12px;color:var(--text2);">📄 '+esc(item.name||'PDF')+'<br><a href="'+esc(item.url)+'" target="_blank" style="color:var(--accent);">In Drive öffnen ↗</a></div>';
+      }
+    } else {
+      const ext=(item.name||'').split('.').pop().toLowerCase();
+      if(ext==='eml'&&item.fileId&&gdriveToken){
+        previewContent.style.cssText='flex:1;overflow-y:auto;';
+        previewContent.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:200px;color:var(--text2);font-size:13px;">⏳ E-Mail lädt…</div>';
+        fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(item.fileId)+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}})
+          .then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.text();})
+          .then(txt=>{
+            const info=_parseEmlText(txt);
+            const e2=s=>s?s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):'';
+            const rawBody=info.bodyHtml||('<pre style="white-space:pre-wrap;font-family:inherit;font-size:13px;margin:0;">'+e2(info.bodyText||'(kein Inhalt)')+'</pre>');
+            const cleanBody=rawBody.replace(/<base[^>]*>/gi,'').replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<link[^>]+rel=["']?stylesheet["']?[^>]*>/gi,'');
+            previewContent.innerHTML=
+              '<div style="padding:14px 18px 10px;border-bottom:1px solid var(--border);background:var(--bg3);">'
+              +'<div style="font-weight:700;font-size:14px;color:var(--text1);margin-bottom:7px;">'+e2(info.subject||'(kein Betreff)')+'</div>'
+              +'<div style="font-size:11px;color:var(--text2);display:grid;grid-template-columns:45px 1fr;gap:2px 8px;">'
+              +'<span style="font-weight:600;">Von:</span><span>'+e2(info.sender||'')+'</span>'
+              +'<span style="font-weight:600;">Datum:</span><span>'+e2(info.date?info.date.toLocaleString('de-DE'):'')+'</span>'
+              +'</div></div>'
+              +'<div style="padding:14px 18px;font-size:13px;color:var(--text1);line-height:1.55;">'+cleanBody+'</div>';
+          })
+          .catch(ex=>{previewContent.innerHTML='<div style="padding:20px;color:var(--red);font-size:12px;">⚠ '+esc(ex.message)+'</div>';});
+      } else if(item.fileId&&gdriveToken){
+        /* .msg → Drive preview iframe */
+        previewContent.style.cssText='flex:1;overflow:hidden;';
+        const fr=document.createElement('iframe');
+        fr.src='https://drive.google.com/file/d/'+item.fileId+'/preview';
+        fr.style.cssText='width:100%;height:100%;border:none;';
+        previewContent.innerHTML='';previewContent.appendChild(fr);
+      } else {
+        previewContent.style.cssText='flex:1;overflow-y:auto;';
+        previewContent.innerHTML='<div style="padding:20px;font-size:12px;color:var(--text2);">📨 '+esc(item.name||'E-Mail')+'<br><small>Vorschau nicht verfügbar – Drive nicht verbunden</small></div>';
+      }
+    }
+  }
+
+  /* Thumbnail-Kacheln in Sidebar */
+  allItems.forEach((item,pos)=>{
     const tile=document.createElement('div');
-    tile.style.cssText='background:var(--bg3);border-radius:10px;overflow:hidden;cursor:pointer;border:2px solid var(--border);transition:border-color .15s,box-shadow .15s;';
-    tile.onmouseenter=()=>{tile.style.borderColor='var(--accent)';tile.style.boxShadow='0 4px 16px rgba(108,99,255,.25)';};
-    tile.onmouseleave=()=>{tile.style.borderColor='var(--border)';tile.style.boxShadow='';};
-    const previewArea=document.createElement('div');
-    previewArea.style.cssText='width:100%;height:200px;overflow:hidden;background:#e8e8e8;position:relative;display:flex;align-items:center;justify-content:center;';
-    if(item._type==='pdf' && item.fileId && gdriveToken){
-      const loader=document.createElement('div');
-      loader.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#666;font-size:12px;width:100%;height:100%;position:absolute;inset:0;';
-      loader.innerHTML='<span style="font-size:36px">📄</span><span>Lädt…</span>';
-      previewArea.appendChild(loader);
+    tile.style.cssText='border:2px solid var(--border);border-radius:8px;overflow:hidden;cursor:pointer;transition:border-color .15s,box-shadow .15s;background:var(--bg2);';
+    const thumb=document.createElement('div');
+    thumb.style.cssText='width:100%;height:105px;display:flex;align-items:center;justify-content:center;background:#e8e8e8;overflow:hidden;position:relative;';
+    if(item._type==='pdf'&&item.fileId&&gdriveToken){
+      const ldr=document.createElement('div');ldr.style.cssText='font-size:32px;color:#888;';ldr.textContent='📄';thumb.appendChild(ldr);
       (async()=>{
         try{
           const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(item.fileId)+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}});
-          if(!r.ok)throw new Error('HTTP '+r.status);
-          const blob=await r.blob();
-          const blobUrl=URL.createObjectURL(blob);
-          blobUrls.push(blobUrl);
-          if(!document.getElementById(GID)){URL.revokeObjectURL(blobUrl);return;}
+          if(!r.ok)throw new Error('');
+          const blob=await r.blob();const url=URL.createObjectURL(blob);blobUrls.push(url);
+          if(!document.getElementById(GID)){URL.revokeObjectURL(url);return;}
           const fr=document.createElement('iframe');
-          fr.src=blobUrl+'#toolbar=0&navpanes=0&view=FitH&zoom=60';
-          fr.style.cssText='width:100%;height:100%;border:none;pointer-events:none;';
-          fr.scrolling='no';
-          if(loader.parentNode)loader.replaceWith(fr);
-        }catch(ex){loader.innerHTML='<span style="font-size:36px">📄</span><span style="color:#c00">⚠ Fehler</span>';}
+          fr.src=url+'#toolbar=0&navpanes=0&view=FitH&zoom=55';
+          fr.style.cssText='width:220%;height:220%;border:none;pointer-events:none;transform:scale(0.45);transform-origin:top left;';
+          fr.scrolling='no';if(ldr.parentNode)ldr.replaceWith(fr);
+        }catch(ex){}
       })();
     } else {
-      const iconDiv=document.createElement('div');
-      iconDiv.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#666;font-size:12px;width:100%;height:100%;';
-      iconDiv.innerHTML='<span style="font-size:52px">'+(item._type==='pdf'?'📄':'📨')+'</span>';
-      previewArea.appendChild(iconDiv);
+      const ic=document.createElement('div');ic.style.cssText='font-size:38px;';ic.textContent=item._type==='pdf'?'📄':'📨';thumb.appendChild(ic);
     }
-    tile.onclick=()=>{
-      if(item._type==='pdf') _openEmailPdfGallery(item._idx);
-      else _openEmailOrigInlinePreview(item);
-    };
-    const label=document.createElement('div');
-    label.style.cssText='padding:8px 10px;font-size:11px;color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-top:1px solid var(--border);background:var(--bg2);';
-    label.textContent=(item._type==='pdf'?'📄 ':'📨 ')+(item.name||'E-Mail');
-    label.title=item.name||'';
-    tile.append(previewArea,label);
-    grid.appendChild(tile);
+    const lbl=document.createElement('div');
+    lbl.style.cssText='padding:5px 6px;font-size:10px;color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-top:1px solid var(--border);background:var(--bg2);';
+    lbl.textContent=(item._type==='pdf'?'📄 ':'📨 ')+(item.name||'E-Mail');
+    lbl.title=item.name||'';
+    tile.onclick=()=>_loadPrev(item,tile);
+    tile.append(thumb,lbl);
+    sidebar.appendChild(tile);
+    if(pos===0)setTimeout(()=>_loadPrev(item,tile),60);
   });
-  card.append(hdr,grid);
+
+  body.append(sidebar,previewWrap);
+  card.append(hdr,body);
   ov.appendChild(card);
   document.body.appendChild(ov);
 }
