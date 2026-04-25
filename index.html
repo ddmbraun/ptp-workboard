@@ -1821,7 +1821,10 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <div class="form-collapse" id="tAnhangSect">
       <div class="form-collapse-header" onclick="toggleFormSection('tAnhangSect')">
         <span class="form-collapse-title">📎 Dateianhänge</span>
-        <span class="form-collapse-arrow">▾</span>
+        <span style="display:flex;align-items:center;gap:6px;">
+          <button id="attachGalBtn" onclick="event.stopPropagation();_openAttachThumbnailGrid()" title="Alle Anhänge als Kacheln anzeigen" style="padding:3px 10px;border-radius:6px;border:1px solid var(--accent);background:rgba(108,99,255,0.1);color:var(--accent);font-size:11px;cursor:pointer;font-weight:600;display:none;">🖼 Alle ansehen</button>
+          <span class="form-collapse-arrow">▾</span>
+        </span>
       </div>
       <div class="form-collapse-body">
         <div id="attachList"></div>
@@ -1836,7 +1839,10 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <div class="form-collapse" id="tEmailOrigSect">
       <div class="form-collapse-header" onclick="toggleFormSection('tEmailOrigSect')">
         <span class="form-collapse-title" id="tEmailOrigTitle">📧 E-Mail Originale</span>
-        <span class="form-collapse-arrow">▾</span>
+        <span style="display:flex;align-items:center;gap:6px;">
+          <button id="emailGalBtn" onclick="event.stopPropagation();_openEmailThumbnailGrid()" title="Alle E-Mails als Kacheln anzeigen" style="padding:3px 10px;border-radius:6px;border:1px solid var(--accent);background:rgba(108,99,255,0.1);color:var(--accent);font-size:11px;cursor:pointer;font-weight:600;display:none;">🖼 Große Ansicht</button>
+          <span class="form-collapse-arrow">▾</span>
+        </span>
       </div>
       <div class="form-collapse-body">
         <div style="display:flex;align-items:center;justify-content:flex-end;min-height:16px;margin-bottom:4px;">
@@ -1866,7 +1872,11 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
           <span class="form-collapse-arrow">▾</span>
         </span>
       </div>
-      <div class="form-collapse-body">
+      <div class="form-collapse-body" id="fotosDropBody"
+        ondragenter="event.preventDefault();document.getElementById('fotosDropBody').style.outline='2px dashed var(--accent)'"
+        ondragover="event.preventDefault();event.dataTransfer.dropEffect='copy'"
+        ondragleave="if(!document.getElementById('fotosDropBody').contains(event.relatedTarget))document.getElementById('fotosDropBody').style.outline=''"
+        ondrop="event.preventDefault();document.getElementById('fotosDropBody').style.outline='';_handleFotoDrop(event.dataTransfer)">
         <div id="fotoListDesktop" style="min-height:60px;"></div>
         <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
           <button onclick="triggerFotoUploadToDrive()" title="Foto hochladen nach Google Drive" style="padding:8px 12px;border-radius:6px;border:1.5px dashed var(--accent);background:rgba(108,99,255,0.06);color:var(--accent);font-size:12px;cursor:pointer;white-space:nowrap;">📷 Drive-Foto</button>
@@ -4838,6 +4848,8 @@ function _aicSvgIcon(type,name){
 }
 function renderAttachList(){
   const el=document.getElementById('attachList');
+  const galBtn=document.getElementById('attachGalBtn');
+  if(galBtn)galBtn.style.display=taskAttachments.length?'':'none';
   if(!taskAttachments.length){el.innerHTML='';return;}
   const imgItems=taskAttachments.map((a,i)=>({a,i})).filter(({a})=>a.type&&a.type.startsWith('image/'));
   const nonImgItems=taskAttachments.map((a,i)=>({a,i})).filter(({a})=>!a.type||!a.type.startsWith('image/'));
@@ -6443,6 +6455,8 @@ function renderEmailSection(){
   if(ti)ti.innerHTML='📧 E-Mail Originale'+(total?` <span style="color:var(--accent2);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">(${total})</span>`:'');
   const hint=document.getElementById('emailAllHint');
   if(hint)hint.style.display=total>4?'':'none';
+  const galBtn=document.getElementById('emailGalBtn');
+  if(galBtn)galBtn.style.display=total?'':'none';
   grid.innerHTML=allItems.slice(0,4).map(item=>_eicHtml(item)).join('');
 }
 // Stubs so old call sites still work
@@ -6495,7 +6509,234 @@ function _closeEmailAllPopup(){
   const o=document.getElementById('emailOrigPopupOverlay');
   if(o)o.remove();
 }
+
 function _closeEmailOrigPopup(){_closeEmailAllPopup();}
+
+// ── Thumbnail-Kachel-Galerie für E-Mail Dateien ──────────────────────────────
+function _openEmailThumbnailGrid(){
+  const allItems=[
+    ...taskEmailPdfs.map((p,i)=>({...p,_type:'pdf',_idx:i})),
+    ...taskEmailOriginals.map((e,i)=>({...e,_type:'orig',_idx:i}))
+  ];
+  if(!allItems.length){showToast('Keine E-Mail-Dateien vorhanden','info',2500);return;}
+  const GID='_emailThumbGridOverlay';
+  const old=document.getElementById(GID);if(old)old.remove();
+  const blobUrls=[];
+  const ov=document.createElement('div');
+  ov.id=GID;
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:99998;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:30px 20px;box-sizing:border-box;';
+  function _closeGrid(){blobUrls.forEach(u=>URL.revokeObjectURL(u));ov.remove();document.removeEventListener('keydown',_esc);}
+  function _esc(e){if(e.key==='Escape')_closeGrid();}
+  document.addEventListener('keydown',_esc);
+  ov.addEventListener('click',e=>{if(e.target===ov)_closeGrid();});
+  const card=document.createElement('div');
+  card.style.cssText='background:var(--bg2);border-radius:14px;padding:20px 20px 24px;width:min(960px,96vw);flex-shrink:0;';
+  const hdr=document.createElement('div');
+  hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;';
+  const titleEl=document.createElement('span');
+  titleEl.style.cssText='font-weight:700;font-size:15px;color:var(--text1);';
+  titleEl.textContent='📧 E-Mail Dateien ('+allItems.length+')';
+  const closeBtn=document.createElement('button');
+  closeBtn.textContent='✕';
+  closeBtn.style.cssText='background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2);padding:2px 8px;border-radius:4px;';
+  closeBtn.onclick=_closeGrid;
+  hdr.append(titleEl,closeBtn);
+  const grid=document.createElement('div');
+  grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;';
+  allItems.forEach(item=>{
+    const tile=document.createElement('div');
+    tile.style.cssText='background:var(--bg3);border-radius:10px;overflow:hidden;cursor:pointer;border:2px solid var(--border);transition:border-color .15s,box-shadow .15s;';
+    tile.onmouseenter=()=>{tile.style.borderColor='var(--accent)';tile.style.boxShadow='0 4px 16px rgba(108,99,255,.25)';};
+    tile.onmouseleave=()=>{tile.style.borderColor='var(--border)';tile.style.boxShadow='';};
+    const previewArea=document.createElement('div');
+    previewArea.style.cssText='width:100%;height:200px;overflow:hidden;background:#e8e8e8;position:relative;display:flex;align-items:center;justify-content:center;';
+    if(item._type==='pdf' && item.fileId && gdriveToken){
+      const loader=document.createElement('div');
+      loader.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#666;font-size:12px;width:100%;height:100%;position:absolute;inset:0;';
+      loader.innerHTML='<span style="font-size:36px">📄</span><span>Lädt…</span>';
+      previewArea.appendChild(loader);
+      (async()=>{
+        try{
+          const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(item.fileId)+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}});
+          if(!r.ok)throw new Error('HTTP '+r.status);
+          const blob=await r.blob();
+          const blobUrl=URL.createObjectURL(blob);
+          blobUrls.push(blobUrl);
+          if(!document.getElementById(GID)){URL.revokeObjectURL(blobUrl);return;}
+          const fr=document.createElement('iframe');
+          fr.src=blobUrl+'#toolbar=0&navpanes=0&view=FitH&zoom=60';
+          fr.style.cssText='width:100%;height:100%;border:none;pointer-events:none;';
+          fr.scrolling='no';
+          if(loader.parentNode)loader.replaceWith(fr);
+        }catch(ex){loader.innerHTML='<span style="font-size:36px">📄</span><span style="color:#c00">⚠ Fehler</span>';}
+      })();
+    } else {
+      const iconDiv=document.createElement('div');
+      iconDiv.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#666;font-size:12px;width:100%;height:100%;';
+      iconDiv.innerHTML='<span style="font-size:52px">'+(item._type==='pdf'?'📄':'📨')+'</span>';
+      previewArea.appendChild(iconDiv);
+    }
+    tile.onclick=()=>{
+      _closeGrid();
+      if(item._type==='pdf') _openEmailPdfGallery(item._idx);
+      else if(item.url) window.open(item.url,'_blank');
+    };
+    const label=document.createElement('div');
+    label.style.cssText='padding:8px 10px;font-size:11px;color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-top:1px solid var(--border);background:var(--bg2);';
+    label.textContent=(item._type==='pdf'?'📄 ':'📨 ')+(item.name||'E-Mail');
+    label.title=item.name||'';
+    tile.append(previewArea,label);
+    grid.appendChild(tile);
+  });
+  card.append(hdr,grid);
+  ov.appendChild(card);
+  document.body.appendChild(ov);
+}
+
+// ── Thumbnail-Kachel-Galerie für Dateianhänge ────────────────────────────────
+function _openAttachThumbnailGrid(){
+  if(!taskAttachments||!taskAttachments.length){showToast('Keine Anhänge vorhanden','info',2500);return;}
+  const GID='_attachThumbGridOverlay';
+  const old=document.getElementById(GID);if(old)old.remove();
+  const blobUrls=[];
+  const nonImgItems=taskAttachments.map((a,i)=>({a,i})).filter(({a})=>!a.type||!a.type.startsWith('image/'));
+  const ov=document.createElement('div');
+  ov.id=GID;
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:99998;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:30px 20px;box-sizing:border-box;';
+  function _closeGrid(){blobUrls.forEach(u=>URL.revokeObjectURL(u));ov.remove();document.removeEventListener('keydown',_esc2);}
+  function _esc2(e){if(e.key==='Escape')_closeGrid();}
+  document.addEventListener('keydown',_esc2);
+  ov.addEventListener('click',e=>{if(e.target===ov)_closeGrid();});
+  const card=document.createElement('div');
+  card.style.cssText='background:var(--bg2);border-radius:14px;padding:20px 20px 24px;width:min(960px,96vw);flex-shrink:0;';
+  const hdr=document.createElement('div');
+  hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;';
+  const titleEl=document.createElement('span');
+  titleEl.style.cssText='font-weight:700;font-size:15px;color:var(--text1);';
+  titleEl.textContent='📎 Dateianhänge ('+taskAttachments.length+')';
+  const closeBtn=document.createElement('button');
+  closeBtn.textContent='✕';
+  closeBtn.style.cssText='background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2);padding:2px 8px;border-radius:4px;';
+  closeBtn.onclick=_closeGrid;
+  hdr.append(titleEl,closeBtn);
+  const grid=document.createElement('div');
+  grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;';
+  taskAttachments.forEach((a,i)=>{
+    const tile=document.createElement('div');
+    tile.style.cssText='background:var(--bg3);border-radius:10px;overflow:hidden;cursor:pointer;border:2px solid var(--border);transition:border-color .15s,box-shadow .15s;';
+    tile.onmouseenter=()=>{tile.style.borderColor='var(--accent)';tile.style.boxShadow='0 4px 16px rgba(108,99,255,.25)';};
+    tile.onmouseleave=()=>{tile.style.borderColor='var(--border)';tile.style.boxShadow='';};
+    const previewArea=document.createElement('div');
+    previewArea.style.cssText='width:100%;height:200px;overflow:hidden;background:#e8e8e8;position:relative;display:flex;align-items:center;justify-content:center;';
+    const isImg=a.type&&a.type.startsWith('image/');
+    const isPdf=a.type==='application/pdf'||(a.name||'').toLowerCase().endsWith('.pdf');
+    const isTxt=a.type==='text/plain'||(a.name||'').toLowerCase().endsWith('.txt');
+    const isDriveFile=!!(a.fileId&&gdriveToken);
+    if(isImg&&a.data){
+      const img=document.createElement('img');
+      img.src=a.data;
+      img.style.cssText='width:100%;height:100%;object-fit:cover;';
+      previewArea.appendChild(img);
+    } else if(isPdf&&a.data){
+      const fr=document.createElement('iframe');
+      fr.src=a.data+'#toolbar=0&navpanes=0&view=FitH';
+      fr.style.cssText='width:100%;height:100%;border:none;pointer-events:none;';
+      fr.scrolling='no';
+      previewArea.appendChild(fr);
+    } else if(isPdf&&isDriveFile){
+      const loader=document.createElement('div');
+      loader.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#666;font-size:12px;width:100%;height:100%;position:absolute;inset:0;';
+      loader.innerHTML='<span style="font-size:36px">📄</span><span>Lädt…</span>';
+      previewArea.appendChild(loader);
+      (async()=>{
+        try{
+          const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(a.fileId)+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}});
+          if(!r.ok)throw new Error('HTTP '+r.status);
+          const blob=await r.blob();
+          const blobUrl=URL.createObjectURL(blob);
+          blobUrls.push(blobUrl);
+          if(!document.getElementById(GID)){URL.revokeObjectURL(blobUrl);return;}
+          const fr=document.createElement('iframe');
+          fr.src=blobUrl+'#toolbar=0&navpanes=0&view=FitH';
+          fr.style.cssText='width:100%;height:100%;border:none;pointer-events:none;';
+          fr.scrolling='no';
+          if(loader.parentNode)loader.replaceWith(fr);
+        }catch(ex){loader.innerHTML='<span style="font-size:36px">📄</span><span style="color:#c00">⚠ Fehler</span>';}
+      })();
+    } else if(isTxt&&a.data){
+      try{
+        const b64=a.data.split(',')[1]||'';
+        const text=b64?decodeURIComponent(escape(atob(b64))).slice(0,600):'(leer)';
+        const pre=document.createElement('pre');
+        pre.style.cssText='font-size:9px;padding:8px;color:#333;white-space:pre-wrap;word-break:break-word;overflow:hidden;max-height:200px;margin:0;line-height:1.3;width:100%;box-sizing:border-box;';
+        pre.textContent=text;
+        previewArea.style.background='#fff';
+        previewArea.style.alignItems='flex-start';
+        previewArea.appendChild(pre);
+      }catch(ex){
+        previewArea.innerHTML='<span style="font-size:48px">📝</span>';
+      }
+    } else {
+      const iconDiv=document.createElement('div');
+      iconDiv.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;width:100%;height:100%;';
+      iconDiv.innerHTML=_aicSvgIcon(a.type,a.name)+'<span style="font-size:10px;color:#666;text-align:center;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(a.name||'')+'</span>';
+      previewArea.appendChild(iconDiv);
+    }
+    tile.onclick=()=>{
+      _closeGrid();
+      if(isImg) openPreview(i);
+      else{const ni=nonImgItems.findIndex(x=>x.i===i);_openAttachGallery(ni>=0?ni:0);}
+    };
+    const label=document.createElement('div');
+    label.style.cssText='padding:7px 10px;font-size:11px;color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-top:1px solid var(--border);background:var(--bg2);';
+    label.textContent=a.name||'Anhang';
+    label.title=a.name||'';
+    const typeBadge=document.createElement('div');
+    typeBadge.style.cssText='padding:2px 10px 6px;font-size:10px;color:var(--text2);';
+    typeBadge.textContent=isImg?'🖼️ Bild':isPdf?'📄 PDF':isTxt?'📝 Text':'📎 Datei';
+    tile.append(previewArea,label,typeBadge);
+    grid.appendChild(tile);
+  });
+  card.append(hdr,grid);
+  ov.appendChild(card);
+  document.body.appendChild(ov);
+}
+
+// ── Foto Drag & Drop Handler ─────────────────────────────────────────────────
+async function _handleFotoDrop(dt){
+  const files=[...dt.files].filter(f=>f.type.startsWith('image/')||IMAGE_EXTS.test(f.name));
+  if(!files.length){showToast('⚠ Nur Bilddateien hier ablegen','error',3000);return;}
+  if(!gdriveToken){showToast('⚠ Bitte zuerst mit Google Drive verbinden','error');return;}
+  const folderId=_getDriveFotoFolderId();
+  if(!folderId){
+    const sect=document.getElementById('tVerkSect');
+    if(sect&&!sect.classList.contains('open'))toggleFormSection('tVerkSect');
+    showToast('⚠ Bitte unter "Verknüpfungen" den 📷 Foto-Ordner eintragen!','error',5000);
+    setTimeout(()=>{const el=document.getElementById('tGD');if(el){el.focus();el.style.outline='2px solid var(--accent)';}},300);
+    return;
+  }
+  showToast('📷 '+files.length+' Bild(er) werden hochgeladen…','info',3000);
+  if(!taskFotos)taskFotos=[];
+  for(const file of files){
+    try{
+      const body=new FormData();
+      body.append('metadata',new Blob([JSON.stringify({name:file.name,parents:[folderId]})],{type:'application/json'}));
+      body.append('file',file,file.name);
+      const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType',
+        {method:'POST',headers:{Authorization:'Bearer '+gdriveToken},body});
+      if(!r.ok){showToast('Fehler beim Hochladen von '+file.name+' ('+r.status+')','error');continue;}
+      const meta=await r.json().catch(()=>null);
+      if(meta&&meta.id){
+        const blobUrl=URL.createObjectURL(file);
+        _desktopFotoBlobCache.set(meta.id,blobUrl);
+        taskFotos.push({driveId:meta.id,name:meta.name||file.name,mimeType:meta.mimeType||file.type,caption:''});
+        showToast('✓ '+file.name+' hochgeladen','success');
+      }
+    }catch(err){showToast('Fehler: '+err.message,'error');}
+  }
+  renderFotoListDesktop();
+  scheduleTaskFieldSave();
+}
 
 // Download via Drive API → Datei in Downloads speichern → dort doppelklicken für Outlook
 async function _downloadEmailOrig(fileId,filename){
