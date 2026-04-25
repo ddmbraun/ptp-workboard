@@ -5204,7 +5204,9 @@ async function openFotoDesktop(i){
           _deskInitPannellum(url);
         }else{
           cnt.style.display='';
-          cnt.innerHTML='<img src="'+esc(url)+'" alt="" id="deskLbImg">';
+          cnt.innerHTML='<img src="'+esc(url)+'" alt="" id="deskLbImg" style="transition:transform .1s ease;">';
+          _lbZoomReset();
+          setTimeout(_initLbZoom,50);
         }
       };
       testImg.onerror=()=>{cnt.style.display='';cnt.innerHTML='<img src="'+esc(url)+'" alt="" id="deskLbImgFallback">';};
@@ -6195,12 +6197,65 @@ function _openAttachGallery(startNonImgIdx){
 
 function closePreview(){
   _deskClosePannellum();deskDiscardDraw();
+  _lbZoomReset(); // Zoom zurücksetzen
   const lb=document.getElementById('previewLightbox');
   lb.classList.remove('open');
   _currentFotoLbIdx=-1;
   const capBar=document.getElementById('fotoLbCapBar');
   if(capBar)capBar.classList.remove('visible');
   setTimeout(()=>{const c=document.getElementById('previewContent');if(c){c.innerHTML='';c.style.display='';}},200);
+}
+
+// ── Mausrad-Zoom für Foto-Lightbox ─────────────────────────────────────
+let _lbZoom=1, _lbPanX=0, _lbPanY=0, _lbDragging=false, _lbDragStartX=0, _lbDragStartY=0;
+const _LB_ZOOM_MIN=1, _LB_ZOOM_MAX=6, _LB_ZOOM_STEP=0.15;
+
+function _lbZoomReset(){
+  _lbZoom=1;_lbPanX=0;_lbPanY=0;
+  const img=document.getElementById('deskLbImg');
+  if(img){img.style.transform='';img.style.cursor='';}
+}
+function _lbApplyTransform(){
+  const img=document.getElementById('deskLbImg');
+  if(!img)return;
+  img.style.transform=`scale(${_lbZoom}) translate(${_lbPanX/_lbZoom}px,${_lbPanY/_lbZoom}px)`;
+  img.style.cursor=_lbZoom>1?(_lbDragging?'grabbing':'grab'):'default';
+}
+function _initLbZoom(){
+  const cnt=document.getElementById('previewContent');
+  if(!cnt||cnt._lbZoomBound)return;
+  cnt._lbZoomBound=true;
+  // Mausrad → Zoom
+  cnt.addEventListener('wheel',function(e){
+    e.preventDefault();
+    const img=document.getElementById('deskLbImg');
+    if(!img)return;
+    const delta=e.deltaY<0?_LB_ZOOM_STEP:-_LB_ZOOM_STEP;
+    _lbZoom=Math.min(_LB_ZOOM_MAX,Math.max(_LB_ZOOM_MIN,_lbZoom+delta));
+    if(_lbZoom===_LB_ZOOM_MIN){_lbPanX=0;_lbPanY=0;} // zurück zur Mitte
+    _lbApplyTransform();
+  },{passive:false});
+  // Drag zum Verschieben (nur wenn gezoomt)
+  cnt.addEventListener('mousedown',function(e){
+    if(_lbZoom<=1||e.button!==0)return;
+    _lbDragging=true;
+    _lbDragStartX=e.clientX-_lbPanX;
+    _lbDragStartY=e.clientY-_lbPanY;
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove',function(e){
+    if(!_lbDragging)return;
+    _lbPanX=e.clientX-_lbDragStartX;
+    _lbPanY=e.clientY-_lbDragStartY;
+    _lbApplyTransform();
+  });
+  window.addEventListener('mouseup',function(){
+    if(_lbDragging){_lbDragging=false;_lbApplyTransform();}
+  });
+  // Doppelklick → Zoom zurücksetzen
+  cnt.addEventListener('dblclick',function(){
+    _lbZoom=1;_lbPanX=0;_lbPanY=0;_lbApplyTransform();
+  });
 }
 
 // Drop zone for attachments
