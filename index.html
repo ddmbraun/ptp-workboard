@@ -4154,53 +4154,25 @@ function parseAuftragText(text){
       }
       return'';
     };
-    // getFirst: wie get(), aber überspringt leere Werte (nächste Zeile wird geprüft)
-    const getFirst=key=>{
-      for(let i=0;i<lines.length;i++){
-        const line=lines[i];if(!line||typeof line!=='string')continue;
-        if(line.toLowerCase().includes(key.toLowerCase()+':')){
-          const idx=line.indexOf(':');if(idx<0)continue;
-          const val=line.substring(idx+1).trim();
-          if(val&&val!=='(noch offen)')return val;
-        }
-      }
-      return'';
-    };
-    // getInline: findet Schlüssel auch mitten in einer Zeile (z.B. "... Kostenstelle:260050")
-    const getInline=key=>{
-      for(const line of lines){
-        if(!line)continue;
-        const re=new RegExp(key+'\\s*:\\s*(\\S[^\r\n]*)','i');
-        const m=(line||'').match(re);
-        if(m&&m[1]){const v=m[1].trim();if(v&&v!=='(noch offen)')return v;}
-      }
-      return'';
-    };
 
-    const kostenstelle=get('Auftrag_Kostenstelle')||getInline('Kostenstelle');
-    const auftragDatum=get('Auftrag_Datum')||getFirst('Datum');
-    const strasse=get('Objekt_Strasse')||getFirst('Straße')||getFirst('Strasse')||getFirst('Stra?e');
-    const mieter=get('Mieter_Name')||getFirst('Mieter');
-    const eigentuemer=get('Eigentuemer_Name')||getFirst('Eigentümer / WEG')||getFirst('Eigentuemer');
-    const auftraggeber=get('Auftraggeber')||'';
-    const repNr=get('Rep_Nr')||getFirst('Rep.- Nr')||getFirst('Rep-Nr');
-    const kundenNr=get('Kunden_Nr')||getFirst('Kunden - Nr.')||getFirst('Kunden-Nr.');
-    const terminAbgabe=get('Termin_Abgabe')||'';
-    const terminOrt=get('Termin_Ortstermin')||'';
-    const schadensbild=getMultiline('Baustelle_Schadensbild')||getFirst('Baustelle / Schadensbild')||getFirst('Beschreibung / Schadensbild');
-    const hausverwaltung=get('Objekt_Hausverwaltung')||getFirst('Hausverwaltung');
-    const nasOrdner=get('NAS_Auftragsordner')||'';
-    const gdriveProjOrdner=get('Google_Drive_Projektordner')||get('Google_Drive_Link');
-    const gdriveFotoOrdner=get('Google_Drive_Fotoordner')||'';
-    const gdriveEmailOrdner=get('Google_Drive_Emailordner')||'';
-    const mieterTel=get('Mieter_Telefon')||getFirst('Mieter Telefon');
-    const eigTel=get('Eigentuemer_Telefon')||getFirst('Eigentümer / WEGTelefon')||getFirst('Eigentümer / WEG Telefon');
-    // Kontakt-Felder für beide Formate
-    const agName=get('AG_Kontakt_Name')||getFirst('Ansprechpartner HV');
-    const agTel=get('AG_Kontakt_Tel')||getFirst('Telefon Ansprechpartner HV');
-    const agEmail=get('AG_Kontakt_Email')||getFirst('E-Mail Ansprechpartner HV');
-    const eigEmail=get('Eigentuemer_Email')||getFirst('Eigentümer / WEG E-Mail')||getFirst('Eigentuemer_Email');
-    const mieterEmail=get('Mieter_Email')||getFirst('Mieter E-Mail');
+    const kostenstelle=get('Auftrag_Kostenstelle');
+    const auftragDatum=get('Auftrag_Datum');
+    const strasse=get('Objekt_Strasse');
+    const mieter=get('Mieter_Name');
+    const eigentuemer=get('Eigentuemer_Name');
+    const auftraggeber=get('Auftraggeber');
+    const repNr=get('Rep_Nr');
+    const kundenNr=get('Kunden_Nr');
+    const terminAbgabe=get('Termin_Abgabe');
+    const terminOrt=get('Termin_Ortstermin');
+    const schadensbild=getMultiline('Baustelle_Schadensbild');
+    const hausverwaltung=get('Objekt_Hausverwaltung');
+    const nasOrdner=get('NAS_Auftragsordner');
+    const gdriveProjOrdner=get('Google_Drive_Projektordner');
+    const gdriveFotoOrdner=get('Google_Drive_Fotoordner');
+    const gdriveEmailOrdner=get('Google_Drive_Emailordner');
+    const mieterTel=get('Mieter_Telefon');
+    const eigTel=get('Eigentuemer_Telefon');
     const person=mieter||eigentuemer||'';
 
     const strasseHausnr=(strasse?strasse.replace(/ /g,'_'):'');
@@ -4226,18 +4198,18 @@ function parseAuftragText(text){
     if(schadensbild)document.getElementById('tSch').value=schadensbild;
 
     try{
-      if(auftraggeber||agName||agTel||agEmail)
-        addKontaktPTP('ag',agName||'',agTel||'',agEmail||'');
+      if(auftraggeber||get('AG_Kontakt_Name')||get('AG_Kontakt_Tel')||get('AG_Kontakt_Email'))
+        addKontaktPTP('ag',get('AG_Kontakt_Name')||'',get('AG_Kontakt_Tel')||'',get('AG_Kontakt_Email')||'');
     }catch(e){console.error('Fehler beim AG-Kontakt:',e);}
 
     try{
-      if(eigentuemer||eigTel||eigEmail)
-        addKontaktPTP('eigentuemer',eigentuemer,eigTel,eigEmail||'');
+      if(eigentuemer||eigTel||get('Eigentuemer_Email'))
+        addKontaktPTP('eigentuemer',eigentuemer,eigTel,get('Eigentuemer_Email')||'');
     }catch(e){console.error('Fehler beim Eigentümer-Kontakt:',e);}
 
     try{
-      if(mieter||mieterTel||mieterEmail)
-        addKontaktPTP('mieter',mieter,mieterTel,mieterEmail||'');
+      if(mieter||mieterTel||get('Mieter_Email'))
+        addKontaktPTP('mieter',mieter,mieterTel,get('Mieter_Email')||'');
     }catch(e){console.error('Fehler beim Mieter-Kontakt:',e);}
 
     try{
