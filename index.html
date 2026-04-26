@@ -8851,4 +8851,243 @@ function _buildTaskSummaryPdfBytes(data){
   const M=20,PW=210,CW=PW-2*M;
   // Header-Balken
   doc.setFillColor(37,99,235);doc.rect(0,0,210,28,'F');
-  doc.setTextColor(255,255,255);doc.setFontSize(16);doc.setFont('helvetica',
+  doc.setTextColor(255,255,255);doc.setFontSize(16);doc.setFont('helvetica','bold');
+  doc.text('PTP Workboard – Aufgabenarchiv',M,17);
+  doc.setFontSize(9);doc.setFont('helvetica','normal');
+  doc.text(new Date().toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),PW-M,17,{align:'right'});
+  let y=38;
+  // Titel
+  doc.setTextColor(0,0,0);doc.setFontSize(14);doc.setFont('helvetica','bold');
+  doc.text(data.title||'(kein Titel)',M,y);y+=6;
+  if(data.status){doc.setFontSize(10);doc.setFont('helvetica','normal');doc.setTextColor(100,100,100);doc.text('Status: '+data.status,M,y);y+=5;}
+  doc.setDrawColor(220,220,220);doc.line(M,y,PW-M,y);y+=6;
+  // Stammdaten
+  const rows=[];
+  if(data.hausverwaltung)rows.push(['Auftraggeber / HV',data.hausverwaltung]);
+  if(data.adresse)rows.push(['Adresse',data.adresse]);
+  if(data.schadensbild)rows.push(['Beschreibung',data.schadensbild]);
+  if(data.nas)rows.push(['NAS-Pfad',data.nas]);
+  if(rows.length){
+    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);doc.text('Stammdaten',M,y);y+=4;
+    doc.autoTable({startY:y,margin:{left:M,right:M},theme:'grid',styles:{fontSize:9,cellPadding:2},
+      columnStyles:{0:{cellWidth:45,fontStyle:'bold',fillColor:[245,245,250]},1:{cellWidth:CW-45}},body:rows});
+    y=doc.lastAutoTable.finalY+6;
+  }
+  // Notizen
+  if(data.notizVerlauf&&data.notizVerlauf.length){
+    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);doc.text('Notizen ('+data.notizVerlauf.length+')',M,y);y+=4;
+    doc.autoTable({startY:y,margin:{left:M,right:M},theme:'striped',styles:{fontSize:8,cellPadding:2},
+      columnStyles:{0:{cellWidth:28,fontStyle:'italic',textColor:[120,120,120]},1:{cellWidth:CW-28}},
+      body:data.notizVerlauf.map(n=>[n.date||'',n.text||''])});
+    y=doc.lastAutoTable.finalY+6;
+  }
+  // Checkliste
+  if(data.checkliste&&data.checkliste.length){
+    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);doc.text('Checkliste ('+data.checkliste.length+')',M,y);y+=4;
+    doc.autoTable({startY:y,margin:{left:M,right:M},theme:'striped',styles:{fontSize:8,cellPadding:2},
+      columnStyles:{0:{cellWidth:10,halign:'center'},1:{cellWidth:CW-10}},
+      body:data.checkliste.map(c=>[(c.done?'✓':'○'),c.text||''])});
+    y=doc.lastAutoTable.finalY+6;
+  }
+  // Zeiterfassung
+  if(data.zeitEntries&&data.zeitEntries.length){
+    const total=data.zeitEntries.reduce((s,e)=>s+(parseInt(e.minuten,10)||0),0);
+    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);
+    doc.text('Zeiterfassung – '+Math.floor(total/60)+'h '+(total%60)+'min',M,y);y+=4;
+    doc.autoTable({startY:y,margin:{left:M,right:M},theme:'striped',styles:{fontSize:8,cellPadding:2},
+      head:[['Datum','Von','Bis','Dauer','Beschreibung']],
+      body:data.zeitEntries.map(e=>[e.datum||'',e.von||'',e.bis||'',(e.minuten||0)+'min',e.beschreibung||''])});
+    y=doc.lastAutoTable.finalY+6;
+  }
+  // Termine
+  if(data.ausserhausTermine&&data.ausserhausTermine.length){
+    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);doc.text('Außerhaus-Termine ('+data.ausserhausTermine.length+')',M,y);y+=4;
+    doc.autoTable({startY:y,margin:{left:M,right:M},theme:'striped',styles:{fontSize:8,cellPadding:2},
+      head:[['Datum','Zeit','Beschreibung']],
+      body:data.ausserhausTermine.map(t=>[t.date||'',(t.von||'')+'–'+(t.bis||''),t.beschreibung||''])});
+    y=doc.lastAutoTable.finalY+6;
+  }
+  // Dateiliste
+  const allFiles=[
+    ...(data.emailOriginals||[]).map(e=>['📨 E-Mail Original',e.name||'',e.uploadedAt||'']),
+    ...(data.emailPdfs||[]).map(p=>['📄 E-Mail PDF',p.name||'',p.uploadedAt||'']),
+    ...(data.attachments||[]).map(a=>['📎 Anhang',a.name||'',a.uploadedAt||'']),
+    ...(data.fotos||[]).map(f=>['📷 Foto',f.name||'',''])
+  ];
+  if(allFiles.length){
+    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);doc.text('Dateien & E-Mails ('+allFiles.length+')',M,y);y+=4;
+    doc.autoTable({startY:y,margin:{left:M,right:M},theme:'striped',styles:{fontSize:8,cellPadding:2},
+      head:[['Typ','Dateiname','Datum']],body:allFiles});
+    y=doc.lastAutoTable.finalY+6;
+  }
+  // Fußzeile
+  const pg=doc.internal.getNumberOfPages();
+  for(let i=1;i<=pg;i++){
+    doc.setPage(i);doc.setFontSize(8);doc.setTextColor(180,180,180);
+    doc.text('PTP Workboard – exportiert am '+new Date().toLocaleDateString('de-DE'),M,290);
+    doc.text('Seite '+i+'/'+pg,PW-M,290,{align:'right'});
+  }
+  return doc.output('arraybuffer');
+}
+
+async function _buildFotosPdfForExport(fotos){
+  if(!fotos||!fotos.length||!window.jspdf)return null;
+  const {jsPDF}=window.jspdf;
+  let doc=null;
+  for(const f of fotos){
+    let url=f.driveId?_desktopFotoBlobCache.get(f.driveId):null;
+    if(!url&&f.driveId)url=await _fetchDesktopFotoBlob(f.driveId);
+    if(!url&&f.url)url=f.url;
+    if(!url)continue;
+    const corrected=await _correctFotoForPdf(url);
+    const imgInfo=await new Promise(res=>{
+      const img=new Image();
+      img.onload=()=>res({w:img.naturalWidth,h:img.naturalHeight,src:corrected});
+      img.onerror=()=>res(null);img.src=corrected;
+    });
+    if(!imgInfo)continue;
+    const landscape=imgInfo.w>imgInfo.h;
+    const fmt=landscape?[297,210]:[210,297];
+    if(!doc)doc=new jsPDF({orientation:landscape?'landscape':'portrait',unit:'mm',format:fmt});
+    else doc.addPage(fmt,landscape?'landscape':'portrait');
+    doc.addImage(imgInfo.src,'JPEG',0,0,fmt[0],fmt[1],'','FAST');
+    const cap=f.caption||f.name||'';
+    if(cap){doc.setFontSize(9);doc.setTextColor(100);doc.text(cap,6,fmt[1]-4);}
+  }
+  return doc?doc.output('arraybuffer'):null;
+}
+
+async function _loadJSZip(){
+  if(window.JSZip)return;
+  await new Promise((res,rej)=>{
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    s.onload=res;s.onerror=rej;document.head.appendChild(s);
+  });
+}
+
+async function exportTaskZip(){
+  try{
+    showToast('⏳ ZIP wird vorbereitet…','info');
+    await _loadJSZip();
+    const data=_collectTaskData();
+    const zip=new JSZip();
+    const safe=(data.title||'Task').replace(/[^\wÄÖÜäöüß\- ]/g,'_').trim()||'Task';
+    // 1. JSON
+    zip.file('aufgabe.json',JSON.stringify(data,null,2));
+    // 2. Lesbare Zusammenfassung
+    showToast('📄 Zusammenfassung wird erstellt…','info');
+    try{const b=_buildTaskSummaryPdfBytes(data);if(b)zip.file('aufgabe_zusammenfassung.pdf',b);}catch(e){console.warn('[PTP] SummaryPDF:',e);}
+    // 3. E-Mail Originale
+    if((taskEmailOriginals||[]).length&&gdriveToken){
+      showToast('📨 E-Mails werden geladen…','info');
+      for(const e of taskEmailOriginals){
+        try{const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(e.fileId)+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}});
+          if(r.ok)zip.folder('emails').file(e.name||'email',await r.arrayBuffer());}
+        catch(err){console.warn('[PTP] Email-DL:',err);}
+      }
+    }
+    // 4. E-Mail PDFs
+    if((taskEmailPdfs||[]).length&&gdriveToken){
+      for(const p of taskEmailPdfs){
+        try{const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(p.fileId)+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}});
+          if(r.ok)zip.folder('email_pdfs').file(p.name||'email.pdf',await r.arrayBuffer());}
+        catch(err){console.warn('[PTP] PDF-DL:',err);}
+      }
+    }
+    // 5. Dateianhänge
+    if((taskAttachments||[]).filter(a=>a.fileId).length&&gdriveToken){
+      showToast('📎 Anhänge werden geladen…','info');
+      for(const a of taskAttachments){
+        if(!a.fileId)continue;
+        try{const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(a.fileId)+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}});
+          if(r.ok)zip.folder('anhaenge').file(a.name||'datei',await r.arrayBuffer());}
+        catch(err){console.warn('[PTP] Anhang-DL:',err);}
+      }
+    }
+    // 6. Fotos als PDF
+    if((taskFotos||[]).length){
+      showToast('📷 Fotos werden zusammengestellt…','info');
+      try{const b=await _buildFotosPdfForExport(taskFotos);if(b)zip.file('fotos.pdf',b);}
+      catch(e){console.warn('[PTP] FotosPDF:',e);}
+    }
+    // ZIP erstellen
+    showToast('📦 ZIP wird generiert…','info');
+    const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
+    const fname=safe+'_'+new Date().toISOString().slice(0,10)+'.zip';
+    // Drive-Ordner ermitteln: erst Projektordner, dann Drive-Link
+    const folderUrl=((document.getElementById('tGDOrdner')||{}).value||
+                     (document.getElementById('tGDOrdner')||{}).value||
+                     (document.getElementById('tGD')||{}).value||'').trim();
+    if(gdriveToken&&folderUrl){
+      const fid=_ezFolderId(folderUrl);
+      if(fid){
+        showToast('☁️ Dateien werden in Drive hochgeladen…','info',4000);
+        let uploaded=0;
+        for(const [folder,arr,pushFn] of [
+          ['emails',taskEmailOriginals,e=>taskEmailOriginals.push(e)],
+          ['email_pdfs',taskEmailPdfs,e=>taskEmailPdfs.push(e)],
+          ['anhaenge',taskAttachments,e=>taskAttachments.push(e)]
+        ]){
+          const paths=Object.keys(zip.files).filter(n=>n.startsWith(folder+'/'));
+          for(const path of paths){
+            const fileName=path.split('/').pop();
+            if(!fileName)continue;
+            try{
+              const ab=await zip.file(path).async('arraybuffer');
+              const r=await _ezUpload(ab,fileName,fid);
+              if(r&&r.id){
+                pushFn({name:fileName,fileId:r.id,url:'https://drive.google.com/file/d/'+r.id+'/view',uploadedAt:new Date().toLocaleDateString('de-DE')});
+                uploaded++;
+              }
+            }catch(e){console.warn('[PTP] ZIP-Upload fehlgeschlagen:',e);}
+          }
+        }
+        if(uploaded>0){
+          renderEmailSection();renderAttachList();
+          scheduleTaskFieldSave();
+          showToast('✅ '+uploaded+' Datei(en) in Drive hochgeladen','success',5000);
+        }
+      }
+    }
+  }catch(e){
+    showToast('⚠ Fehler beim Einlesen: '+e.message,'error',6000);
+    console.error('[PTP] importTaskFromZip:',e);
+  }
+}
+
+function _openNotizOverlay(){
+  const src=document.getElementById('taskDescInput');
+  if(!src)return;
+  const old=document.getElementById('_notizOverlay');if(old)old.remove();
+  const ov=document.createElement('div');
+  ov.id='_notizOverlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000000;display:flex;align-items:center;justify-content:center;';
+  const box=document.createElement('div');
+  box.style.cssText='background:var(--bg2);border-radius:12px;padding:20px;width:70vw;max-width:900px;height:70vh;display:flex;flex-direction:column;gap:10px;box-shadow:0 12px 50px rgba(0,0,0,.5);';
+  const hdr=document.createElement('div');
+  hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;';
+  hdr.innerHTML='<span style="font-size:13px;font-weight:700;color:var(--text2);">\u{1F4DD} Notizen bearbeiten</span>'
+    +'<button id="_notizOverlayClose" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2);line-height:1;padding:0 4px;" title="Schlie\u00DFen">\u2715</button>';
+  const ta=document.createElement('textarea');
+  ta.value=src.value;
+  ta.style.cssText='flex:1;resize:none;border:1px solid var(--border);border-radius:8px;padding:12px;font-size:14px;font-family:inherit;background:var(--bg3);color:var(--text);line-height:1.6;';
+  ta.placeholder='Interne Notizen\u2026';
+  const foot=document.createElement('div');
+  foot.style.cssText='display:flex;gap:8px;justify-content:flex-end;';
+  foot.innerHTML='<button onclick="document.getElementById(\'_notizOverlay\').remove()" style="padding:7px 18px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;">Abbrechen</button>'
+    +'<button id="_notizOverlaySave" style="padding:7px 18px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-weight:600;cursor:pointer;">\u00DCbernehmen</button>';
+  box.appendChild(hdr);box.appendChild(ta);box.appendChild(foot);
+  ov.appendChild(box);document.body.appendChild(ov);
+  ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);
+  function _save(){src.value=ta.value;ov.remove();}
+  document.getElementById('_notizOverlaySave').onclick=_save;
+  document.getElementById('_notizOverlayClose').onclick=_save;
+  ov.addEventListener('click',function(e){if(e.target===ov)_save();});
+  document.addEventListener('keydown',function _esc(e){if(e.key==='Escape'){_save();document.removeEventListener('keydown',_esc);}});
+}
+
+
+</script>
+</body>
+</html>
