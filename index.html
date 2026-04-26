@@ -4098,87 +4098,118 @@ function readAuftragDatei(e){
 }
 function parseAuftragText(text){
   try{
-    if(!text||typeof text!=='string'){
-      alert('Datei konnte nicht gelesen werden');
-      return;
-    }
-
-    // Splitte Text in Zeilen
+    if(!text||typeof text!=='string'){alert('Datei konnte nicht gelesen werden');return;}
     let lines=[];
-    try{
-      lines=text.split('\n');
-    }catch(e){
-      alert('Fehler beim Parsen: '+e.message);
-      return;
-    }
+    try{lines=text.split('\n');}catch(e){alert('Fehler beim Parsen: '+e.message);return;}
 
+    // ── Hilfsfunktionen ──────────────────────────────────────────────────────
     const get=key=>{
-      if(!lines||!Array.isArray(lines))return'';
       for(let i=0;i<lines.length;i++){
-        const line=lines[i];
-        if(!line||typeof line!=='string')continue;
-        const lower=line.toLowerCase();
-        const keyLower=key.toLowerCase();
-        if(lower.includes(keyLower+':')){
-          const idx=line.indexOf(':');
-          if(idx<0)continue;
+        const line=lines[i];if(!line||typeof line!=='string')continue;
+        if(line.toLowerCase().includes(key.toLowerCase()+':')){
+          const idx=line.indexOf(':');if(idx<0)continue;
           const val=line.substring(idx+1).trim();
           return(val==='(noch offen)'||val==='')?'':val;
         }
-      }
-      return'';
+      }return'';
     };
-    // Mehrzeiliger Leser – für Felder wie Baustelle_Schadensbild die mehrere Zeilen umfassen können
-    const getMultiline=key=>{
-      if(!lines||!Array.isArray(lines))return'';
+    // Altes Format: überspringt leere Treffer
+    const getFirst=key=>{
       for(let i=0;i<lines.length;i++){
-        const line=lines[i];
-        if(!line||typeof line!=='string')continue;
+        const line=lines[i];if(!line||typeof line!=='string')continue;
         if(line.toLowerCase().includes(key.toLowerCase()+':')){
-          const idx=line.indexOf(':');
-          if(idx<0)continue;
+          const idx=line.indexOf(':');if(idx<0)continue;
+          const val=line.substring(idx+1).trim();
+          if(val&&val!=='(noch offen)')return val;
+        }
+      }return'';
+    };
+    // Findet Schlüssel mitten in Zeile: "... Kostenstelle:260052"
+    const getInline=key=>{
+      for(const line of lines){
+        if(!line)continue;
+        const re=new RegExp(key+'\\s*:\\s*(\\S[^\r\n]*)','i');
+        const m=(line||'').match(re);
+        if(m&&m[1]){const v=m[1].trim();if(v&&v!=='(noch offen)')return v;}
+      }return'';
+    };
+    // Neues Format: mehrzeilig (strukturierte Schlüssel_mit_Unterstrich)
+    const getMultiline=key=>{
+      for(let i=0;i<lines.length;i++){
+        const line=lines[i];if(!line||typeof line!=='string')continue;
+        if(line.toLowerCase().includes(key.toLowerCase()+':')){
+          const idx=line.indexOf(':');if(idx<0)continue;
           let val=line.substring(idx+1).trim();
-          // Folgezeilen lesen bis zum nächsten Schlüssel oder Abschnitts-Header
           for(let j=i+1;j<lines.length;j++){
-            const nl=(lines[j]||'').replace(/\r/g,'');
-            const nlt=nl.trim();
-            // Stopp bei Abschnitts-Headern (GROSSBUCHSTABEN wie EIGENTUEMER, MIETER)
+            const nl=(lines[j]||'').replace(/\r/g,'');const nlt=nl.trim();
             if(nlt.length>2&&/^[A-Z][A-Z0-9_]+$/.test(nlt))break;
-            // Stopp bei neuem Schlüssel-Wert-Paar (z.B. "Eigentuemer_Name:")
             if(/^[A-Za-z][A-Za-z0-9_]{1,39}:/.test(nlt))break;
             if(val!==''||nlt!=='')val+=(val?'\n':'')+nlt;
           }
-          const result=val.trim();
-          return(result==='(noch offen)'||result==='')?'':result;
+          const result=val.trim();return(result==='(noch offen)'||result==='')?'':result;
         }
-      }
-      return'';
+      }return'';
+    };
+    // Altes Format: mehrzeilig – stoppt bei Zeilen die mit ":" enden (leere Felder)
+    const getMultilineFree=key=>{
+      for(let i=0;i<lines.length;i++){
+        const line=lines[i];if(!line||typeof line!=='string')continue;
+        if(line.toLowerCase().includes(key.toLowerCase()+':')){
+          const idx=line.indexOf(':');if(idx<0)continue;
+          let val=line.substring(idx+1).trim();
+          for(let j=i+1;j<lines.length;j++){
+            const nl=(lines[j]||'').replace(/\r/g,'');const nlt=nl.trim();
+            if(/^[-=]{10,}/.test(nlt))break;
+            if(nlt.length>2&&/:\s*$/.test(nlt))break;
+            if(val!==''||nlt!=='')val+=(val?'\n':'')+nlt;
+          }
+          const result=val.trim();return(result==='(noch offen)'||result==='')?'':result;
+        }
+      }return'';
     };
 
-    const kostenstelle=get('Auftrag_Kostenstelle');
-    const auftragDatum=get('Auftrag_Datum');
-    const strasse=get('Objekt_Strasse');
-    const mieter=get('Mieter_Name');
-    const eigentuemer=get('Eigentuemer_Name');
-    const auftraggeber=get('Auftraggeber');
-    const repNr=get('Rep_Nr');
-    const kundenNr=get('Kunden_Nr');
-    const terminAbgabe=get('Termin_Abgabe');
-    const terminOrt=get('Termin_Ortstermin');
-    const schadensbild=getMultiline('Baustelle_Schadensbild');
-    const hausverwaltung=get('Objekt_Hausverwaltung');
-    const nasOrdner=get('NAS_Auftragsordner');
-    const gdriveProjOrdner=get('Google_Drive_Projektordner');
-    const gdriveFotoOrdner=get('Google_Drive_Fotoordner');
-    const gdriveEmailOrdner=get('Google_Drive_Emailordner');
-    const mieterTel=get('Mieter_Telefon');
-    const eigTel=get('Eigentuemer_Telefon');
-    const person=mieter||eigentuemer||'';
+    // ── Felder lesen (neues + altes Format) ─────────────────────────────────
+    const kostenstelle  = get('Auftrag_Kostenstelle')     || getInline('Kostenstelle');
+    const auftragDatum  = get('Auftrag_Datum')            || getFirst('Datum');
+    const strasse       = get('Objekt_Strasse')           || getFirst('Straße') || getFirst('Strasse') || getFirst('Stra?e');
+    const plzOrt        = getFirst('PLZ/Ort')             || getFirst('PLZ / Ort') || '';
+    const ort           = plzOrt ? plzOrt.replace(/^\d{4,6}\s*/,'').trim() : '';
+    const mieter        = get('Mieter_Name')              || getFirst('Mieter');
+    const eigentuemer   = get('Eigentuemer_Name')         || getFirst('Eigentümer / WEG') || getFirst('Eigentuemer');
+    const auftraggeber  = get('Auftraggeber')             || '';
+    const repNr         = get('Rep_Nr')                   || getFirst('Rep.- Nr') || getFirst('Rep-Nr');
+    const kundenNr      = get('Kunden_Nr')                || getFirst('Kunden - Nr.') || getFirst('Kunden-Nr.');
+    const terminAbgabe  = get('Termin_Abgabe')            || '';
+    const terminOrt     = get('Termin_Ortstermin')        || '';
+    // Beschreibung: erst ausführliche Langversion, dann Kurzversion
+    const schadensbild  = getMultiline('Baustelle_Schadensbild')
+                       || getMultilineFree('Beschreibung / Schadensbild')
+                       || getMultilineFree('Baustelle / Schadensbild');
+    // Hausverwaltung: "c/o "-Präfix entfernen
+    let hausverwaltung  = get('Objekt_Hausverwaltung')    || getFirst('Hausverwaltung');
+    if(hausverwaltung.toLowerCase().startsWith('c/o '))hausverwaltung=hausverwaltung.slice(4).trim();
+    const nasOrdner         = get('NAS_Auftragsordner')        || '';
+    const gdriveProjOrdner  = get('Google_Drive_Projektordner')|| get('Google_Drive_Link') || '';
+    const gdriveFotoOrdner  = get('Google_Drive_Fotoordner')   || '';
+    const gdriveEmailOrdner = get('Google_Drive_Emailordner')  || '';
+    const mieterTel     = get('Mieter_Telefon')           || getFirst('Mieter Telefon');
+    const eigTel        = get('Eigentuemer_Telefon')      || getFirst('Eigentümer / WEGTelefon') || getFirst('Eigentümer / WEG Telefon');
+    const agName        = get('AG_Kontakt_Name')          || getFirst('Ansprechpartner HV');
+    const agTel         = get('AG_Kontakt_Tel')           || getFirst('Telefon Ansprechpartner HV');
+    const agEmail       = get('AG_Kontakt_Email')         || getFirst('E-Mail Ansprechpartner HV');
+    const eigEmail      = get('Eigentuemer_Email')        || getFirst('Eigentümer / WEG E-Mail');
+    const mieterEmail   = get('Mieter_Email')             || getFirst('Mieter E-Mail');
+    const person        = mieter || eigentuemer || '';
 
-    const strasseHausnr=(strasse?strasse.replace(/ /g,'_'):'');
-    const personStr=(person?person.replace(/ /g,'_'):'');
-    const titelParts=[kostenstelle,strasseHausnr,personStr].filter(Boolean);
-    const titel=titelParts.join('–');
+    // ── Titel: Kostenstelle–Straße_Ort–Person (ohne PLZ) ────────────────────
+    const strasseStr = strasse ? strasse.replace(/ /g,'_') : '';
+    const ortStr     = ort     ? ort.replace(/ /g,'_')     : '';
+    const personStr  = person  ? person.replace(/ /g,'_')  : '';
+    const adressTeil = [strasseStr, ortStr].filter(Boolean).join('_');
+    const titel      = [kostenstelle, adressTeil, personStr].filter(Boolean).join('–');
+
+    // ── Adresse: Straße + PLZ/Ort ────────────────────────────────────────────
+    const adresseFull = strasse && plzOrt ? strasse+', '+plzOrt : strasse || plzOrt || '';
 
     function deDate(s){if(!s)return'';const m=s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);return m?m[3]+'-'+m[2]+'-'+m[1]:'';}
     const dueDate=deDate(terminAbgabe);
@@ -4194,42 +4225,33 @@ function parseAuftragText(text){
     if(kundenNr)document.getElementById('taskKundenNr').value=kundenNr;
     if(schadensbild)document.getElementById('taskDescInput').value=schadensbild;
     if(hausverwaltung)document.getElementById('tHV').value=hausverwaltung;
-    if(strasse)document.getElementById('tAdr').value=strasse;
+    if(adresseFull)document.getElementById('tAdr').value=adresseFull;
     if(schadensbild)document.getElementById('tSch').value=schadensbild;
 
     try{
-      if(auftraggeber||get('AG_Kontakt_Name')||get('AG_Kontakt_Tel')||get('AG_Kontakt_Email'))
-        addKontaktPTP('ag',get('AG_Kontakt_Name')||'',get('AG_Kontakt_Tel')||'',get('AG_Kontakt_Email')||'');
+      if(auftraggeber||agName||agTel||agEmail)
+        addKontaktPTP('ag',agName||'',agTel||'',agEmail||'');
     }catch(e){console.error('Fehler beim AG-Kontakt:',e);}
-
     try{
-      if(eigentuemer||eigTel||get('Eigentuemer_Email'))
-        addKontaktPTP('eigentuemer',eigentuemer,eigTel,get('Eigentuemer_Email')||'');
+      if(eigentuemer||eigTel||eigEmail)
+        addKontaktPTP('eigentuemer',eigentuemer,eigTel,eigEmail||'');
     }catch(e){console.error('Fehler beim Eigentümer-Kontakt:',e);}
-
     try{
-      if(mieter||mieterTel||get('Mieter_Email'))
-        addKontaktPTP('mieter',mieter,mieterTel,get('Mieter_Email')||'');
+      if(mieter||mieterTel||mieterEmail)
+        addKontaktPTP('mieter',mieter,mieterTel,mieterEmail||'');
     }catch(e){console.error('Fehler beim Mieter-Kontakt:',e);}
-
-    try{
-      if(nasOrdner)document.getElementById('tNAS').value=nasOrdner;
-    }catch(e){console.error('Fehler beim NAS-Feld:',e);}
-
+    try{if(nasOrdner)document.getElementById('tNAS').value=nasOrdner;}
+    catch(e){console.error('Fehler beim NAS-Feld:',e);}
     try{
       if(gdriveProjOrdner)document.getElementById('tGDOrdner').value=gdriveProjOrdner;
       if(gdriveFotoOrdner)document.getElementById('tGD').value=gdriveFotoOrdner;
       if(gdriveEmailOrdner)document.getElementById('tEmailOrdner').value=gdriveEmailOrdner;
     }catch(e){console.error('Fehler beim GD-Ordner-Feld:',e);}
-
     try{
       const ortsDatum=deDate(terminOrt);
-      if(ortsDatum){addAusserhausTermin(ortsDatum,'','','Ortstermin');}
+      if(ortsDatum)addAusserhausTermin(ortsDatum,'','','Ortstermin');
     }catch(e){console.error('Fehler beim Ortstermin:',e);}
-
-    try{
-      updateGcalModalBtn();
-    }catch(e){console.error('Fehler bei updateGcalModalBtn:',e);}
+    try{updateGcalModalBtn();}catch(e){console.error('Fehler bei updateGcalModalBtn:',e);}
   }catch(err){
     console.error('Fehler in parseAuftragText:',err);
     alert('Fehler beim Einlesen der Auftragsakte: '+err.message);
@@ -6924,6 +6946,17 @@ function renderEmailSection(){
   if(ti)ti.innerHTML='&#128231; E-Mail Originale'+(total?` <span style="color:var(--accent2);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">(${total})</span>`:'');
   const galBtn=document.getElementById('emailGalBtn');
   if(galBtn)galBtn.style.display=total?'':'none';
+  // Icon-Grid direkt im Formular befüllen
+  const grid=document.getElementById('emailIconGrid');
+  if(grid){
+    if(total){
+      grid.innerHTML=allItems.map(item=>_eicHtml(item)).join('');
+      grid.style.cssText='display:flex;flex-wrap:wrap;gap:8px;padding:4px 0 6px;';
+    } else {
+      grid.innerHTML='';
+      grid.style.display='none';
+    }
+  }
 }
 // Stubs so old call sites still work
 function renderEmailOriginals(){renderEmailSection();}
