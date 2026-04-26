@@ -1693,7 +1693,6 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
         ondragenter="event.preventDefault();this.classList.add('dragover')"
         ondragover="event.preventDefault();this.classList.add('dragover');event.dataTransfer.dropEffect='copy'"
         ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('dragover')"
-        ondrop="event.preventDefault();this.classList.remove('dragover');_handleEmailOrigDrop(event.dataTransfer)"
         style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:0;padding:6px 8px;border:1.5px dashed var(--border);border-radius:10px;background:var(--bg3);cursor:default;text-align:center;transition:border-color .2s,background .2s,box-shadow .2s;">
         <span style="font-size:18px;">&#128231;</span>
         <span style="font-size:11px;color:var(--text2);line-height:1.3;">E-Mail<br><small>.eml / .msg</small></span>
@@ -4155,25 +4154,53 @@ function parseAuftragText(text){
       }
       return'';
     };
+    // getFirst: wie get(), aber überspringt leere Werte (nächste Zeile wird geprüft)
+    const getFirst=key=>{
+      for(let i=0;i<lines.length;i++){
+        const line=lines[i];if(!line||typeof line!=='string')continue;
+        if(line.toLowerCase().includes(key.toLowerCase()+':')){
+          const idx=line.indexOf(':');if(idx<0)continue;
+          const val=line.substring(idx+1).trim();
+          if(val&&val!=='(noch offen)')return val;
+        }
+      }
+      return'';
+    };
+    // getInline: findet Schlüssel auch mitten in einer Zeile (z.B. "... Kostenstelle:260050")
+    const getInline=key=>{
+      for(const line of lines){
+        if(!line)continue;
+        const re=new RegExp(key+'\\s*:\\s*(\\S[^\r\n]*)','i');
+        const m=(line||'').match(re);
+        if(m&&m[1]){const v=m[1].trim();if(v&&v!=='(noch offen)')return v;}
+      }
+      return'';
+    };
 
-    const kostenstelle=get('Auftrag_Kostenstelle');
-    const auftragDatum=get('Auftrag_Datum');
-    const strasse=get('Objekt_Strasse');
-    const mieter=get('Mieter_Name');
-    const eigentuemer=get('Eigentuemer_Name');
-    const auftraggeber=get('Auftraggeber');
-    const repNr=get('Rep_Nr');
-    const kundenNr=get('Kunden_Nr');
-    const terminAbgabe=get('Termin_Abgabe');
-    const terminOrt=get('Termin_Ortstermin');
-    const schadensbild=getMultiline('Baustelle_Schadensbild');
-    const hausverwaltung=get('Objekt_Hausverwaltung');
-    const nasOrdner=get('NAS_Auftragsordner');
-    const gdriveProjOrdner=get('Google_Drive_Projektordner');
-    const gdriveFotoOrdner=get('Google_Drive_Fotoordner');
-    const gdriveEmailOrdner=get('Google_Drive_Emailordner');
-    const mieterTel=get('Mieter_Telefon');
-    const eigTel=get('Eigentuemer_Telefon');
+    const kostenstelle=get('Auftrag_Kostenstelle')||getInline('Kostenstelle');
+    const auftragDatum=get('Auftrag_Datum')||getFirst('Datum');
+    const strasse=get('Objekt_Strasse')||getFirst('Straße')||getFirst('Strasse')||getFirst('Stra?e');
+    const mieter=get('Mieter_Name')||getFirst('Mieter');
+    const eigentuemer=get('Eigentuemer_Name')||getFirst('Eigentümer / WEG')||getFirst('Eigentuemer');
+    const auftraggeber=get('Auftraggeber')||'';
+    const repNr=get('Rep_Nr')||getFirst('Rep.- Nr')||getFirst('Rep-Nr');
+    const kundenNr=get('Kunden_Nr')||getFirst('Kunden - Nr.')||getFirst('Kunden-Nr.');
+    const terminAbgabe=get('Termin_Abgabe')||'';
+    const terminOrt=get('Termin_Ortstermin')||'';
+    const schadensbild=getMultiline('Baustelle_Schadensbild')||getFirst('Baustelle / Schadensbild')||getFirst('Beschreibung / Schadensbild');
+    const hausverwaltung=get('Objekt_Hausverwaltung')||getFirst('Hausverwaltung');
+    const nasOrdner=get('NAS_Auftragsordner')||'';
+    const gdriveProjOrdner=get('Google_Drive_Projektordner')||get('Google_Drive_Link');
+    const gdriveFotoOrdner=get('Google_Drive_Fotoordner')||'';
+    const gdriveEmailOrdner=get('Google_Drive_Emailordner')||'';
+    const mieterTel=get('Mieter_Telefon')||getFirst('Mieter Telefon');
+    const eigTel=get('Eigentuemer_Telefon')||getFirst('Eigentümer / WEGTelefon')||getFirst('Eigentümer / WEG Telefon');
+    // Kontakt-Felder für beide Formate
+    const agName=get('AG_Kontakt_Name')||getFirst('Ansprechpartner HV');
+    const agTel=get('AG_Kontakt_Tel')||getFirst('Telefon Ansprechpartner HV');
+    const agEmail=get('AG_Kontakt_Email')||getFirst('E-Mail Ansprechpartner HV');
+    const eigEmail=get('Eigentuemer_Email')||getFirst('Eigentümer / WEG E-Mail')||getFirst('Eigentuemer_Email');
+    const mieterEmail=get('Mieter_Email')||getFirst('Mieter E-Mail');
     const person=mieter||eigentuemer||'';
 
     const strasseHausnr=(strasse?strasse.replace(/ /g,'_'):'');
@@ -4199,18 +4226,18 @@ function parseAuftragText(text){
     if(schadensbild)document.getElementById('tSch').value=schadensbild;
 
     try{
-      if(auftraggeber||get('AG_Kontakt_Name')||get('AG_Kontakt_Tel')||get('AG_Kontakt_Email'))
-        addKontaktPTP('ag',get('AG_Kontakt_Name')||'',get('AG_Kontakt_Tel')||'',get('AG_Kontakt_Email')||'');
+      if(auftraggeber||agName||agTel||agEmail)
+        addKontaktPTP('ag',agName||'',agTel||'',agEmail||'');
     }catch(e){console.error('Fehler beim AG-Kontakt:',e);}
 
     try{
-      if(eigentuemer||eigTel||get('Eigentuemer_Email'))
-        addKontaktPTP('eigentuemer',eigentuemer,eigTel,get('Eigentuemer_Email')||'');
+      if(eigentuemer||eigTel||eigEmail)
+        addKontaktPTP('eigentuemer',eigentuemer,eigTel,eigEmail||'');
     }catch(e){console.error('Fehler beim Eigentümer-Kontakt:',e);}
 
     try{
-      if(mieter||mieterTel||get('Mieter_Email'))
-        addKontaktPTP('mieter',mieter,mieterTel,get('Mieter_Email')||'');
+      if(mieter||mieterTel||mieterEmail)
+        addKontaktPTP('mieter',mieter,mieterTel,mieterEmail||'');
     }catch(e){console.error('Fehler beim Mieter-Kontakt:',e);}
 
     try{
@@ -7126,16 +7153,27 @@ function _openEmailThumbnailGrid(){
           })
           .catch(ex=>{previewContent.innerHTML='<div style="padding:20px;color:var(--red);font-size:12px;">⚠ '+esc(ex.message)+'</div>';});
       } else if(item.fileId){
-        /* .msg Datei – keine Browservorschau möglich */
-        previewContent.style.cssText='flex:1;overflow-y:auto;display:flex;align-items:center;justify-content:center;';
-        const msgBox=document.createElement('div');
-        msgBox.style.cssText='text-align:center;padding:30px 24px;max-width:340px;';
-        const driveLink=item.fileId?'https://drive.google.com/file/d/'+item.fileId+'/view':'';
-        msgBox.innerHTML='<div style="font-size:48px;margin-bottom:12px;">📧</div>'
-          +'<div style="font-size:14px;font-weight:600;color:var(--text1);margin-bottom:8px;">'+esc(item.name||item.filename||'E-Mail')+'</div>'
-          +'<div style="font-size:12px;color:var(--text2);margin-bottom:18px;line-height:1.5;">.msg-Dateien können im Browser nicht direkt angezeigt werden.<br>Bitte öffne die Datei in Google Drive oder lade sie herunter.</div>'
-          +(driveLink?'<a href="'+driveLink+'" target="_blank" style="display:inline-block;padding:8px 16px;background:var(--accent);color:#fff;border-radius:6px;text-decoration:none;font-size:12px;font-weight:600;">🔗 In Drive öffnen</a>':'');
-        previewContent.innerHTML='';previewContent.appendChild(msgBox);
+        /* .msg Datei – Google Drive Preview iframe */
+        previewContent.style.cssText='flex:1;overflow:hidden;display:flex;flex-direction:column;';
+        previewContent.innerHTML='<div style="display:flex;align-items:center;justify-content:center;flex:1;color:var(--text2);font-size:13px;">⏳ Vorschau lädt…</div>';
+        const fr=document.createElement('iframe');
+        fr.src='https://drive.google.com/file/d/'+encodeURIComponent(item.fileId)+'/preview';
+        fr.style.cssText='flex:1;width:100%;border:none;';
+        fr.allow='autoplay';
+        fr.onload=()=>{previewContent.innerHTML='';previewContent.appendChild(fr);};
+        fr.onerror=()=>{
+          const driveLink='https://drive.google.com/file/d/'+item.fileId+'/view';
+          previewContent.style.cssText='flex:1;overflow-y:auto;display:flex;align-items:center;justify-content:center;';
+          const msgBox=document.createElement('div');
+          msgBox.style.cssText='text-align:center;padding:30px 24px;max-width:340px;';
+          msgBox.innerHTML='<div style="font-size:48px;margin-bottom:12px;">📧</div>'
+            +'<div style="font-size:14px;font-weight:600;color:var(--text1);margin-bottom:8px;">'+esc(item.name||'E-Mail')+'</div>'
+            +'<div style="font-size:12px;color:var(--text2);margin-bottom:18px;">.msg-Vorschau nicht verfügbar.</div>'
+            +'<a href="'+driveLink+'" target="_blank" style="display:inline-block;padding:8px 16px;background:var(--accent);color:#fff;border-radius:6px;text-decoration:none;font-size:12px;font-weight:600;">🔗 In Drive öffnen</a>';
+          previewContent.innerHTML='';previewContent.appendChild(msgBox);
+        };
+        // iframe direkt ins DOM, onload zeigt es dann
+        previewContent.appendChild(fr);
       } else {
         previewContent.style.cssText='flex:1;overflow-y:auto;';
         previewContent.innerHTML='<div style="padding:20px;font-size:12px;color:var(--text2);">📨 '+esc(item.name||'E-Mail')+'</div>';
