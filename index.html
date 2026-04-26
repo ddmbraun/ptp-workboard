@@ -1050,6 +1050,9 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .bau-sync-divider::before,.bau-sync-divider::after{content:'';flex:1;height:1px;background:rgba(230,126,34,.3);}
 .termin-row.bau-readonly{background:rgba(230,126,34,.06);border:1px solid rgba(230,126,34,.2);opacity:.85;}
 .termin-row.bau-readonly input{color:var(--text2);background:transparent;border-color:transparent;cursor:default;}
+#zeiterfassungList .termin-row{padding:2px 5px;margin-bottom:2px;grid-template-columns:100px 72px 72px 1fr 22px 22px;}
+#zeiterfassungList .termin-row input[type="date"],#zeiterfassungList .termin-row input[type="time"],#zeiterfassungList .termin-row input[type="text"]{padding:2px 4px;font-size:11px;height:22px;}
+#zeiterfassungList .termin-row-btn{width:22px;height:22px;font-size:11px;}
 .zeit-gesamt-bau{color:#e67e22;}
 .termin-gesamt{display:flex;justify-content:flex-end;font-size:12px;font-weight:700;color:var(--green);padding:5px 8px 2px;}
 .btn-auftrag{padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;background:#e8f0fe;color:#1a73e8;border:1px solid #c5d4f5;transition:all .15s;cursor:pointer;}
@@ -1669,28 +1672,35 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <input type="hidden" id="taskId">
     <!-- Timer-Bar oben: Stoppuhr direkt zugänglich ohne Sektion aufzuklappen -->
     <div style="position:sticky;top:0;z-index:50;background:var(--bg2);padding-bottom:6px;margin-bottom:8px;border-bottom:1px solid var(--border);">
-    <div style="display:flex;gap:10px;align-items:stretch;">
-      <div class="modal-timer-bar" id="modalTimerBar" style="margin-bottom:0;flex:1;">
+    <div style="display:flex;gap:8px;align-items:stretch;">
+      <div class="modal-timer-bar" id="modalTimerBar" style="margin-bottom:0;flex:1.2;">
         <div style="display:flex;align-items:center;gap:10px;">
           <div id="timerDisplayTop" class="timer-display" style="flex:1;">00:00:00</div>
-          <button id="timerBtnTop" type="button" class="timer-toggle-btn" onclick="toggleTimer()">▶ Start</button>
+          <button id="timerBtnTop" type="button" class="timer-toggle-btn" onclick="toggleTimer()">&#9654; Start</button>
         </div>
         <input id="timerDesc" type="text" placeholder="Betreff / Tätigkeit…" maxlength="120"
           style="padding:4px 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:11px;box-sizing:border-box;">
         <div id="timerEntries" class="timer-entries" style="font-size:11px;color:var(--text2);width:100%;display:none;"></div>
       </div>
-      <div class="email-drop-zone" id="emailDropZone"
+      <!-- Kompakter E-Mail-Drop -->
+      <div id="topEmailDrop"
         ondragenter="event.preventDefault();this.classList.add('dragover')"
         ondragover="event.preventDefault();this.classList.add('dragover');event.dataTransfer.dropEffect='copy'"
         ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('dragover')"
-        ondrop="event.preventDefault();this.classList.remove('dragover');handleEmailDrop(event.dataTransfer,this)"
-        onclick="if(this.classList.contains('error'))_ezReset()"
-        style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:0;padding:3px 10px;">
-        <span id="emailDropZoneMsg" style="text-align:center;font-size:12px;">&#128231; E-Mail / PDF hier hineinziehen<br><small style="opacity:.7">&#8594; direkt in Google Drive</small></span>
-        <label style="cursor:pointer;padding:3px 10px;border-radius:5px;background:rgba(39,174,96,0.15);border:1px solid #27ae60;font-size:11px;color:#1a7a40;white-space:nowrap;">
-          &#128193; Datei ausw&#228;hlen
-          <input type="file" id="emailMsgInput" accept=".msg,.eml,.pdf" style="display:none" onchange="handleEmailFileSelect(event)">
-        </label>
+        ondrop="event.preventDefault();this.classList.remove('dragover');_handleEmailOrigDrop(event.dataTransfer)"
+        style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:0;padding:6px 8px;border:1.5px dashed var(--border);border-radius:10px;background:var(--bg3);cursor:default;text-align:center;transition:border-color .2s,background .2s;">
+        <span style="font-size:18px;">&#128231;</span>
+        <span style="font-size:11px;color:var(--text2);line-height:1.3;">E-Mail<br><small>.eml / .msg</small></span>
+      </div>
+      <!-- Kompakter Dateianhang-Drop -->
+      <div id="topAttachDrop"
+        ondragenter="event.preventDefault();this.classList.add('dragover')"
+        ondragover="event.preventDefault();this.classList.add('dragover');event.dataTransfer.dropEffect='copy'"
+        ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('dragover')"
+        onclick="document.getElementById('fileAttachInput').click()"
+        style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:0;padding:6px 8px;border:1.5px dashed var(--border);border-radius:10px;background:var(--bg3);cursor:pointer;text-align:center;transition:border-color .2s,background .2s;">
+        <span style="font-size:18px;">&#128206;</span>
+        <span style="font-size:11px;color:var(--text2);line-height:1.3;">Anhang<br><small>Datei ablegen</small></span>
       </div>
     </div>
     </div>
@@ -1826,9 +1836,9 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <!-- DATEIANHÄNGE -->
     <div class="form-collapse" id="tAnhangSect">
       <div class="form-collapse-header" onclick="toggleFormSection('tAnhangSect')">
-        <span class="form-collapse-title">📎 Dateianhänge</span>
+        <span class="form-collapse-title" id="tAnhangTitle">📎 Dateianhänge</span>
         <span style="display:flex;align-items:center;gap:6px;">
-          <button id="attachGalBtn" onclick="event.stopPropagation();_openAttachThumbnailGrid()" title="Alle Anhänge als Kacheln anzeigen" style="padding:3px 10px;border-radius:6px;border:1px solid var(--accent);background:rgba(108,99,255,0.1);color:var(--accent);font-size:11px;cursor:pointer;font-weight:600;display:none;">🖼 Alle ansehen</button>
+          <button id="attachGalBtn" onclick="event.stopPropagation();_openAttachThumbnailGrid()" title="Alle Anhänge ansehen" style="padding:3px 10px;border-radius:6px;border:1px solid var(--accent);background:rgba(108,99,255,0.1);color:var(--accent);font-size:11px;cursor:pointer;font-weight:600;display:none;">🖼 Alle ansehen</button>
           <span class="form-collapse-arrow">▾</span>
         </span>
       </div>
@@ -1841,28 +1851,25 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       </div>
     </div>
 
-    <!-- E-MAIL ORIGINALE (kompakt, Doppelklick für alle) -->
+    <!-- E-MAIL ORIGINALE -->
     <div class="form-collapse" id="tEmailOrigSect">
       <div class="form-collapse-header" onclick="toggleFormSection('tEmailOrigSect')">
         <span class="form-collapse-title" id="tEmailOrigTitle">📧 E-Mail Originale</span>
         <span style="display:flex;align-items:center;gap:6px;">
-          <button id="emailGalBtn" onclick="event.stopPropagation();_openEmailThumbnailGrid()" title="Alle E-Mails als Kacheln anzeigen" style="padding:3px 10px;border-radius:6px;border:1px solid var(--accent);background:rgba(108,99,255,0.1);color:var(--accent);font-size:11px;cursor:pointer;font-weight:600;display:none;">🖼 Große Ansicht</button>
+          <button id="emailGalBtn" onclick="event.stopPropagation();_openEmailThumbnailGrid()" title="Alle E-Mails ansehen" style="padding:3px 10px;border-radius:6px;border:1px solid var(--accent);background:rgba(108,99,255,0.1);color:var(--accent);font-size:11px;cursor:pointer;font-weight:600;display:none;">&#128247; Alle ansehen</button>
           <span class="form-collapse-arrow">▾</span>
         </span>
       </div>
       <div class="form-collapse-body">
-        <div style="display:flex;align-items:center;justify-content:flex-end;min-height:16px;margin-bottom:4px;">
-          <span id="emailAllHint" style="font-size:10px;color:var(--accent);cursor:pointer;display:none;" onclick="_openEmailAllPopup()">Alle anzeigen →</span>
-        </div>
-        <div id="emailIconGrid" class="email-icon-grid"></div>
+        <div id="emailIconGrid" style="display:none;"></div>
         <div class="email-orig-drop" id="emailOrigDrop"
           ondragenter="event.preventDefault();this.classList.add('dragover')"
           ondragover="event.preventDefault();this.classList.add('dragover');event.dataTransfer.dropEffect='copy'"
           ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('dragover')"
           ondrop="event.preventDefault();this.classList.remove('dragover');_handleEmailOrigDrop(event.dataTransfer)">
-          <span id="emailOrigDropMsg" style="font-size:12px;color:var(--text2);">📨 .msg / .eml hier hineinziehen</span>
+          <span id="emailOrigDropMsg" style="font-size:12px;color:var(--text2);">&#128231; .eml / .msg hier hineinziehen</span>
           <label style="cursor:pointer;padding:5px 12px;border-radius:6px;border:1px solid var(--accent);background:rgba(108,99,255,.08);color:var(--accent);font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0;">
-            📁 Datei wählen
+            &#128193; Datei w&#228;hlen
             <input type="file" id="emailOrigInput" accept=".msg,.eml" style="display:none" onchange="_handleEmailOrigSelect(event)">
           </label>
         </div>
@@ -5002,72 +5009,13 @@ function _aicSvgIcon(type,name){
   return '<svg viewBox="0 0 40 40" width="38" height="38"><rect width="40" height="40" rx="7" fill="#546e7a"/><text x="20" y="27" text-anchor="middle" font-size="20" fill="#fff">📄</text></svg>';
 }
 function renderAttachList(){
-  const el=document.getElementById('attachList');
   const galBtn=document.getElementById('attachGalBtn');
-  if(galBtn)galBtn.style.display=taskAttachments.length?'':'none';
-  if(!taskAttachments.length){el.innerHTML='';return;}
-  const imgItems=taskAttachments.map((a,i)=>({a,i})).filter(({a})=>a.type&&a.type.startsWith('image/'));
-  const nonImgItems=taskAttachments.map((a,i)=>({a,i})).filter(({a})=>!a.type||!a.type.startsWith('image/'));
-  // Icon-Grid für Nicht-Bild-Dateien
-  const isDrive=a=>!!(a.fileId||a.url);
-  const allNonImg=nonImgItems; // alias für Galerie-Aufruf
-  const fileGrid=nonImgItems.length?(()=>{
-    // "Alle ansehen"-Button (nur wenn mehr als 1 Datei)
-    const alleBtn=nonImgItems.length>1
-      ?`<button onclick="_openAttachGallery(0)" style="float:right;margin-bottom:4px;font-size:10px;padding:2px 8px;border:1px solid var(--border);background:var(--bg2);border-radius:4px;cursor:pointer;color:var(--fg2);">Alle ansehen (${nonImgItems.length})</button><div style="clear:both"></div>`
-      :'';
-    const gridHtml=`<div class="aic-grid">`+nonImgItems.map(({a,i})=>{
-      const hasDrive=isDrive(a);
-      const hasData=!!a.data;
-      const isPdf=a.type==='application/pdf'||(a.name||'').toLowerCase().endsWith('.pdf');
-      const canPreview=(hasData&&(isPdf||(a.type&&a.type.startsWith('image/'))||a.type==='text/plain'))||hasDrive;
-      const thumb=a.type&&a.type.startsWith('image/')&&a.data
-        ?`<img src="${a.data}" style="width:100%;height:100%;object-fit:cover;">`
-        :_aicSvgIcon(a.type,a.name);
-      // Klick auf Icon öffnet Galerie an dieser Position (nonImgItems-Index)
-      const nonImgIdx=nonImgItems.findIndex(x=>x.i===i);
-      const previewBtn=canPreview?`<button class="aic-btn" onclick="event.stopPropagation();_openAttachGallery(${nonImgIdx>=0?nonImgIdx:0})" title="Vollbild-Galerie">👁</button>`:'';
-      const driveBtn='';
-      const dlBtn=(hasDrive||hasData)?`<button class="aic-btn" onclick="event.stopPropagation();downloadAttach(${i})" title="Herunterladen">⬇</button>`:'';
-      return`<div class="aic">
-        <div class="aic-tip">${esc(a.name)}${a.size?' ('+formatBytes(a.size)+')':''}</div>
-        <div class="aic-thumb" onclick="event.stopPropagation();_openAttachGallery(${nonImgIdx>=0?nonImgIdx:0})" style="cursor:pointer;">${thumb}</div>
-        <div class="aic-overlay">
-          ${previewBtn}${driveBtn}${dlBtn}
-          <button class="aic-btn aic-btn-del" onclick="event.stopPropagation();removeAttach(${i})" title="Entfernen">✕</button>
-        </div>
-        <div class="aic-label">${esc(a.name)}</div>
-      </div>`;
-    }).join('')+`</div>`;
-    return alleBtn+gridHtml;
-  })():'';
-  // Ausklappbarer Fotobereich (alle Bilder, inkl. 360°)
-  let imgSection='';
-  if(imgItems.length){
-    const thumbs=imgItems.map(({a,i})=>{
-      // 360°-Erkennung anhand Dateiname oder gespeicherter Ratio
-      const is360=a.is360||/360|panorama|pano/i.test(a.name)||/\.insp$/i.test(a.name);
-      const badge=is360?'<div style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,.7);color:#fff;font-size:9px;padding:2px 5px;border-radius:4px;pointer-events:none">360°</div>':'';
-      return`<div class="attach-img-cell" onclick="openPreview(${i})">
-        <img class="attach-thumb" src="${a.data}" alt="${esc(a.name)}" loading="lazy"
-          onload="_markIf360(this,${i})">
-        ${badge}
-        <div class="attach-img-zoom-hint">🔍</div>
-        <div class="attach-img-overlay">
-          <button onclick="event.stopPropagation();openPreview(${i})" title="Vollbild">🔍</button>
-          <button onclick="event.stopPropagation();removeAttach(${i})" title="Entfernen">✕</button>
-        </div>
-        <div class="attach-img-label">${esc(a.name)}</div>
-      </div>`;
-    }).join('');
-    imgSection=`<div class="attach-imgs-toggle${_attachImgsOpen?' open':''}" onclick="toggleAttachImgs()">
-      <span>🖼️ Foto-Vorschau (${imgItems.length} Bild${imgItems.length===1?'':'er'})</span>
-      <span style="flex:1"></span>
-      <span class="ait-arrow">▾</span>
-    </div>
-    <div class="attach-imgs-body${_attachImgsOpen?' open':''}">${thumbs}</div>`;
-  }
-  el.innerHTML=fileGrid+imgSection;
+  const ti=document.getElementById('tAnhangTitle');
+  const total=taskAttachments?taskAttachments.length:0;
+  if(ti)ti.innerHTML='&#128206; Dateianhänge'+(total?` <span style="color:var(--accent2);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">(${total})</span>`:'');
+  if(galBtn)galBtn.style.display=total?'':'none';
+  const el=document.getElementById('attachList');
+  if(el)el.innerHTML='';
 }
 function _markIf360(imgEl,i){
   // Ratio ≥ 1.8 → 360°-Badge nachträglich setzen + merken
@@ -6051,6 +5999,8 @@ function stopTimer(){
   activeTimerTaskId=null;activeTimerIntervalId=null;
   persistTimerState();
   const _td=document.getElementById('timerDesc');if(_td)_td.value='';
+  // Zeitanzeige zurücksetzen
+  const _tdTop=document.getElementById('timerDisplayTop');if(_tdTop){_tdTop.textContent='00:00:00';_tdTop.className='timer-display';}
   // ActiveTimer in Sync löschen, wenn er von uns kam
   try{
     if(syncData&&syncData.activeTimer&&syncData.activeTimer.deviceId===DEVICE_ID){
@@ -6428,6 +6378,17 @@ function _initLbZoom(){
   });
 }
 
+// Drop-Handler für top Anhang-Drop
+const topAD=document.getElementById('topAttachDrop');
+if(topAD){topAD.addEventListener('dragover',e=>{e.preventDefault();topAD.classList.add('dragover');});
+topAD.addEventListener('dragleave',()=>topAD.classList.remove('dragover'));
+topAD.addEventListener('drop',e=>{e.preventDefault();topAD.classList.remove('dragover');
+  handleFileAttach({target:{files:[...e.dataTransfer.files]},preventDefault:()=>{}});});}
+// Drop-Handler für top E-Mail-Drop (Hover-Stil)
+const topED=document.getElementById('topEmailDrop');
+if(topED){topED.addEventListener('dragover',e=>{e.preventDefault();topED.style.borderColor='var(--accent)';topED.style.background='rgba(108,99,255,.07)';});
+topED.addEventListener('dragleave',()=>{topED.style.borderColor='';topED.style.background='';});
+topED.addEventListener('drop',e=>{e.preventDefault();topED.style.borderColor='';topED.style.background='';_handleEmailOrigDrop(e.dataTransfer);});}
 // Drop zone for attachments
 const dz=document.getElementById('dropZone');
 dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('dragover');});
@@ -6602,20 +6563,15 @@ function _eicHtml(item){
   </div>`;
 }
 function renderEmailSection(){
-  const grid=document.getElementById('emailIconGrid');
-  if(!grid)return;
   const ti=document.getElementById('tEmailOrigTitle');
   const allItems=[
-    ...taskEmailPdfs.map((p,i)=>({...p,_type:'pdf',_idx:i})),
-    ...taskEmailOriginals.map((e,i)=>({...e,_type:'orig',_idx:i}))
+    ...taskEmailOriginals.map((e,i)=>({...e,_type:'orig',_idx:i})),
+    ...taskEmailPdfs.map((p,i)=>({...p,_type:'pdf',_idx:i}))
   ];
   const total=allItems.length;
-  if(ti)ti.innerHTML='📧 E-Mail Originale'+(total?` <span style="color:var(--accent2);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">(${total})</span>`:'');
-  const hint=document.getElementById('emailAllHint');
-  if(hint)hint.style.display=total>4?'':'none';
+  if(ti)ti.innerHTML='&#128231; E-Mail Originale'+(total?` <span style="color:var(--accent2);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">(${total})</span>`:'');
   const galBtn=document.getElementById('emailGalBtn');
   if(galBtn)galBtn.style.display=total?'':'none';
-  grid.innerHTML=allItems.slice(0,4).map(item=>_eicHtml(item)).join('');
 }
 // Stubs so old call sites still work
 function renderEmailOriginals(){renderEmailSection();}
@@ -6689,32 +6645,31 @@ function _openEmailThumbnailGrid(){
   document.addEventListener('keydown',_esc);
   ov.addEventListener('click',e=>{if(e.target===ov)_closeGrid();});
 
-  /* ── Hauptkarte ── */
+  /* Hauptkarte */
   const card=document.createElement('div');
   card.style.cssText='background:var(--bg2);border-radius:14px;width:min(1050px,96vw);height:min(720px,92vh);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 16px 48px rgba(0,0,0,.5);';
 
   /* Header */
   const hdr=document.createElement('div');
-  hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:13px 18px;border-bottom:1px solid var(--border);flex-shrink:0;';
+  hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--border);flex-shrink:0;';
   const titleEl=document.createElement('span');
   titleEl.style.cssText='font-weight:700;font-size:15px;color:var(--text1);';
   titleEl.textContent='📧 E-Mail Dateien ('+allItems.length+')';
   const closeBtn=document.createElement('button');
-  closeBtn.textContent='✕';
-  closeBtn.type='button';
+  closeBtn.textContent='✕';closeBtn.type='button';
   closeBtn.style.cssText='background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2);padding:2px 8px;border-radius:4px;line-height:1;';
   closeBtn.onclick=_closeGrid;
   hdr.append(titleEl,closeBtn);
 
-  /* Body: sidebar links + Vorschau rechts */
+  /* Body */
   const body=document.createElement('div');
   body.style.cssText='display:flex;flex:1;overflow:hidden;';
 
   /* Sidebar */
   const sidebar=document.createElement('div');
-  sidebar.style.cssText='width:155px;flex-shrink:0;overflow-y:auto;border-right:1px solid var(--border);padding:10px 8px;display:flex;flex-direction:column;gap:8px;background:var(--bg3);';
+  sidebar.style.cssText='width:290px;flex-shrink:0;overflow-y:auto;border-right:1px solid var(--border);padding:8px;display:flex;flex-direction:column;gap:6px;background:var(--bg3);';
 
-  /* Vorschau-Bereich */
+  /* Vorschau */
   const previewWrap=document.createElement('div');
   previewWrap.style.cssText='flex:1;display:flex;flex-direction:column;overflow:hidden;';
   const previewContent=document.createElement('div');
@@ -6726,7 +6681,7 @@ function _openEmailThumbnailGrid(){
   let _activeTile=null;
 
   /* Vorschau laden */
-  function _loadPrev(item, tileEl){
+  function _loadPrev(item,tileEl){
     if(_activeTile){_activeTile.style.borderColor='var(--border)';_activeTile.style.boxShadow='';}
     _activeTile=tileEl;
     tileEl.style.borderColor='var(--accent)';
@@ -6774,7 +6729,6 @@ function _openEmailThumbnailGrid(){
           })
           .catch(ex=>{previewContent.innerHTML='<div style="padding:20px;color:var(--red);font-size:12px;">⚠ '+esc(ex.message)+'</div>';});
       } else if(item.fileId&&gdriveToken){
-        /* .msg → Drive preview iframe */
         previewContent.style.cssText='flex:1;overflow:hidden;';
         const fr=document.createElement('iframe');
         fr.src='https://drive.google.com/file/d/'+item.fileId+'/preview';
@@ -6782,42 +6736,134 @@ function _openEmailThumbnailGrid(){
         previewContent.innerHTML='';previewContent.appendChild(fr);
       } else {
         previewContent.style.cssText='flex:1;overflow-y:auto;';
-        previewContent.innerHTML='<div style="padding:20px;font-size:12px;color:var(--text2);">📨 '+esc(item.name||'E-Mail')+'<br><small>Vorschau nicht verfügbar – Drive nicht verbunden</small></div>';
+        previewContent.innerHTML='<div style="padding:20px;font-size:12px;color:var(--text2);">📨 '+esc(item.name||'E-Mail')+'</div>';
       }
     }
   }
 
-  /* Thumbnail-Kacheln in Sidebar */
+  /* Kacheln bauen */
   allItems.forEach((item,pos)=>{
-    const tile=document.createElement('div');
-    tile.style.cssText='border:2px solid var(--border);border-radius:8px;overflow:hidden;cursor:pointer;transition:border-color .15s,box-shadow .15s;background:var(--bg2);';
-    const thumb=document.createElement('div');
-    thumb.style.cssText='width:100%;height:105px;display:flex;align-items:center;justify-content:center;background:#e8e8e8;overflow:hidden;position:relative;';
-    if(item._type==='pdf'&&item.fileId&&gdriveToken){
-      const ldr=document.createElement('div');ldr.style.cssText='font-size:32px;color:#888;';ldr.textContent='📄';thumb.appendChild(ldr);
-      (async()=>{
-        try{
-          const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(item.fileId)+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}});
-          if(!r.ok)throw new Error('');
-          const blob=await r.blob();const url=URL.createObjectURL(blob);blobUrls.push(url);
-          if(!document.getElementById(GID)){URL.revokeObjectURL(url);return;}
-          const fr=document.createElement('iframe');
-          fr.src=url+'#toolbar=0&navpanes=0&view=FitH&zoom=55';
-          fr.style.cssText='width:220%;height:220%;border:none;pointer-events:none;transform:scale(0.45);transform-origin:top left;';
-          fr.scrolling='no';if(ldr.parentNode)ldr.replaceWith(fr);
-        }catch(ex){}
-      })();
-    } else {
-      const ic=document.createElement('div');ic.style.cssText='font-size:38px;';ic.textContent=item._type==='pdf'?'📄':'📨';thumb.appendChild(ic);
+    const isPdf=item._type==='pdf';
+    const name=item.name||'';
+
+    /* E-Mail-Karte */
+    const tileWrap=document.createElement('div');
+    tileWrap.style.cssText='border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);overflow:hidden;transition:border-color .15s,box-shadow .15s;';
+
+    /* Oberer Bereich: klickbar für Vorschau */
+    const tileTop=document.createElement('div');
+    tileTop.style.cssText='padding:9px 10px 7px;cursor:pointer;';
+    tileTop.onclick=()=>_loadPrev(item,tileWrap);
+
+    const topRow=document.createElement('div');
+    topRow.style.cssText='display:flex;align-items:flex-start;gap:7px;margin-bottom:5px;';
+
+    const ico=document.createElement('div');
+    ico.style.cssText='width:28px;height:28px;border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;background:'+(isPdf?'rgba(231,76,60,.12)':'rgba(108,99,255,.12)')+';';
+    ico.textContent=isPdf?'📄':'📨';
+
+    const meta=document.createElement('div');
+    meta.style.cssText='flex:1;min-width:0;';
+
+    // Betreff / Dateiname
+    const subj=document.createElement('div');
+    subj.style.cssText='font-size:11px;font-weight:700;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+    subj.title=name;
+    subj.textContent=name;
+
+    const fromEl=document.createElement('div');
+    fromEl.style.cssText='font-size:10px;color:var(--text2);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+    fromEl.textContent=isPdf?'PDF-Dokument':'';
+
+    const dateEl=document.createElement('div');
+    dateEl.style.cssText='font-size:10px;color:var(--text2);margin-top:1px;';
+    dateEl.textContent=item.uploadedAt||'';
+
+    meta.append(subj,fromEl,dateEl);
+    topRow.append(ico,meta);
+
+    // Textvorschau (für .eml: wird nachgeladen)
+    const bodyPrev=document.createElement('div');
+    bodyPrev.style.cssText='font-size:10px;color:var(--text2);line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;min-height:14px;';
+    if(!isPdf && item.fileId && gdriveToken){
+      const ext=name.split('.').pop().toLowerCase();
+      if(ext==='eml'){
+        bodyPrev.textContent='⏳ lädt…';
+        fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(item.fileId)+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}})
+          .then(r=>r.ok?r.text():Promise.reject(''))
+          .then(txt=>{
+            const info=_parseEmlText(txt);
+            subj.textContent=info.subject||name;
+            subj.title=info.subject||name;
+            fromEl.textContent=info.sender||'';
+            dateEl.textContent=info.date?info.date.toLocaleDateString('de-DE'):(item.uploadedAt||'');
+            bodyPrev.textContent=(info.bodyText||'').replace(/\s+/g,' ').trim().substring(0,120);
+          })
+          .catch(()=>{bodyPrev.textContent='';});
+      }
+    } else if(isPdf){
+      bodyPrev.style.fontStyle='italic';
+      bodyPrev.style.opacity='.5';
+      bodyPrev.textContent='PDF-Vorschau rechts';
     }
-    const lbl=document.createElement('div');
-    lbl.style.cssText='padding:5px 6px;font-size:10px;color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-top:1px solid var(--border);background:var(--bg2);';
-    lbl.textContent=(item._type==='pdf'?'📄 ':'📨 ')+(item.name||'E-Mail');
-    lbl.title=item.name||'';
-    tile.onclick=()=>_loadPrev(item,tile);
-    tile.append(thumb,lbl);
-    sidebar.appendChild(tile);
-    if(pos===0)setTimeout(()=>_loadPrev(item,tile),60);
+
+    tileTop.append(topRow,bodyPrev);
+
+    /* Unterer Bereich: Icon-Buttons */
+    const actions=document.createElement('div');
+    actions.style.cssText='display:flex;align-items:center;gap:3px;padding:5px 7px;border-top:1px solid var(--border);background:var(--bg3);';
+
+    function _makeIcoBtn(emoji, tip, onclick){
+      const b=document.createElement('button');
+      b.type='button';
+      b.style.cssText='position:relative;width:26px;height:26px;border-radius:5px;border:1px solid var(--border);background:var(--bg2);font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;';
+      b.textContent=emoji;
+      b.title=tip;
+      b.onclick=e=>{e.stopPropagation();onclick();};
+      const tt=document.createElement('span');
+      tt.style.cssText='position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:rgba(20,20,20,.9);color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .12s;z-index:10;';
+      tt.textContent=tip;
+      b.addEventListener('mouseenter',()=>tt.style.opacity='1');
+      b.addEventListener('mouseleave',()=>tt.style.opacity='0');
+      b.appendChild(tt);
+      return b;
+    }
+
+    if(isPdf){
+      actions.appendChild(_makeIcoBtn('🔍','Vollbild-Galerie',()=>_openEmailPdfGallery(item._idx)));
+      actions.appendChild(_makeIcoBtn('📂','In Drive öffnen',()=>window.open(item.url,'_blank')));
+      // Löschen rechts
+      const spacer=document.createElement('span');spacer.style.cssText='flex:1;';
+      actions.appendChild(spacer);
+      const delBtn=_makeIcoBtn('✕','Entfernen',()=>{
+        taskEmailPdfs.splice(item._idx,1);
+        renderEmailSection();scheduleTaskFieldSave();
+        tileWrap.remove();
+        if(_activeTile===tileWrap)previewContent.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text2);font-size:13px;">&#8592; Datei auswählen</div>';
+      });
+      delBtn.style.cssText+='border-color:rgba(231,76,60,.4);color:var(--red);margin-left:auto;';
+      actions.appendChild(delBtn);
+    } else {
+      actions.appendChild(_makeIcoBtn('⬇','Herunterladen',()=>_downloadEmailOrig(item.fileId,name)));
+      actions.appendChild(_makeIcoBtn('🖨','Als PDF drucken',()=>_printEmailFromDrive(item.fileId,name)));
+      actions.appendChild(_makeIcoBtn('📂','In Drive öffnen',()=>window.open(item.url,'_blank')));
+      const spacer=document.createElement('span');spacer.style.cssText='flex:1;';
+      actions.appendChild(spacer);
+      const delBtn=_makeIcoBtn('✕','Entfernen',()=>{
+        taskEmailOriginals.splice(item._idx,1);
+        renderEmailSection();scheduleTaskFieldSave();
+        tileWrap.remove();
+        if(_activeTile===tileWrap)previewContent.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text2);font-size:13px;">&#8592; Datei auswählen</div>';
+      });
+      delBtn.style.cssText+='border-color:rgba(231,76,60,.4);color:var(--red);';
+      actions.appendChild(delBtn);
+    }
+
+    tileWrap.append(tileTop,actions);
+    sidebar.appendChild(tileWrap);
+
+    /* Erste Kachel auto-laden */
+    if(pos===0)setTimeout(()=>_loadPrev(item,tileWrap),80);
   });
 
   body.append(sidebar,previewWrap);
@@ -6826,110 +6872,199 @@ function _openEmailThumbnailGrid(){
   document.body.appendChild(ov);
 }
 
-// ── Thumbnail-Kachel-Galerie für Dateianhänge ────────────────────────────────
+// ── Dateianhänge – Alle ansehen (Split-Layout) ──────────────────────────────
 function _openAttachThumbnailGrid(){
   if(!taskAttachments||!taskAttachments.length){showToast('Keine Anhänge vorhanden','info',2500);return;}
   const GID='_attachThumbGridOverlay';
   const old=document.getElementById(GID);if(old)old.remove();
   const blobUrls=[];
-  const nonImgItems=taskAttachments.map((a,i)=>({a,i})).filter(({a})=>!a.type||!a.type.startsWith('image/'));
+
   const ov=document.createElement('div');
   ov.id=GID;
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:99998;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:30px 20px;box-sizing:border-box;';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:99998;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
   function _closeGrid(){blobUrls.forEach(u=>URL.revokeObjectURL(u));ov.remove();document.removeEventListener('keydown',_esc2);}
-  function _esc2(e){if(e.key==='Escape'&&!document.getElementById('_attachGalleryOverlay')&&!document.getElementById('_attachLbOverlay'))_closeGrid();}
+  function _esc2(e){if(e.key==='Escape'&&!document.getElementById('_attachGalleryOverlay')&&!document.getElementById('_attachLbOverlay')){e.stopImmediatePropagation();_closeGrid();}}
   document.addEventListener('keydown',_esc2);
   ov.addEventListener('click',e=>{if(e.target===ov)_closeGrid();});
+
   const card=document.createElement('div');
-  card.style.cssText='background:var(--bg2);border-radius:14px;padding:20px 20px 24px;width:min(960px,96vw);flex-shrink:0;';
+  card.style.cssText='background:var(--bg2);border-radius:14px;width:min(1050px,96vw);height:min(720px,92vh);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 16px 48px rgba(0,0,0,.5);';
+
   const hdr=document.createElement('div');
-  hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;';
+  hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--border);flex-shrink:0;';
   const titleEl=document.createElement('span');
   titleEl.style.cssText='font-weight:700;font-size:15px;color:var(--text1);';
-  titleEl.textContent='📎 Dateianhänge ('+taskAttachments.length+')';
+  titleEl.textContent='📎 Dateianhänge – Alle ansehen ('+taskAttachments.length+')';
   const closeBtn=document.createElement('button');
-  closeBtn.textContent='✕';
-  closeBtn.style.cssText='background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2);padding:2px 8px;border-radius:4px;';
+  closeBtn.textContent='✕';closeBtn.type='button';
+  closeBtn.style.cssText='background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2);padding:2px 8px;border-radius:4px;line-height:1;';
   closeBtn.onclick=_closeGrid;
   hdr.append(titleEl,closeBtn);
-  const grid=document.createElement('div');
-  grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;';
-  taskAttachments.forEach((a,i)=>{
-    const tile=document.createElement('div');
-    tile.style.cssText='background:var(--bg3);border-radius:10px;overflow:hidden;cursor:pointer;border:2px solid var(--border);transition:border-color .15s,box-shadow .15s;';
-    tile.onmouseenter=()=>{tile.style.borderColor='var(--accent)';tile.style.boxShadow='0 4px 16px rgba(108,99,255,.25)';};
-    tile.onmouseleave=()=>{tile.style.borderColor='var(--border)';tile.style.boxShadow='';};
-    const previewArea=document.createElement('div');
-    previewArea.style.cssText='width:100%;height:200px;overflow:hidden;background:#e8e8e8;position:relative;display:flex;align-items:center;justify-content:center;';
+
+  const body=document.createElement('div');
+  body.style.cssText='display:flex;flex:1;overflow:hidden;';
+
+  const sidebar=document.createElement('div');
+  sidebar.style.cssText='width:245px;flex-shrink:0;overflow-y:auto;border-right:1px solid var(--border);padding:8px;display:flex;flex-direction:column;gap:5px;background:var(--bg3);';
+
+  const previewWrap=document.createElement('div');
+  previewWrap.style.cssText='flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg2);';
+  const previewContent=document.createElement('div');
+  previewContent.id='_atgPreview';
+  previewContent.style.cssText='flex:1;overflow-y:auto;display:flex;align-items:center;justify-content:center;';
+  previewContent.innerHTML='<span style="color:var(--text2);font-size:13px;">&#8592; Datei auswählen</span>';
+
+  const previewFooter=document.createElement('div');
+  previewFooter.id='_atgFooter';
+  previewFooter.style.cssText='display:none;padding:10px 14px;border-top:1px solid var(--border);background:var(--bg3);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-shrink:0;';
+  previewWrap.append(previewContent,previewFooter);
+
+  let _activeTile=null;
+  let _activeIdx=null;
+
+  function _makeIcoBtn(emoji,tip,fn){
+    const b=document.createElement('button');
+    b.type='button';
+    b.textContent=emoji;b.title=tip;
+    b.style.cssText='position:relative;width:28px;height:28px;border-radius:5px;border:1px solid var(--border);background:var(--bg2);font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;';
+    b.onclick=e=>{e.stopPropagation();fn();};
+    const tt=document.createElement('span');
+    tt.style.cssText='position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:rgba(20,20,20,.9);color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .12s;z-index:10;';
+    tt.textContent=tip;
+    b.addEventListener('mouseenter',()=>tt.style.opacity='1');
+    b.addEventListener('mouseleave',()=>tt.style.opacity='0');
+    b.appendChild(tt);
+    return b;
+  }
+
+  function _loadPrev(a,i,tileEl){
+    if(_activeTile){_activeTile.style.borderColor='var(--border)';_activeTile.style.boxShadow='';}
+    _activeTile=tileEl;_activeIdx=i;
+    tileEl.style.borderColor='var(--accent)';
+    tileEl.style.boxShadow='0 0 0 2px var(--accent)';
     const isImg=a.type&&a.type.startsWith('image/');
     const isPdf=a.type==='application/pdf'||(a.name||'').toLowerCase().endsWith('.pdf');
     const isTxt=a.type==='text/plain'||(a.name||'').toLowerCase().endsWith('.txt');
-    const isDriveFile=!!(a.fileId&&gdriveToken);
-    if(isImg&&a.data){
+    const hasDrive=!!(a.fileId&&gdriveToken);
+    const hasData=!!a.data;
+    previewContent.style.cssText='flex:1;overflow:hidden;display:flex;align-items:center;justify-content:center;';
+    previewContent.innerHTML='<span style="color:var(--text2);font-size:13px;">⏳ Lädt…</span>';
+    if(isImg&&hasData){
       const img=document.createElement('img');
-      img.src=a.data;
-      img.style.cssText='width:100%;height:100%;object-fit:cover;';
-      previewArea.appendChild(img);
-    } else if(isPdf&&a.data){
+      img.src=a.data;img.style.cssText='max-width:100%;max-height:100%;object-fit:contain;';
+      previewContent.innerHTML='';previewContent.appendChild(img);
+    } else if(isPdf&&hasData){
       const fr=document.createElement('iframe');
       fr.src=a.data+'#toolbar=0&navpanes=0&view=FitH';
-      fr.style.cssText='width:100%;height:100%;border:none;pointer-events:none;';
-      fr.scrolling='no';
-      previewArea.appendChild(fr);
-    } else if(isPdf&&isDriveFile){
-      const loader=document.createElement('div');
-      loader.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#666;font-size:12px;width:100%;height:100%;position:absolute;inset:0;';
-      loader.innerHTML='<span style="font-size:36px">📄</span><span>Lädt…</span>';
-      previewArea.appendChild(loader);
+      fr.style.cssText='width:100%;height:100%;border:none;';
+      previewContent.style.cssText='flex:1;overflow:hidden;';
+      previewContent.innerHTML='';previewContent.appendChild(fr);
+    } else if(isPdf&&hasDrive){
+      previewContent.style.cssText='flex:1;overflow:hidden;';
+      fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(a.fileId)+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}})
+        .then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.blob();})
+        .then(blob=>{
+          const url=URL.createObjectURL(blob);blobUrls.push(url);
+          if(!document.getElementById(GID)){URL.revokeObjectURL(url);return;}
+          const fr=document.createElement('iframe');fr.src=url+'#toolbar=0&navpanes=0&view=FitH';
+          fr.style.cssText='width:100%;height:100%;border:none;';
+          previewContent.innerHTML='';previewContent.appendChild(fr);
+        }).catch(ex=>{previewContent.style.cssText='flex:1;overflow-y:auto;display:flex;align-items:center;justify-content:center;';previewContent.innerHTML='<span style="color:var(--red);font-size:12px;">⚠ '+esc(ex.message)+'</span>';});
+    } else if(isTxt&&hasData){
+      try{
+        const b64=(a.data||'').split(',')[1]||'';
+        const text=b64?decodeURIComponent(escape(atob(b64))):'(leer)';
+        const pre=document.createElement('pre');
+        pre.style.cssText='font-size:12px;padding:16px;color:var(--text1);white-space:pre-wrap;word-break:break-word;margin:0;line-height:1.5;width:100%;box-sizing:border-box;';
+        pre.textContent=text;
+        previewContent.style.cssText='flex:1;overflow-y:auto;align-items:flex-start;';
+        previewContent.innerHTML='';previewContent.appendChild(pre);
+      }catch(ex){previewContent.innerHTML='<span style="font-size:48px">📝</span>';}
+    } else {
+      previewContent.style.cssText='flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;';
+      previewContent.innerHTML='<span style="font-size:64px;opacity:.4">📎</span><span style="font-size:13px;color:var(--text2);">'+esc(a.name||'Anhang')+'</span>'
+        +(a.url?'<a href="'+esc(a.url)+'" target="_blank" style="color:var(--accent);font-size:12px;">In Drive öffnen ↗</a>':'');
+    }
+    // Footer
+    previewFooter.style.display='flex';
+    previewFooter.innerHTML='';
+    const nameSpan=document.createElement('span');
+    nameSpan.style.cssText='font-size:12px;font-weight:600;color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;';
+    nameSpan.textContent=a.name||'Anhang';
+    const btns=document.createElement('div');
+    btns.style.cssText='display:flex;gap:5px;flex-shrink:0;';
+    if(hasData||hasDrive)btns.appendChild(_makeIcoBtn('⬇','Herunterladen',()=>downloadAttach(i)));
+    if(a.url)btns.appendChild(_makeIcoBtn('📂','In Drive öffnen',()=>window.open(a.url,'_blank')));
+    const delB=_makeIcoBtn('✕','Entfernen',()=>{
+      taskAttachments.splice(i,1);renderAttachList();scheduleTaskFieldSave();
+      tileEl.remove();
+      if(_activeTile===tileEl){
+        previewContent.style.cssText='flex:1;overflow-y:auto;display:flex;align-items:center;justify-content:center;';
+        previewContent.innerHTML='<span style="color:var(--text2);font-size:13px;">&#8592; Datei auswählen</span>';
+        previewFooter.style.display='none';
+      }
+    });
+    delB.style.cssText+='border-color:rgba(231,76,60,.4);color:var(--red);';
+    btns.appendChild(delB);
+    previewFooter.append(nameSpan,btns);
+  }
+
+  taskAttachments.forEach((a,i)=>{
+    const isImg=a.type&&a.type.startsWith('image/');
+    const isPdf=a.type==='application/pdf'||(a.name||'').toLowerCase().endsWith('.pdf');
+    const tileWrap=document.createElement('div');
+    tileWrap.style.cssText='border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);overflow:hidden;transition:border-color .15s,box-shadow .15s;';
+    const thumb=document.createElement('div');
+    thumb.style.cssText='width:100%;height:100px;display:flex;align-items:center;justify-content:center;background:#e8e8e8;overflow:hidden;cursor:pointer;';
+    if(isImg&&a.data){
+      const img=document.createElement('img');img.src=a.data;img.style.cssText='width:100%;height:100%;object-fit:cover;';thumb.appendChild(img);
+    } else if(isPdf&&a.data){
+      const fr=document.createElement('iframe');fr.src=a.data+'#toolbar=0&navpanes=0&view=FitH&zoom=50';
+      fr.style.cssText='width:220%;height:220%;border:none;pointer-events:none;transform:scale(0.45);transform-origin:top left;';fr.scrolling='no';thumb.appendChild(fr);
+    } else if(isPdf&&a.fileId&&gdriveToken){
+      const ldr=document.createElement('div');ldr.style.cssText='font-size:32px;';ldr.textContent='📄';thumb.appendChild(ldr);
       (async()=>{
         try{
           const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(a.fileId)+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}});
-          if(!r.ok)throw new Error('HTTP '+r.status);
-          const blob=await r.blob();
-          const blobUrl=URL.createObjectURL(blob);
-          blobUrls.push(blobUrl);
-          if(!document.getElementById(GID)){URL.revokeObjectURL(blobUrl);return;}
-          const fr=document.createElement('iframe');
-          fr.src=blobUrl+'#toolbar=0&navpanes=0&view=FitH';
-          fr.style.cssText='width:100%;height:100%;border:none;pointer-events:none;';
-          fr.scrolling='no';
-          if(loader.parentNode)loader.replaceWith(fr);
-        }catch(ex){loader.innerHTML='<span style="font-size:36px">📄</span><span style="color:#c00">⚠ Fehler</span>';}
+          if(!r.ok)throw new Error('');const blob=await r.blob();const url=URL.createObjectURL(blob);blobUrls.push(url);
+          if(!document.getElementById(GID)){URL.revokeObjectURL(url);return;}
+          const fr=document.createElement('iframe');fr.src=url+'#toolbar=0&navpanes=0&view=FitH&zoom=50';
+          fr.style.cssText='width:220%;height:220%;border:none;pointer-events:none;transform:scale(0.45);transform-origin:top left;';fr.scrolling='no';
+          if(ldr.parentNode)ldr.replaceWith(fr);
+        }catch(ex){}
       })();
-    } else if(isTxt&&a.data){
-      try{
-        const b64=a.data.split(',')[1]||'';
-        const text=b64?decodeURIComponent(escape(atob(b64))).slice(0,600):'(leer)';
-        const pre=document.createElement('pre');
-        pre.style.cssText='font-size:9px;padding:8px;color:#333;white-space:pre-wrap;word-break:break-word;overflow:hidden;max-height:200px;margin:0;line-height:1.3;width:100%;box-sizing:border-box;';
-        pre.textContent=text;
-        previewArea.style.background='#fff';
-        previewArea.style.alignItems='flex-start';
-        previewArea.appendChild(pre);
-      }catch(ex){
-        previewArea.innerHTML='<span style="font-size:48px">📝</span>';
-      }
     } else {
-      const iconDiv=document.createElement('div');
-      iconDiv.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;width:100%;height:100%;';
-      iconDiv.innerHTML=_aicSvgIcon(a.type,a.name)+'<span style="font-size:10px;color:#666;text-align:center;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(a.name||'')+'</span>';
-      previewArea.appendChild(iconDiv);
+      const ic=document.createElement('div');ic.style.cssText='font-size:36px;opacity:.7;';
+      ic.textContent=isImg?'🖼️':isPdf?'📄':'📎';thumb.appendChild(ic);
     }
-    tile.onclick=()=>{
-      if(isImg) openPreview(i);
-      else{const ni=nonImgItems.findIndex(x=>x.i===i);_openAttachGallery(ni>=0?ni:0);}
-    };
-    const label=document.createElement('div');
-    label.style.cssText='padding:7px 10px;font-size:11px;color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-top:1px solid var(--border);background:var(--bg2);';
-    label.textContent=a.name||'Anhang';
-    label.title=a.name||'';
-    const typeBadge=document.createElement('div');
-    typeBadge.style.cssText='padding:2px 10px 6px;font-size:10px;color:var(--text2);';
-    typeBadge.textContent=isImg?'🖼️ Bild':isPdf?'📄 PDF':isTxt?'📝 Text':'📎 Datei';
-    tile.append(previewArea,label,typeBadge);
-    grid.appendChild(tile);
+    thumb.onclick=()=>_loadPrev(a,i,tileWrap);
+    const lbl=document.createElement('div');
+    lbl.style.cssText='padding:5px 8px;font-size:10px;font-weight:500;color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-top:1px solid var(--border);';
+    lbl.textContent=a.name||'Anhang';lbl.title=a.name||'';
+    const actRow=document.createElement('div');
+    actRow.style.cssText='display:flex;align-items:center;gap:3px;padding:4px 6px;border-top:1px solid var(--border);background:var(--bg3);';
+    const hasData=!!a.data;const hasDrive=!!(a.fileId&&gdriveToken);
+    if(hasData||hasDrive)actRow.appendChild(_makeIcoBtn('⬇','Herunterladen',()=>downloadAttach(i)));
+    if(a.url)actRow.appendChild(_makeIcoBtn('📂','In Drive öffnen',()=>window.open(a.url,'_blank')));
+    const sp=document.createElement('span');sp.style.cssText='flex:1;';actRow.appendChild(sp);
+    const delB=_makeIcoBtn('✕','Entfernen',()=>{
+      taskAttachments.splice(i,1);renderAttachList();scheduleTaskFieldSave();
+      tileWrap.remove();
+      if(_activeTile===tileWrap){
+        previewContent.style.cssText='flex:1;overflow-y:auto;display:flex;align-items:center;justify-content:center;';
+        previewContent.innerHTML='<span style="color:var(--text2);font-size:13px;">&#8592; Datei auswählen</span>';
+        previewFooter.style.display='none';
+      }
+    });
+    delB.style.cssText+='border-color:rgba(231,76,60,.4);color:var(--red);';
+    actRow.appendChild(delB);
+    tileWrap.append(thumb,lbl,actRow);
+    sidebar.appendChild(tileWrap);
+    if(i===0)setTimeout(()=>_loadPrev(a,i,tileWrap),80);
   });
-  card.append(hdr,grid);
+
+  body.append(sidebar,previewWrap);
+  card.append(hdr,body);
   ov.appendChild(card);
   document.body.appendChild(ov);
 }
