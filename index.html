@@ -1502,16 +1502,16 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
   <div class="topbar-right">
     <div class="card-size-group" title="Kartengröße im Board">
       <label for="cardSizeSlider">🔍</label>
-      <input id="cardSizeSlider" type="range" min="80" max="160" step="5" value="100" oninput="setCardSize(this.value)">
+      <input id="cardSizeSlider" type="range" min="80" max="160" step="5" value="100" oninput="setCardSize(this.value)" autocomplete="off">
       <span class="card-size-val" id="cardSizeVal">100%</span>
     </div>
     <button class="btn-auftrag" onclick="openAuftragDatei()">📋 Auftrag anlegen</button>
     <label class="topbar-btn" title="Task aus ZIP-Sicherung wiederherstellen" style="background:var(--bg3);border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:12px;font-weight:500;padding:6px 12px;border-radius:6px;display:inline-flex;align-items:center;gap:5px;">↩ ZIP
-      <input type="file" accept=".zip" style="display:none" onchange="_zipRestoreDrop(this.files[0]);this.value='';">
+      <input type="file" accept=".zip" style="display:none" onchange="_zipRestoreDrop(this.files[0]);this.value='';" autocomplete="off">
     </label>
     <button class="topbar-btn btn-primary" onclick="openNewTaskModal()">+ Neuer Task</button>
   </div>
-  <input type="file" id="auftragFileInput" accept=".txt" style="display:none" onchange="readAuftragDatei(event)">
+  <input type="file" id="auftragFileInput" accept=".txt" style="display:none" onchange="readAuftragDatei(event)" autocomplete="off">
 </div>
 
 <!-- FILE BAR -->
@@ -1545,7 +1545,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <button class="col-manage-btn" id="alleColBtn" onclick="toggleAlleCol()" title="Alle Tasks unabhängig vom Status anzeigen">☰ Alle</button>
     <div class="toolbar-search-wrap">
       <span class="toolbar-search-icon">🔍</span>
-      <input class="toolbar-search-input" id="searchInput" type="text" placeholder="Suchen…" title="Tasks durchsuchen (Kürzel: /)">
+      <input class="toolbar-search-input" id="searchInput" type="text" placeholder="Suchen…" title="Tasks durchsuchen (Kürzel: /)" autocomplete="off">
       <span class="toolbar-search-hint">/</span>
     </div>
   </div>
@@ -1580,7 +1580,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
   <span class="adz-text">E-Mail → <strong>Auftrag</strong></span>
   <label class="adz-file-btn" title="Datei auswählen">
     📁
-    <input type="file" accept=".msg,.eml" style="display:none" onchange="_auftragFileSelect(event)">
+    <input type="file" accept=".msg,.eml" style="display:none" onchange="_auftragFileSelect(event)" autocomplete="off">
   </label>
 </div><div id="pdfAuftragDropBar"
   ondragenter="event.preventDefault();this.classList.add('adz-hover')"
@@ -1592,13 +1592,13 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
   <span class="adz-text">PDF → <strong>Auftrag</strong></span>
   <label class="adz-file-btn" title="PDF auswählen">
     📁
-    <input type="file" accept=".pdf" style="display:none" onchange="_pdfAuftragFileSelect(event)">
+    <input type="file" accept=".pdf" style="display:none" onchange="_pdfAuftragFileSelect(event)" autocomplete="off">
   </label>
 </div></div>
 <!-- Board-Auswahl Popup (erscheint nach E-Mail-Drop) -->
 <div id="auftragBoardPopup" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.45);align-items:center;justify-content:center;">
   <div style="background:var(--bg2);border-radius:12px;padding:24px 28px;min-width:320px;max-width:440px;box-shadow:0 8px 40px var(--shadow);">
-    <input type="hidden" id="auftragPopupMode" value="email">
+    <input type="hidden" id="auftragPopupMode" value="email" autocomplete="off">
     <div id="auftragPopupTitle" style="font-size:15px;font-weight:700;margin-bottom:6px;">📨 Auftrag anlegen</div>
     <div id="auftragPopupSubject" style="font-size:12px;color:var(--text2);margin-bottom:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
     <!-- Neuer / Bestehender Task Toggle -->
@@ -1667,10 +1667,10 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       <button type="button" class="modal-size-btn" onclick="setModalSize(Math.max(80,+(document.getElementById('modalSizeSlider').value)-10))" title="Kleiner">−</button>
       <span class="modal-size-val2" id="modalSizeVal">100%</span>
       <button type="button" class="modal-size-btn" onclick="setModalSize(Math.min(180,+(document.getElementById('modalSizeSlider').value)+10))" title="Größer">+</button>
-      <input id="modalSizeSlider" type="range" min="80" max="180" step="10" value="100" oninput="setModalSize(this.value)" style="width:80px;accent-color:var(--accent);margin-left:4px;">
+      <input id="modalSizeSlider" type="range" min="80" max="180" step="10" value="100" oninput="setModalSize(this.value)" style="width:80px;accent-color:var(--accent);margin-left:4px;" autocomplete="off">
     </div>
     <div class="modal-scroll-body">
-    <input type="hidden" id="taskId">
+    <input type="hidden" id="taskId" autocomplete="off">
     <!-- Timer-Bar oben: Stoppuhr direkt zugänglich ohne Sektion aufzuklappen -->
     <div style="position:sticky;top:0;z-index:50;background:var(--bg2);padding-bottom:6px;margin-bottom:8px;border-bottom:1px solid var(--border);">
     <div style="display:flex;gap:8px;align-items:stretch;">
@@ -1680,7 +1680,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
           <button id="timerBtnTop" type="button" class="timer-toggle-btn" onclick="toggleTimer()">&#9654; Start</button>
         </div>
         <input id="timerDesc" type="text" placeholder="Betreff / Tätigkeit…" maxlength="120"
-          style="padding:4px 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:11px;box-sizing:border-box;">
+          style="padding:4px 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:11px;box-sizing:border-box;" autocomplete="off">
         <div id="timerEntries" class="timer-entries" style="font-size:11px;color:var(--text2);width:100%;display:none;"></div>
       </div>
       <!-- Kompakter E-Mail-Drop -->
@@ -1706,7 +1706,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     </div>
     </div>
     <!-- STAMMDATEN kompakt -->
-    <div class="modal-field" style="margin-bottom:5px"><label>Titel *</label><input type="text" id="taskTitleInput" placeholder="Task-Titel eingeben…" oninput="scheduleTaskFieldSave();_updateStammSummary()"></div>
+    <div class="modal-field" style="margin-bottom:5px"><label>Titel *</label><input type="text" id="taskTitleInput" placeholder="Task-Titel eingeben…" oninput="scheduleTaskFieldSave();_updateStammSummary()" autocomplete="off"></div>
     <!-- Ausklappbare Detailfelder -->
     <div class="form-collapse" id="tStammSect" style="border-bottom:1px solid var(--border);margin-bottom:6px;">
       <div class="form-collapse-header" onclick="toggleFormSection('tStammSect')">
@@ -1716,19 +1716,19 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       <div class="form-collapse-body">
         <!-- versteckte Felder für Daten-Kompatibilität -->
         <select id="taskAmpelInput" style="display:none"><option value="grün">🟢</option><option value="orange">🟠</option><option value="rot">🔴</option></select>
-        <input type="hidden" id="taskSourceInput" value="">
+        <input type="hidden" id="taskSourceInput" value="" autocomplete="off">
         <!-- Zeile 1: Bearbeiter | Fälligkeit | Auftrag erteilt | Status -->
         <div style="display:grid;grid-template-columns:1.5fr 0.9fr 0.9fr 1.6fr;gap:5px;margin-bottom:5px;">
-          <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Bearbeiter</label><input type="text" id="taskOwnerInput" placeholder="Name" style="font-size:12px;padding:4px 6px" oninput="scheduleTaskFieldSave();_updateStammSummary()"></div>
-          <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Fälligkeit</label><input type="date" id="taskDueInput" style="font-size:12px;padding:4px 6px" onchange="scheduleTaskFieldSave();_updateStammSummary()"></div>
-          <div class="modal-field baustelle-only" style="margin:0;font-size:11px"><label style="font-size:10px">Auftrag erteilt</label><input type="date" id="taskAusfInput" style="font-size:12px;padding:4px 6px" onchange="scheduleTaskFieldSave()"></div>
+          <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Bearbeiter</label><input type="text" id="taskOwnerInput" placeholder="Name" style="font-size:12px;padding:4px 6px" oninput="scheduleTaskFieldSave();_updateStammSummary()" autocomplete="off"></div>
+          <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Fälligkeit</label><input type="date" id="taskDueInput" style="font-size:12px;padding:4px 6px" onchange="scheduleTaskFieldSave();_updateStammSummary()" autocomplete="off"></div>
+          <div class="modal-field baustelle-only" style="margin:0;font-size:11px"><label style="font-size:10px">Auftrag erteilt</label><input type="date" id="taskAusfInput" style="font-size:12px;padding:4px 6px" onchange="scheduleTaskFieldSave()" autocomplete="off"></div>
           <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Status</label><select id="taskStatusInput" style="font-size:12px;padding:4px 6px" onchange="updateGcalModalBtn();scheduleTaskFieldSave();_updateStammSummary()"></select></div>
         </div>
         <!-- Zeile 2: Kostenstelle | Rep.-Nr. | Kunden-Nr. | [Bau-Btn] (nur Baustelle) -->
         <div class="baustelle-only" style="display:grid;grid-template-columns:1.8fr 0.85fr 0.85fr auto;gap:5px;margin-bottom:4px;align-items:end;">
-          <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Kostenstelle / Tags</label><input type="text" id="taskTagsInput" placeholder="z.B. 260036" style="font-size:12px;padding:4px 6px" oninput="scheduleTaskFieldSave();_updateStammSummary()"></div>
-          <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Rep.-Nr.</label><input type="text" id="taskRepNr" placeholder="z.B. 3483" style="font-size:12px;padding:4px 6px" oninput="scheduleTaskFieldSave()"></div>
-          <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Kunden-Nr.</label><input type="text" id="taskKundenNr" placeholder="z.B. 777" style="font-size:12px;padding:4px 6px" oninput="scheduleTaskFieldSave()"></div>
+          <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Kostenstelle / Tags</label><input type="text" id="taskTagsInput" placeholder="z.B. 260036" style="font-size:12px;padding:4px 6px" oninput="scheduleTaskFieldSave();_updateStammSummary()" autocomplete="off"></div>
+          <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Rep.-Nr.</label><input type="text" id="taskRepNr" placeholder="z.B. 3483" style="font-size:12px;padding:4px 6px" oninput="scheduleTaskFieldSave()" autocomplete="off"></div>
+          <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Kunden-Nr.</label><input type="text" id="taskKundenNr" placeholder="z.B. 777" style="font-size:12px;padding:4px 6px" oninput="scheduleTaskFieldSave()" autocomplete="off"></div>
           <button type="button" id="openBauBtn" class="topbar-btn btn-primary" style="flex-shrink:0;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;margin-bottom:1px;" onclick="openBaudokuApp()" title="Zur Baudoku App mit dieser Kostenstelle">📋 Bau</button>
         </div>
       </div>
@@ -1742,15 +1742,15 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       </div>
       <div class="form-collapse-body">
         <div class="modal-grid">
-          <div class="modal-field full"><label>Auftraggeber / Hausverwaltung</label><input type="text" id="tHV" placeholder="z.B. AHV, Muster Verwaltung"></div>
+          <div class="modal-field full"><label>Auftraggeber / Hausverwaltung</label><input type="text" id="tHV" placeholder="z.B. AHV, Muster Verwaltung" autocomplete="off"></div>
           <div class="modal-field full">
             <label>Adresse (Straße + PLZ + Ort)</label>
             <div style="display:flex;gap:6px;">
-              <input type="text" id="tAdr" placeholder="Musterstraße 44, 99086 Erfurt" style="flex:1;">
+              <input type="text" id="tAdr" placeholder="Musterstraße 44, 99086 Erfurt" style="flex:1;" autocomplete="off">
               <button type="button" onclick="tMapsOeffnen()" style="padding:8px 14px;border-radius:8px;background:var(--accent);color:#fff;font-size:13px;font-weight:600;border:none;cursor:pointer;flex-shrink:0;">🗺 Maps</button>
             </div>
           </div>
-          <div class="modal-field full"><label>Beschreibung / Schadensbild <span style="font-weight:normal;color:var(--text2);font-size:11px">(Doppelklick = vergrößern)</span></label><textarea id="tSch" class="expandable-ta" ondblclick="toggleExpandTA(this)" placeholder="z.B. 2. OG links, Feuchtigkeit Küche…" rows="2"></textarea></div>
+          <div class="modal-field full"><label>Beschreibung / Schadensbild <span style="font-weight:normal;color:var(--text2);font-size:11px">(Doppelklick = vergrößern)</span></label><textarea id="tSch" class="expandable-ta" ondblclick="toggleExpandTA(this)" placeholder="z.B. 2. OG links, Feuchtigkeit Küche…" rows="2" autocomplete="off"></textarea></div>
         </div>
       </div>
     </div>
@@ -1806,7 +1806,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       <div class="form-collapse-body">
         <div id="checklisteList"></div>
         <div style="display:flex;gap:6px;margin-top:4px;">
-          <input type="text" id="newChecklistInput" placeholder="Neue Aufgabe…" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();addChecklistItem();}">
+          <input type="text" id="newChecklistInput" placeholder="Neue Aufgabe…" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();addChecklistItem();}" autocomplete="off">
           <button type="button" class="topbar-btn btn-primary" onclick="addChecklistItem()" style="padding:6px 14px;font-size:14px;line-height:1;">+</button>
         </div>
       </div>
@@ -1821,13 +1821,13 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       <div class="form-collapse-body">
         <div class="modal-field">
           <label style="font-size:12px;color:var(--text-dim,#888);display:block;margin-bottom:4px;">Dauerhafte Notiz</label>
-          <textarea id="taskDescInput" placeholder="Interne Notizen… (Doppelklick zum Vergrößern)" rows="3" ondblclick="_openNotizOverlay()" title="Doppelklick zum Vergrößern"></textarea>
+          <textarea id="taskDescInput" placeholder="Interne Notizen… (Doppelklick zum Vergrößern)" rows="3" ondblclick="_openNotizOverlay()" title="Doppelklick zum Vergrößern" autocomplete="off"></textarea>
         </div>
         <div class="modal-field">
           <label style="font-size:12px;color:var(--text-dim,#888);display:block;margin-bottom:4px;">Chronologische Einträge</label>
           <div id="taskNotizList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px;"></div>
           <div style="display:flex;gap:6px;">
-            <input type="text" id="newTaskNotizInput" placeholder="Kurze Notiz mit Zeitstempel…" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();addTaskNotiz();}">
+            <input type="text" id="newTaskNotizInput" placeholder="Kurze Notiz mit Zeitstempel…" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();addTaskNotiz();}" autocomplete="off">
             <button type="button" class="topbar-btn btn-primary" onclick="addTaskNotiz()" style="padding:6px 14px;">+</button>
           </div>
         </div>
@@ -1848,7 +1848,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
         <div class="attach-drop-zone" id="dropZone" onclick="triggerFileInput()" style="margin-bottom:0">
           📎 Datei hier hineinziehen oder klicken
         </div>
-        <input type="file" id="fileAttachInput" style="display:none" multiple onchange="handleFileAttach(event)">
+        <input type="file" id="fileAttachInput" style="display:none" multiple onchange="handleFileAttach(event)" autocomplete="off">
       </div>
     </div>
 
@@ -1856,6 +1856,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <div class="form-collapse baustelle-only" id="tPruefSect">
       <div class="form-collapse-header" onclick="toggleFormSection('tPruefSect')">
         <span class="form-collapse-title" id="tPruefTitle">📋 Prüfformulare</span>
+        <button onclick="event.stopPropagation();_openPruefDesktopFormular()" style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:var(--accent);color:#fff;cursor:pointer;font-weight:600;flex-shrink:0;">+ Neu</button>
         <span class="form-collapse-arrow">▾</span>
       </div>
       <div class="form-collapse-body">
@@ -1882,7 +1883,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
           <span id="emailOrigDropMsg" style="font-size:12px;color:var(--text2);">&#128231; .eml / .msg hier hineinziehen</span>
           <label style="cursor:pointer;padding:5px 12px;border-radius:6px;border:1px solid var(--accent);background:rgba(108,99,255,.08);color:var(--accent);font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0;">
             &#128193; Datei w&#228;hlen
-            <input type="file" id="emailOrigInput" accept=".msg,.eml" style="display:none" onchange="_handleEmailOrigSelect(event)">
+            <input type="file" id="emailOrigInput" accept=".msg,.eml" style="display:none" onchange="_handleEmailOrigSelect(event)" autocomplete="off">
           </label>
         </div>
       </div>
@@ -1909,7 +1910,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
           <button onclick="loadFotosFromDriveFolder()" title="Vorhandene Fotos aus Drive-Ordner laden und auswählen" style="padding:8px 12px;border-radius:6px;border:1.5px dashed #34a853;background:rgba(52,168,83,0.06);color:#34a853;font-size:12px;cursor:pointer;white-space:nowrap;">🔄 Aus Ordner wählen</button>
         </div>
         <div id="fotoOrdnerHint" style="font-size:11px;margin-top:4px;padding:4px 6px;border-radius:4px;display:none"></div>
-        <input type="file" id="fotoDriveInput" style="display:none" accept="image/*" multiple onchange="handleFotoUploadToDrive(event)">
+        <input type="file" id="fotoDriveInput" style="display:none" accept="image/*" multiple onchange="handleFotoUploadToDrive(event)" autocomplete="off">
       </div>
     </div>
 
@@ -1924,7 +1925,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
           <div class="modal-field full baustelle-only">
             <label>📷 Google Drive – Foto-Ordner <span style="font-size:10px;color:var(--accent);font-weight:600;">← 📷 Drive-Foto Button nutzt DIESEN Ordner</span></label>
             <div class="link-row-2">
-              <input type="url" id="tGD" placeholder="https://drive.google.com/drive/folders/…" oninput="_updateFotoOrdnerHint()">
+              <input type="url" id="tGD" placeholder="https://drive.google.com/drive/folders/…" oninput="_updateFotoOrdnerHint()" autocomplete="off">
               <button class="link-btn-2" onclick="_pickDriveFolder('tGD')" title="Ordner aus Drive wählen">📂</button>
               <button class="link-btn-2" onclick="tDriveOeffnen()" title="Ordner öffnen">📁</button>
               <button class="link-btn-2" onclick="loadFotosFromDriveFolder()" title="Fotos aus diesem Ordner in Task einlesen" style="color:var(--accent);font-weight:700;">🔄</button>
@@ -1933,7 +1934,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
           <div class="modal-field full">
             <label>📁 Google Drive – Projektordner</label>
             <div class="link-row-2">
-              <input type="url" id="tGDOrdner" placeholder="https://drive.google.com/drive/folders/…" oninput="_updateFotoOrdnerHint()">
+              <input type="url" id="tGDOrdner" placeholder="https://drive.google.com/drive/folders/…" oninput="_updateFotoOrdnerHint()" autocomplete="off">
               <button class="link-btn-2" onclick="_pickDriveFolder('tGDOrdner')" title="Ordner aus Drive wählen">📂</button>
               <button class="link-btn-2" onclick="tDriveOrdnerOeffnen()" title="Ordner öffnen">📁</button>
               <button class="link-btn-2" onclick="_scanDriveIntoTask('tGDOrdner','anhang')" title="Dateien aus Projektordner in Anhänge einlesen" style="color:var(--accent);font-weight:700;">🔄</button>
@@ -1942,14 +1943,14 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
           <div class="modal-field full baustelle-only">
             <label>NAS-Pfad</label>
             <div class="link-row-2">
-              <input type="text" id="tNAS" placeholder="\\nas-ddbraun\Datenarchiv\...">
+              <input type="text" id="tNAS" placeholder="\\nas-ddbraun\Datenarchiv\..." autocomplete="off">
               <button class="link-btn-2" id="tNasBtn" onclick="tNasKopieren()" title="Pfad kopieren">📋</button>
             </div>
           </div>
           <div class="modal-field full">
             <label>📧 E-Mail-Ablageordner (Google Drive)</label>
             <div class="link-row-2">
-              <input type="url" id="tEmailOrdner" placeholder="https://drive.google.com/drive/folders/…">
+              <input type="url" id="tEmailOrdner" placeholder="https://drive.google.com/drive/folders/…" autocomplete="off">
               <button class="link-btn-2" onclick="_pickDriveFolder('tEmailOrdner')" title="Ordner aus Drive wählen">📂</button>
               <button class="link-btn-2" onclick="tEmailOrdnerOeffnen()" title="Ordner öffnen">📁</button>
               <button class="link-btn-2" onclick="_scanDriveIntoTask('tEmailOrdner','email')" title="E-Mails aus Ordner in Task einlesen" style="color:var(--accent);font-weight:700;">🔄</button>
@@ -1961,8 +1962,8 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
           <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">📧 Gmail-Threads</div>
           <div id="gmailLinkList"></div>
           <div style="display:flex;gap:6px;margin-top:4px;">
-            <input type="url" id="newGmailLinkUrl" placeholder="Gmail-Thread-URL einfügen…" style="flex:2;" onkeydown="if(event.key==='Enter'){event.preventDefault();addGmailLink();}">
-            <input type="text" id="newGmailLinkLabel" placeholder="Betreff (optional)" style="flex:1.5;" onkeydown="if(event.key==='Enter'){event.preventDefault();addGmailLink();}">
+            <input type="url" id="newGmailLinkUrl" placeholder="Gmail-Thread-URL einfügen…" style="flex:2;" onkeydown="if(event.key==='Enter'){event.preventDefault();addGmailLink();}" autocomplete="off">
+            <input type="text" id="newGmailLinkLabel" placeholder="Betreff (optional)" style="flex:1.5;" onkeydown="if(event.key==='Enter'){event.preventDefault();addGmailLink();}" autocomplete="off">
             <button type="button" class="topbar-btn btn-primary" onclick="addGmailLink()" style="padding:6px 14px;flex-shrink:0;">+</button>
           </div>
           <p style="font-size:10px;color:var(--text2);margin:4px 0 0;">In Gmail: E-Mail öffnen → URL aus der Adresszeile kopieren → hier einfügen.</p>
@@ -1979,7 +1980,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
         <button class="topbar-btn baustelle-only" id="abschlussBtn" onclick="createAbschlussakte()" style="display:none;margin-right:auto;background:var(--bg3);border:1px solid var(--border)">📁 Abschlussakte</button>
         <button class="topbar-btn btn-secondary" onclick="saveTaskAndBack()">← Zurück</button>
         <button class="topbar-btn" onclick="exportTaskZip()" title="Task als ZIP sichern (Daten + Dateien + Fotos-PDF)" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);">⬇ Sichern</button>
-        <label class="topbar-btn" title="Task aus ZIP wiederherstellen" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);cursor:pointer;">↩ Wiederherstellen<input type="file" accept=".zip" style="display:none" onchange="importTaskFromZip(this.files[0]);this.value='';"></label>
+        <label class="topbar-btn" title="Task aus ZIP wiederherstellen" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);cursor:pointer;">↩ Wiederherstellen<input type="file" accept=".zip" style="display:none" onchange="importTaskFromZip(this.files[0]);this.value='';" autocomplete="off"></label>
         <button class="topbar-btn btn-primary" onclick="saveTask()">Speichern</button>
       </div>
     </div><!-- end .modal-scroll-body -->
@@ -1998,7 +1999,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <p class="col-manager-sub" id="colModalSub">Spalten nur für dieses Projekt. Andere Projekte bleiben unverändert.</p>
     <div class="col-list" id="colList"></div>
     <div class="col-add-row">
-      <input class="col-add-input" id="colAddInput" placeholder="Neue Spalte benennen…" onkeydown="if(event.key==='Enter')addColumn()">
+      <input class="col-add-input" id="colAddInput" placeholder="Neue Spalte benennen…" onkeydown="if(event.key==='Enter')addColumn()" autocomplete="off">
       <button class="col-add-btn" onclick="addColumn()">+ Hinzufügen</button>
     </div>
     <div class="modal-actions" style="margin-top:12px;">
@@ -2015,7 +2016,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <p class="col-manager-sub" style="margin-bottom:14px">Projekte umbenennen, neu anlegen oder löschen.</p>
     <div class="proj-list" id="projList"></div>
     <div class="proj-add-row">
-      <input class="proj-add-input" id="projAddInput" placeholder="Neues Projekt benennen…" onkeydown="if(event.key==='Enter')addProject()">
+      <input class="proj-add-input" id="projAddInput" placeholder="Neues Projekt benennen…" onkeydown="if(event.key==='Enter')addProject()" autocomplete="off">
       <select id="projAddType" class="proj-type-sel" title="Projekt-Typ wählen">
         <option value="baustelle">🏗 Baustelle</option>
         <option value="notiz">✅ Aufgaben</option>
@@ -2038,8 +2039,8 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
   <canvas id="desktopDrawCanvas" onclick="event.stopPropagation()" onmousedown="event.stopPropagation()" onpointerdown="event.stopPropagation()"></canvas>
   <!-- Zeichen-Toolbar -->
   <div class="desk-draw-bar" id="deskDrawBar" onclick="event.stopPropagation()">
-    <input type="color" class="desk-draw-color" id="deskDrawColor" value="#ff0000" title="Farbe">
-    <input type="range" class="desk-draw-size" id="deskDrawSize" min="2" max="30" value="4" title="Stärke">
+    <input type="color" class="desk-draw-color" id="deskDrawColor" value="#ff0000" title="Farbe" autocomplete="off">
+    <input type="range" class="desk-draw-size" id="deskDrawSize" min="2" max="30" value="4" title="Stärke" autocomplete="off">
     <div style="display:flex;gap:3px;border-right:1px solid rgba(255,255,255,.25);padding-right:8px;margin-right:4px;">
       <button class="desk-draw-btn desk-tool-btn on" data-tool="freihand" onclick="event.stopPropagation();_deskSetTool('freihand')" title="Freihand">✏️</button>
       <button class="desk-draw-btn desk-tool-btn" data-tool="linie" onclick="event.stopPropagation();_deskSetTool('linie')" title="Linie">╱</button>
@@ -2054,7 +2055,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
   <div class="preview-label" id="previewLabel"></div>
   <div class="foto-lb-capbar" id="fotoLbCapBar" onclick="event.stopPropagation()">
     <label>Beschreibung (wird als EXIF im Foto gespeichert)</label>
-    <input type="text" id="fotoLbCapInput" placeholder="Kurze Beschreibung zum Foto…">
+    <input type="text" id="fotoLbCapInput" placeholder="Kurze Beschreibung zum Foto…" autocomplete="off">
     <div class="foto-lb-capbar-btns">
       <button class="foto-lb-cancel" onclick="closePreview()">Abbrechen</button>
       <button class="foto-lb-save" onclick="saveFotoCaptionFromLightbox()">💾 Speichern</button>
@@ -2083,7 +2084,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       <span>🔍</span>
       <input type="range" min="180" max="500" value="300" step="20"
         style="width:110px;accent-color:var(--accent);"
-        oninput="document.getElementById('fotoGalleryGrid').style.setProperty('--gal-thumb-size',this.value+'px');document.querySelector('.foto-gallery-grid').style.gridTemplateColumns='repeat(auto-fill,minmax('+this.value+'px,1fr))'">
+        oninput="document.getElementById('fotoGalleryGrid').style.setProperty('--gal-thumb-size',this.value+'px');document.querySelector('.foto-gallery-grid').style.gridTemplateColumns='repeat(auto-fill,minmax('+this.value+'px,1fr))'" autocomplete="off">
     </label>
     <button id="galPdfBtn" style="background:var(--accent);color:#fff;display:none" onclick="createPdfFromSelected()">📄 PDF erstellen</button>
     <button style="background:rgba(255,255,255,.1);color:#fff" onclick="closeFotoGallery()">✕ Schließen</button>
@@ -2112,7 +2113,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 <!-- QUICK ADD -->
 <div class="quick-add-bar" id="quickAddBar">
   <span style="color:var(--accent);font-weight:700;">+</span>
-  <input type="text" id="quickAddInput" placeholder="Task-Titel eingeben und Enter drücken…">
+  <input type="text" id="quickAddInput" placeholder="Task-Titel eingeben und Enter drücken…" autocomplete="off">
   <span class="hint">ESC zum Schließen</span>
 </div>
 
@@ -3932,10 +3933,10 @@ function renderAusserhausTermine(){
   }else{
     html+=taskAusserhausTermine.map((t,i)=>`
     <div class="termin-row">
-      <input type="date" value="${t.date||''}" oninput="syncAusserhausTermin(${i},'date',this.value)">
-      <input type="time" value="${t.von||''}" oninput="syncAusserhausTermin(${i},'von',this.value)">
-      <input type="time" value="${t.bis||''}" oninput="syncAusserhausTermin(${i},'bis',this.value)">
-      <input type="text" value="${esc(t.beschreibung||'')}" placeholder="Beschreibung" oninput="syncAusserhausTermin(${i},'beschreibung',this.value)">
+      <input type="date" value="${t.date||''}" oninput="syncAusserhausTermin(${i},'date',this.value)" autocomplete="off">
+      <input type="time" value="${t.von||''}" oninput="syncAusserhausTermin(${i},'von',this.value)" autocomplete="off">
+      <input type="time" value="${t.bis||''}" oninput="syncAusserhausTermin(${i},'bis',this.value)" autocomplete="off">
+      <input type="text" value="${esc(t.beschreibung||'')}" placeholder="Beschreibung" oninput="syncAusserhausTermin(${i},'beschreibung',this.value)" autocomplete="off">
       <button class="termin-row-btn cal" onclick="openGcalTermin(${i})" title="In Google Kalender eintragen">📅</button>
       <button class="termin-row-btn" onclick="openOutlookTermin(${i})" title="In Outlook Kalender eintragen" style="background:#0078d4;color:#fff;border:none;border-radius:5px;padding:0 8px;cursor:pointer;font-size:14px;">📆</button>
       <button class="termin-row-btn del" onclick="removeAusserhausTermin(${i})">✕</button>
@@ -3945,10 +3946,10 @@ function renderAusserhausTermine(){
     html+=`<div class="bau-sync-divider">📡 Von Bau Doku (${bauTermine.length})</div>`;
     html+=bauTermine.map(t=>`
     <div class="termin-row bau-readonly">
-      <input type="date" value="${t.datum||t.date||''}" disabled>
-      <input type="time" value="${t.von||''}" disabled>
-      <input type="time" value="${t.bis||''}" disabled>
-      <input type="text" value="${esc(t.beschreibung||t.titel||t.title||'')}" disabled>
+      <input type="date" value="${t.datum||t.date||''}" disabled autocomplete="off">
+      <input type="time" value="${t.von||''}" disabled autocomplete="off">
+      <input type="time" value="${t.bis||''}" disabled autocomplete="off">
+      <input type="text" value="${esc(t.beschreibung||t.titel||t.title||'')}" disabled autocomplete="off">
       <span></span><span></span>
     </div>`).join('');
   }
@@ -4039,10 +4040,10 @@ function renderZeiterfassung(){
       const calBtn=hasTime?`<button class="termin-row-btn" title="In Google Kalender eintragen" onclick="_openGcalZeitPC(${i})" style="background:#1a73e8;color:#fff;border:none;border-radius:5px;padding:0 8px;cursor:pointer;font-size:14px;">📅</button><button class="termin-row-btn" title="In Outlook Kalender eintragen" onclick="_openOutlookZeitPC(${i})" style="background:#0078d4;color:#fff;border:none;border-radius:5px;padding:0 8px;cursor:pointer;font-size:14px;">📆</button>`:'<span></span><span></span>';
       return `
     <div class="termin-row">
-      <input type="date" value="${e.date||''}" oninput="syncZeitEntry(${i},'date',this.value)">
-      <input type="time" value="${e.von||''}" oninput="syncZeitEntry(${i},'von',this.value)">
-      <input type="time" value="${e.bis||''}" oninput="syncZeitEntry(${i},'bis',this.value)">
-      <input type="text" value="${esc(e.beschreibung||'')}" placeholder="Beschreibung" oninput="syncZeitEntry(${i},'beschreibung',this.value)">
+      <input type="date" value="${e.date||''}" oninput="syncZeitEntry(${i},'date',this.value)" autocomplete="off">
+      <input type="time" value="${e.von||''}" oninput="syncZeitEntry(${i},'von',this.value)" autocomplete="off">
+      <input type="time" value="${e.bis||''}" oninput="syncZeitEntry(${i},'bis',this.value)" autocomplete="off">
+      <input type="text" value="${esc(e.beschreibung||'')}" placeholder="Beschreibung" oninput="syncZeitEntry(${i},'beschreibung',this.value)" autocomplete="off">
       ${calBtn}
       <button class="termin-row-btn del" onclick="removeZeitEntry(${i})">✕</button>
     </div>`;
@@ -4052,10 +4053,10 @@ function renderZeiterfassung(){
     html+=`<div class="bau-sync-divider">📡 Von Bau Doku (${bauZeiten.length})</div>`;
     html+=bauZeiten.map(z=>`
     <div class="termin-row bau-readonly">
-      <input type="date" value="${z.datum||z.date||''}" disabled>
-      <input type="time" value="${z.von||''}" disabled>
-      <input type="time" value="${z.bis||''}" disabled>
-      <input type="text" value="${esc(z.beschreibung||z.titel||z.title||'')}" disabled>
+      <input type="date" value="${z.datum||z.date||''}" disabled autocomplete="off">
+      <input type="time" value="${z.von||''}" disabled autocomplete="off">
+      <input type="time" value="${z.bis||''}" disabled autocomplete="off">
+      <input type="text" value="${esc(z.beschreibung||z.titel||z.title||'')}" disabled autocomplete="off">
       <span></span><span></span>
     </div>`).join('');
   }
@@ -4418,8 +4419,8 @@ function renderLinksList(){
   if(!taskLinks.length){el.innerHTML=`<div class="no-items-hint">Noch keine Links — oben hinzufügen</div>`;return;}
   el.innerHTML=taskLinks.map((l,i)=>`
     <div class="link-row">
-      <input type="text" value="${esc(l.label)}" placeholder="Bezeichnung" oninput="if(taskLinks && taskLinks[${i}])taskLinks[${i}].label=this.value">
-      <input type="url" class="url-input" value="${esc(l.url)}" placeholder="https://…" oninput="if(taskLinks && taskLinks[${i}])taskLinks[${i}].url=this.value">
+      <input type="text" value="${esc(l.label)}" placeholder="Bezeichnung" oninput="if(taskLinks && taskLinks[${i}])taskLinks[${i}].label=this.value" autocomplete="off">
+      <input type="url" class="url-input" value="${esc(l.url)}" placeholder="https://…" oninput="if(taskLinks && taskLinks[${i}])taskLinks[${i}].url=this.value" autocomplete="off">
       <button class="link-remove-btn" onclick="removeLink(${i})">✕</button>
     </div>`).join('');
 }
@@ -4537,7 +4538,7 @@ function _scanDriveShowDialog(files,existingIds,type,folderId){
     const icon=f.mimeType==='application/pdf'?'📕':f.name.endsWith('.eml')||f.name.endsWith('.msg')?'✉️':'📄';
     const sz=f.size?formatBytes(Number(f.size)):'';
     return`<label style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid var(--border);cursor:pointer;">
-      <input type="checkbox" class="_sdFile" data-id="${esc(f.id)}" data-name="${esc(f.name)}" data-mime="${esc(f.mimeType||'')}" checked style="width:15px;height:15px;flex-shrink:0;">
+      <input type="checkbox" class="_sdFile" data-id="${esc(f.id)}" data-name="${esc(f.name)}" data-mime="${esc(f.mimeType||'')}" checked style="width:15px;height:15px;flex-shrink:0;" autocomplete="off">
       <span style="font-size:16px;flex-shrink:0;">${icon}</span>
       <span style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(f.name)}">${esc(f.name)}</span>
       <span style="font-size:10px;color:var(--text2);flex-shrink:0;">${sz}</span>
@@ -5030,6 +5031,240 @@ function renderAttachList(){
   if(el)el.innerHTML='';
 }
 
+/* ══ PRÜFVORLAGEN (Desktop) ════════════════════════════════════════════════ */
+const PRUEF_VORLAGEN_DESKTOP={
+  flachdach:{
+    titel:'Flachdach-Check',
+    farbe:'#1a5c3a',
+    sektionen:[
+      {titel:'1 · Abdichtung & Oberfläche',items:[
+        'Dachabdichtung auf Risse / Blasen prüfen',
+        'Versprödung oder Alterungsschäden sichtbar?',
+        'Kiesschicht gleichmäßig verteilt (Kiesflachdach)',
+        'Aufkantungen / Randabschlüsse dicht?',
+        'Bewuchs (Moos, Pflanzen) entfernt?',
+        'Dampfsperre / Wärmedämmung unauffällig?',
+      ]},
+      {titel:'2 · Entwässerung',items:[
+        'Dachgullys / Abläufe frei und funktionsfähig?',
+        'Notüberlauf vorhanden und frei?',
+        'Gefälle zur Entwässerung ausreichend?',
+        'Dachrinnen und Fallrohre gereinigt?',
+      ]},
+      {titel:'3 · Anschlüsse & Durchdringungen',items:[
+        'Dachdurchdringungen (Rohre, Kabel) dicht?',
+        'Lichtkuppeln / Oberlichter dicht und gängig?',
+        'Wandanschlüsse und Attika in Ordnung?',
+        'Türschwellen / Terrassen-Anschlüsse dicht?',
+        'Dachrand-Abschlussprofile fest verankert?',
+      ]},
+    ]
+  }
+};
+
+function _openPruefDesktopFormular(existingIdx){
+  const t=findTaskById((document.getElementById('taskId')||{}).value||'');
+  if(!t){showToast('Bitte zuerst einen Task öffnen','error');return;}
+  if(!t.pruefberichte)t.pruefberichte=[];
+  const vorlage=PRUEF_VORLAGEN_DESKTOP.flachdach;
+  let bericht,berichtIdx;
+  if(typeof existingIdx==='number'&&t.pruefberichte[existingIdx]){
+    bericht=t.pruefberichte[existingIdx];
+    berichtIdx=existingIdx;
+  } else {
+    const heute=new Date();
+    const dd=String(heute.getDate()).padStart(2,'0');
+    const mm=String(heute.getMonth()+1).padStart(2,'0');
+    const yyyy=heute.getFullYear();
+    bericht={
+      titel:vorlage.titel,
+      datum:dd+'.'+mm+'.'+yyyy,
+      vorlage:'flachdach',
+      bemerkung:'',
+      createdAt:new Date().toISOString(),
+      sektionen:vorlage.sektionen.map(s=>({
+        titel:s.titel,
+        items:s.items.map(text=>({text,status:'offen',notiz:''}))
+      }))
+    };
+    t.pruefberichte.push(bericht);
+    berichtIdx=t.pruefberichte.length-1;
+    scheduleTaskFieldSave();
+    renderPruefberichteDesktop();
+  }
+
+  const GID='_pruefDesktopOverlay';
+  const old=document.getElementById(GID);if(old)old.remove();
+  const ov=document.createElement('div');
+  ov.id=GID;
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9500;display:flex;align-items:center;justify-content:center;';
+
+  const dlg=document.createElement('div');
+  dlg.style.cssText='background:var(--bg2);border:1px solid var(--border);border-radius:12px;width:min(780px,96vw);max-height:90vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.5);';
+
+  // Header
+  const hdr=document.createElement('div');
+  hdr.style.cssText='display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--border);flex-shrink:0;background:'+vorlage.farbe+';border-radius:12px 12px 0 0;';
+  const titleInput=document.createElement('input');
+  titleInput.value=bericht.titel||'Prüfbericht';
+  titleInput.style.cssText='flex:1;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:6px 10px;color:#fff;font-size:16px;font-weight:700;font-family:inherit;';
+  titleInput.autocomplete='off';
+  titleInput.oninput=()=>{bericht.titel=titleInput.value;scheduleTaskFieldSave();renderPruefberichteDesktop();};
+  const datumEl=document.createElement('input');
+  datumEl.type='text';
+  datumEl.value=bericht.datum||'';
+  datumEl.placeholder='TT.MM.JJJJ';
+  datumEl.style.cssText='width:110px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:6px 10px;color:#fff;font-size:13px;font-family:inherit;';
+  datumEl.autocomplete='off';
+  datumEl.oninput=()=>{bericht.datum=datumEl.value;scheduleTaskFieldSave();};
+  const closeBtn=document.createElement('button');
+  closeBtn.textContent='✕';
+  closeBtn.style.cssText='background:rgba(255,255,255,.2);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;flex-shrink:0;';
+  closeBtn.onclick=()=>ov.remove();
+  hdr.append(titleInput,datumEl,closeBtn);
+
+  // Stats bar
+  const statsBar=document.createElement('div');
+  statsBar.style.cssText='display:flex;gap:16px;padding:10px 18px;background:var(--bg3);border-bottom:1px solid var(--border);flex-shrink:0;font-size:12px;font-weight:600;';
+
+  function _updateStats(){
+    let ok=0,mangel=0,offen=0;
+    (bericht.sektionen||[]).forEach(s=>(s.items||[]).forEach(it=>{
+      if(it.status==='ok')ok++;else if(it.status==='mangel')mangel++;else offen++;
+    }));
+    const total=ok+mangel+offen;
+    statsBar.innerHTML='<span style="color:#1a7a3c;">✓ '+ok+' OK</span>'
+      +'<span style="color:var(--red);">⚠ '+mangel+' Mängel</span>'
+      +'<span style="color:var(--text2);">○ '+offen+' Offen</span>'
+      +'<span style="color:var(--text2);margin-left:auto;">'+ok+' / '+total+' geprüft</span>';
+  }
+  _updateStats();
+
+  // Body – scrollable sections
+  const body=document.createElement('div');
+  body.style.cssText='flex:1;overflow-y:auto;padding:14px 18px;';
+
+  function _cycleStatus(it,btn){
+    const order=['offen','ok','mangel'];
+    const next=order[(order.indexOf(it.status)+1)%3];
+    it.status=next;
+    const colors={ok:'#1a7a3c',mangel:'var(--red)',offen:'var(--text2)'};
+    const labels={ok:'✓ OK',mangel:'⚠ Mangel',offen:'○ Offen'};
+    btn.textContent=labels[next];
+    btn.style.color=colors[next];
+    btn.style.borderColor=next==='ok'?'#1a7a3c':next==='mangel'?'var(--red)':'var(--border)';
+    btn.style.background=next==='ok'?'rgba(26,122,60,.12)':next==='mangel'?'rgba(231,76,60,.1)':'transparent';
+    scheduleTaskFieldSave();
+    _updateStats();
+    renderPruefberichteDesktop();
+    // Show/hide notiz
+    const row=btn.closest('.pruef-item-row');
+    if(row){
+      const notizWrap=row.querySelector('.pruef-notiz-wrap');
+      if(notizWrap)notizWrap.style.display=next==='mangel'?'':'none';
+    }
+  }
+
+  function _buildSectionEl(sek,si){
+    const secDiv=document.createElement('div');
+    secDiv.style.cssText='margin-bottom:16px;';
+    const secTitle=document.createElement('div');
+    secTitle.style.cssText='font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;padding:6px 0;border-bottom:1px solid var(--border);margin-bottom:8px;';
+    secTitle.textContent=sek.titel;
+    secDiv.appendChild(secTitle);
+    (sek.items||[]).forEach((it,ii)=>{
+      const row=document.createElement('div');
+      row.className='pruef-item-row';
+      row.style.cssText='display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);';
+      const colors={ok:'#1a7a3c',mangel:'var(--red)',offen:'var(--text2)'};
+      const labels={ok:'✓ OK',mangel:'⚠ Mangel',offen:'○ Offen'};
+      const statusBtn=document.createElement('button');
+      statusBtn.textContent=labels[it.status||'offen'];
+      statusBtn.style.cssText='flex-shrink:0;width:90px;padding:5px 6px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;color:'+(colors[it.status||'offen'])+';border:1px solid '+(it.status==='ok'?'#1a7a3c':it.status==='mangel'?'var(--red)':'var(--border)')+';background:'+(it.status==='ok'?'rgba(26,122,60,.12)':it.status==='mangel'?'rgba(231,76,60,.1)':'transparent')+';';
+      statusBtn.onclick=()=>_cycleStatus(it,statusBtn);
+      const textEl=document.createElement('span');
+      textEl.style.cssText='flex:1;font-size:13px;color:var(--text);line-height:1.4;padding-top:4px;';
+      textEl.textContent=it.text||'';
+      const rightCol=document.createElement('div');
+      rightCol.style.cssText='flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:4px;';
+      const notizWrap=document.createElement('div');
+      notizWrap.className='pruef-notiz-wrap';
+      notizWrap.style.cssText='display:'+(it.status==='mangel'?'':'none')+';';
+      const notizIn=document.createElement('textarea');
+      notizIn.placeholder='Notiz…';
+      notizIn.value=it.notiz||'';
+      notizIn.rows=2;
+      notizIn.autocomplete='off';
+      notizIn.style.cssText='width:180px;font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:inherit;resize:vertical;';
+      notizIn.oninput=()=>{it.notiz=notizIn.value;scheduleTaskFieldSave();};
+      notizWrap.appendChild(notizIn);
+      const notizToggle=document.createElement('button');
+      notizToggle.textContent='+ Notiz';
+      notizToggle.style.cssText='font-size:10px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;display:'+(it.status==='mangel'?'none':'');
+      notizToggle.onclick=()=>{notizWrap.style.display='';notizToggle.style.display='none';notizIn.focus();};
+      rightCol.append(notizToggle,notizWrap);
+      row.append(statusBtn,textEl,rightCol);
+      secDiv.appendChild(row);
+    });
+    // + Freier Eintrag
+    const addBtn=document.createElement('button');
+    addBtn.textContent='+ Freier Eintrag';
+    addBtn.style.cssText='margin-top:6px;font-size:11px;padding:4px 12px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;';
+    addBtn.onclick=()=>{
+      const txt=prompt('Neuer Prüfpunkt:');
+      if(!txt||!txt.trim())return;
+      sek.items.push({text:txt.trim(),status:'offen',notiz:''});
+      scheduleTaskFieldSave();
+      _updateStats();
+      renderPruefberichteDesktop();
+      // Rebuild only this section
+      const newEl=_buildSectionEl(sek,si);
+      secDiv.replaceWith(newEl);
+    };
+    secDiv.appendChild(addBtn);
+    return secDiv;
+  }
+
+  (bericht.sektionen||[]).forEach((sek,si)=>{
+    body.appendChild(_buildSectionEl(sek,si));
+  });
+
+  // Bemerkung
+  const bemDiv=document.createElement('div');
+  bemDiv.style.cssText='margin-top:8px;';
+  const bemLabel=document.createElement('div');
+  bemLabel.style.cssText='font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;';
+  bemLabel.textContent='Bemerkungen';
+  const bemIn=document.createElement('textarea');
+  bemIn.placeholder='Allgemeine Bemerkungen zum Bericht…';
+  bemIn.value=bericht.bemerkung||'';
+  bemIn.rows=3;
+  bemIn.autocomplete='off';
+  bemIn.style.cssText='width:100%;box-sizing:border-box;font-size:13px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:inherit;resize:vertical;';
+  bemIn.oninput=()=>{bericht.bemerkung=bemIn.value;scheduleTaskFieldSave();};
+  bemDiv.append(bemLabel,bemIn);
+  body.appendChild(bemDiv);
+
+  // Footer
+  const footer=document.createElement('div');
+  footer.style.cssText='display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--border);background:var(--bg3);border-radius:0 0 12px 12px;flex-shrink:0;';
+  const pdfBtn=document.createElement('button');
+  pdfBtn.style.cssText='flex:1;padding:10px;border-radius:8px;background:'+vorlage.farbe+';color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;';
+  pdfBtn.textContent='📄 PDF erstellen';
+  pdfBtn.onclick=()=>_pruefDesktopPdf(berichtIdx);
+  const closeBtn2=document.createElement('button');
+  closeBtn2.style.cssText='padding:10px 18px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:13px;cursor:pointer;';
+  closeBtn2.textContent='Schließen';
+  closeBtn2.onclick=()=>ov.remove();
+  footer.append(pdfBtn,closeBtn2);
+
+  dlg.append(hdr,statsBar,body,footer);
+  ov.appendChild(dlg);
+  // Close on backdrop click
+  ov.onclick=e=>{if(e.target===ov)ov.remove();};
+  document.body.appendChild(ov);
+}
+
 /* ══ PRÜFFORMULARE (Desktop) ════════════════════════════════════════════════ */
 function renderPruefberichteDesktop(){
   const el=document.getElementById('pruefberichteList');
@@ -5039,7 +5274,7 @@ function renderPruefberichteDesktop(){
   const ti=document.getElementById('tPruefTitle');
   if(ti)ti.innerHTML='&#128203; Prüfformulare'+(berichte.length?` <span style="color:var(--accent2);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">(${berichte.length})</span>`:'');
   if(!berichte.length){
-    el.innerHTML='<div style="color:var(--text2);font-size:12px;padding:8px 0;">Noch keine Prüfberichte vorhanden.<br><small>Berichte werden über die Mobile-App erstellt.</small></div>';
+    el.innerHTML='<div style="color:var(--text2);font-size:12px;padding:8px 0;">Noch keine Prüfberichte. Klicke <b>+ Neu</b> um einen zu erstellen.</div>';
     return;
   }
   el.innerHTML=berichte.map((b,bi)=>{
@@ -5056,9 +5291,10 @@ function renderPruefberichteDesktop(){
       </div>
       <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">${esc(b.datum||'')}${b.driveFileId?' · <span style="color:var(--accent);">In Drive gespeichert</span>':''}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button onclick="_openPruefDesktopFormular(${bi})" style="padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:11px;cursor:pointer;font-weight:600;">✏ Öffnen</button>
         <button onclick="_pruefDesktopPdf(${bi})" style="padding:5px 12px;border-radius:6px;border:1px solid var(--accent);background:rgba(108,99,255,.08);color:var(--accent);font-size:11px;cursor:pointer;font-weight:600;">📄 PDF</button>
-        ${b.driveFileId?`<button onclick="window.open('https://drive.google.com/file/d/${b.driveFileId}/view','_blank')" style="padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:11px;cursor:pointer;">📂 Drive</button>`:''}
-        <button onclick="_pruefDesktopDelete(${bi})" style="padding:5px 10px;border-radius:6px;border:1px solid rgba(231,76,60,.4);background:transparent;color:var(--red);font-size:11px;cursor:pointer;">✕</button>
+        ${b.driveFileId?`<button onclick="window.open('https://drive.google.com/file/d/${b.driveFileId}/view','_blank')" style="padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:11px;cursor:pointer;">📂 Drive</button><button onclick="_pruefDesktopDeletePdf(${bi})" title="Nur das PDF aus Drive löschen – Berichtsdaten bleiben" style="padding:5px 10px;border-radius:6px;border:1px solid rgba(231,76,60,.3);background:transparent;color:var(--red);font-size:11px;cursor:pointer;opacity:.75;">📄✕</button>`:''}
+        <button onclick="_pruefDesktopDelete(${bi})" title="Gesamten Bericht löschen" style="padding:5px 10px;border-radius:6px;border:1px solid rgba(231,76,60,.4);background:transparent;color:var(--red);font-size:11px;cursor:pointer;">🗑 Bericht</button>
       </div>
       ${b.bemerkung?`<div style="margin-top:8px;font-size:11px;color:var(--text2);border-top:1px solid var(--border);padding-top:6px;">${esc(b.bemerkung)}</div>`:''}
     </div>`;
@@ -5108,10 +5344,26 @@ async function _pruefDesktopPdf(idx){
 
 function _pruefDesktopDelete(idx){
   const t=findTaskById((document.getElementById('taskId')||{}).value||'');if(!t||!t.pruefberichte)return;
-  if(!confirm('Prüfbericht löschen?'))return;
+  if(!confirm('Gesamten Prüfbericht löschen? (Alle Daten und Checkpunkte)'))return;
   t.pruefberichte.splice(idx,1);
   scheduleTaskFieldSave();
   renderPruefberichteDesktop();
+}
+async function _pruefDesktopDeletePdf(idx){
+  const t=findTaskById((document.getElementById('taskId')||{}).value||'');
+  if(!t||!t.pruefberichte||!t.pruefberichte[idx])return;
+  const b=t.pruefberichte[idx];
+  if(!b.driveFileId){showToast('Kein PDF in Drive vorhanden','info');return;}
+  if(!confirm('PDF aus Drive löschen?\nDie Berichtsdaten bleiben erhalten.'))return;
+  try{
+    const r=await fetch('https://www.googleapis.com/drive/v3/files/'+b.driveFileId,{method:'DELETE',headers:{Authorization:'Bearer '+gdriveToken}});
+    if(r.status===204||r.ok){
+      delete b.driveFileId;
+      scheduleTaskFieldSave();
+      renderPruefberichteDesktop();
+      showToast('📄 PDF aus Drive gelöscht – Berichtsdaten bleiben','success');
+    }else{showToast('Fehler beim Löschen: '+r.status,'error');}
+  }catch(e){showToast('Fehler: '+e.message,'error');}
 }
 function _markIf360(imgEl,i){
   // Ratio ≥ 1.8 → 360°-Badge nachträglich setzen + merken
@@ -6512,12 +6764,12 @@ function addKontaktPTP(rolle,name,tel,email){
     +'<button type="button" class="rm-btn" style="padding:2px 6px;font-size:11px;" onclick="this.closest(\'.kontakt-entry\').remove();updateKontaktePTPTitle()" title="Entfernen">✕</button>'
     +'</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">'
-    +'<div class="modal-field" style="margin:0"><label style="font-size:10px">Name</label><input type="text" class="k-name" value="'+name.replace(/"/g,'&quot;')+'" placeholder="Max Mustermann" style="'+fs+'"></div>'
+    +'<div class="modal-field" style="margin:0"><label style="font-size:10px">Name</label><input type="text" class="k-name" value="'+name.replace(/"/g,'&quot;')+'" placeholder="Max Mustermann" style="'+fs+'" autocomplete="off"></div>'
     +'<div class="modal-field" style="margin:0"><label style="font-size:10px">Telefon</label><div style="display:flex;gap:3px;">'
-    +'<input type="tel" class="k-tel" value="'+tel.replace(/"/g,'&quot;')+'" style="flex:1;'+fs+'" placeholder="0361 / 123456">'
+    +'<input type="tel" class="k-tel" value="'+tel.replace(/"/g,'&quot;')+'" style="flex:1;'+fs+'" placeholder="0361 / 123456" autocomplete="off">'
     +'<a class="tel-call-btn'+(tel?'':' disabled')+'" href="'+(tel?'tel:'+tel:'#')+'"><span style="font-size:15px">📞</span></a>'
     +'</div></div>'
-    +'<div class="modal-field" style="margin:0;grid-column:1/-1"><label style="font-size:10px">E-Mail</label><input type="email" class="k-email" value="'+email.replace(/"/g,'&quot;')+'" placeholder="max@beispiel.de" style="'+fs+'"></div>'
+    +'<div class="modal-field" style="margin:0;grid-column:1/-1"><label style="font-size:10px">E-Mail</label><input type="email" class="k-email" value="'+email.replace(/"/g,'&quot;')+'" placeholder="max@beispiel.de" style="'+fs+'" autocomplete="off"></div>'
     +'</div>';
   const telInput=div.querySelector('.k-tel');
   const telLink=div.querySelector('.tel-call-btn');
@@ -7667,8 +7919,8 @@ function renderCheckliste(){
   if(!taskCheckliste.length){el.innerHTML='';_updateChecklisteTitle();return;}
   el.innerHTML=taskCheckliste.map((item,i)=>`
     <div class="checkliste-item">
-      <input type="checkbox" ${item.done?'checked':''} onchange="taskCheckliste[${i}].done=this.checked;this.nextElementSibling.classList.toggle('done-text',this.checked);scheduleTaskFieldSave();_updateChecklisteTitle()">
-      <input type="text" value="${esc(item.text)}" placeholder="Aufgabe…" class="${item.done?'done-text':''}" oninput="taskCheckliste[${i}].text=this.value;scheduleTaskFieldSave()">
+      <input type="checkbox" ${item.done?'checked':''} onchange="taskCheckliste[${i}].done=this.checked;this.nextElementSibling.classList.toggle('done-text',this.checked);scheduleTaskFieldSave();_updateChecklisteTitle()" autocomplete="off">
+      <input type="text" value="${esc(item.text)}" placeholder="Aufgabe…" class="${item.done?'done-text':''}" oninput="taskCheckliste[${i}].text=this.value;scheduleTaskFieldSave()" autocomplete="off">
       <button type="button" class="ck-del" onclick="removeChecklistItem(${i})">✕</button>
     </div>`).join('');
   _updateChecklisteTitle();
@@ -7899,7 +8151,7 @@ function renderColList(){
   document.getElementById('colList').innerHTML=editStatuses.map((s,i)=>`
     <div class="col-row">
       <span class="col-dot" style="background:${colColor(i)}"></span>
-      <input type="text" value="${esc(s)}" id="colinput-${i}" placeholder="Spaltenname">
+      <input type="text" value="${esc(s)}" id="colinput-${i}" placeholder="Spaltenname" autocomplete="off">
       <div class="col-row-btns">
         <button class="col-icon-btn" onclick="moveCol(${i},-1)" ${i===0?'disabled':''}>▲</button>
         <button class="col-icon-btn" onclick="moveCol(${i},1)" ${i===editStatuses.length-1?'disabled':''}>▼</button>
@@ -7955,14 +8207,14 @@ function renderProjList(){
          ondragover="onProjDragOver(event)" ondragleave="onProjDragLeave(event)" ondrop="onProjDrop(event,${i})">
       <span class="proj-drag" title="Ziehen zum Umsortieren" style="cursor:grab;user-select:none;color:var(--text2);padding:0 4px;">⋮⋮</span>
       <span class="proj-icon">${(p.type||'baustelle')==='notiz'?'✅':'🏗'}</span>
-      <input type="text" value="${esc(p.name)}" id="projinput-${i}" placeholder="Projektname">
+      <input type="text" value="${esc(p.name)}" id="projinput-${i}" placeholder="Projektname" autocomplete="off">
       <span class="proj-count">${p.count} Task${p.count!==1?'s':''}</span>
       <select id="projtype-${i}" class="proj-type-sel" title="Projekt-Typ">
         <option value="baustelle" ${(p.type||'baustelle')==='baustelle'?'selected':''}>🏗 Baustelle</option>
         <option value="notiz" ${(p.type||'baustelle')==='notiz'?'selected':''}>✅ Aufgaben</option>
       </select>
       <label class="proj-mobile" title="Auf PTP Mobile anzeigen" style="display:flex;align-items:center;gap:4px;margin:0 6px;font-size:12px;color:var(--text2);cursor:pointer;user-select:none;">
-        <input type="checkbox" id="projmob-${i}" ${p.mobile?'checked':''} onchange="toggleProjMobile(${i})" style="margin:0;cursor:pointer;">
+        <input type="checkbox" id="projmob-${i}" ${p.mobile?'checked':''} onchange="toggleProjMobile(${i})" style="margin:0;cursor:pointer;" autocomplete="off">
         📱 Mobile
       </label>
       <button class="col-icon-btn" onclick="removeProject(${i})" ${editProjects.length<=1?'disabled':''} style="color:var(--red)" title="Projekt löschen">✕</button>
@@ -8599,243 +8851,4 @@ function _buildTaskSummaryPdfBytes(data){
   const M=20,PW=210,CW=PW-2*M;
   // Header-Balken
   doc.setFillColor(37,99,235);doc.rect(0,0,210,28,'F');
-  doc.setTextColor(255,255,255);doc.setFontSize(16);doc.setFont('helvetica','bold');
-  doc.text('PTP Workboard – Aufgabenarchiv',M,17);
-  doc.setFontSize(9);doc.setFont('helvetica','normal');
-  doc.text(new Date().toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),PW-M,17,{align:'right'});
-  let y=38;
-  // Titel
-  doc.setTextColor(0,0,0);doc.setFontSize(14);doc.setFont('helvetica','bold');
-  doc.text(data.title||'(kein Titel)',M,y);y+=6;
-  if(data.status){doc.setFontSize(10);doc.setFont('helvetica','normal');doc.setTextColor(100,100,100);doc.text('Status: '+data.status,M,y);y+=5;}
-  doc.setDrawColor(220,220,220);doc.line(M,y,PW-M,y);y+=6;
-  // Stammdaten
-  const rows=[];
-  if(data.hausverwaltung)rows.push(['Auftraggeber / HV',data.hausverwaltung]);
-  if(data.adresse)rows.push(['Adresse',data.adresse]);
-  if(data.schadensbild)rows.push(['Beschreibung',data.schadensbild]);
-  if(data.nas)rows.push(['NAS-Pfad',data.nas]);
-  if(rows.length){
-    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);doc.text('Stammdaten',M,y);y+=4;
-    doc.autoTable({startY:y,margin:{left:M,right:M},theme:'grid',styles:{fontSize:9,cellPadding:2},
-      columnStyles:{0:{cellWidth:45,fontStyle:'bold',fillColor:[245,245,250]},1:{cellWidth:CW-45}},body:rows});
-    y=doc.lastAutoTable.finalY+6;
-  }
-  // Notizen
-  if(data.notizVerlauf&&data.notizVerlauf.length){
-    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);doc.text('Notizen ('+data.notizVerlauf.length+')',M,y);y+=4;
-    doc.autoTable({startY:y,margin:{left:M,right:M},theme:'striped',styles:{fontSize:8,cellPadding:2},
-      columnStyles:{0:{cellWidth:28,fontStyle:'italic',textColor:[120,120,120]},1:{cellWidth:CW-28}},
-      body:data.notizVerlauf.map(n=>[n.date||'',n.text||''])});
-    y=doc.lastAutoTable.finalY+6;
-  }
-  // Checkliste
-  if(data.checkliste&&data.checkliste.length){
-    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);doc.text('Checkliste ('+data.checkliste.length+')',M,y);y+=4;
-    doc.autoTable({startY:y,margin:{left:M,right:M},theme:'striped',styles:{fontSize:8,cellPadding:2},
-      columnStyles:{0:{cellWidth:10,halign:'center'},1:{cellWidth:CW-10}},
-      body:data.checkliste.map(c=>[(c.done?'✓':'○'),c.text||''])});
-    y=doc.lastAutoTable.finalY+6;
-  }
-  // Zeiterfassung
-  if(data.zeitEntries&&data.zeitEntries.length){
-    const total=data.zeitEntries.reduce((s,e)=>s+(parseInt(e.minuten,10)||0),0);
-    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);
-    doc.text('Zeiterfassung – '+Math.floor(total/60)+'h '+(total%60)+'min',M,y);y+=4;
-    doc.autoTable({startY:y,margin:{left:M,right:M},theme:'striped',styles:{fontSize:8,cellPadding:2},
-      head:[['Datum','Von','Bis','Dauer','Beschreibung']],
-      body:data.zeitEntries.map(e=>[e.datum||'',e.von||'',e.bis||'',(e.minuten||0)+'min',e.beschreibung||''])});
-    y=doc.lastAutoTable.finalY+6;
-  }
-  // Termine
-  if(data.ausserhausTermine&&data.ausserhausTermine.length){
-    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);doc.text('Außerhaus-Termine ('+data.ausserhausTermine.length+')',M,y);y+=4;
-    doc.autoTable({startY:y,margin:{left:M,right:M},theme:'striped',styles:{fontSize:8,cellPadding:2},
-      head:[['Datum','Zeit','Beschreibung']],
-      body:data.ausserhausTermine.map(t=>[t.date||'',(t.von||'')+'–'+(t.bis||''),t.beschreibung||''])});
-    y=doc.lastAutoTable.finalY+6;
-  }
-  // Dateiliste
-  const allFiles=[
-    ...(data.emailOriginals||[]).map(e=>['📨 E-Mail Original',e.name||'',e.uploadedAt||'']),
-    ...(data.emailPdfs||[]).map(p=>['📄 E-Mail PDF',p.name||'',p.uploadedAt||'']),
-    ...(data.attachments||[]).map(a=>['📎 Anhang',a.name||'',a.uploadedAt||'']),
-    ...(data.fotos||[]).map(f=>['📷 Foto',f.name||'',''])
-  ];
-  if(allFiles.length){
-    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);doc.text('Dateien & E-Mails ('+allFiles.length+')',M,y);y+=4;
-    doc.autoTable({startY:y,margin:{left:M,right:M},theme:'striped',styles:{fontSize:8,cellPadding:2},
-      head:[['Typ','Dateiname','Datum']],body:allFiles});
-    y=doc.lastAutoTable.finalY+6;
-  }
-  // Fußzeile
-  const pg=doc.internal.getNumberOfPages();
-  for(let i=1;i<=pg;i++){
-    doc.setPage(i);doc.setFontSize(8);doc.setTextColor(180,180,180);
-    doc.text('PTP Workboard – exportiert am '+new Date().toLocaleDateString('de-DE'),M,290);
-    doc.text('Seite '+i+'/'+pg,PW-M,290,{align:'right'});
-  }
-  return doc.output('arraybuffer');
-}
-
-async function _buildFotosPdfForExport(fotos){
-  if(!fotos||!fotos.length||!window.jspdf)return null;
-  const {jsPDF}=window.jspdf;
-  let doc=null;
-  for(const f of fotos){
-    let url=f.driveId?_desktopFotoBlobCache.get(f.driveId):null;
-    if(!url&&f.driveId)url=await _fetchDesktopFotoBlob(f.driveId);
-    if(!url&&f.url)url=f.url;
-    if(!url)continue;
-    const corrected=await _correctFotoForPdf(url);
-    const imgInfo=await new Promise(res=>{
-      const img=new Image();
-      img.onload=()=>res({w:img.naturalWidth,h:img.naturalHeight,src:corrected});
-      img.onerror=()=>res(null);img.src=corrected;
-    });
-    if(!imgInfo)continue;
-    const landscape=imgInfo.w>imgInfo.h;
-    const fmt=landscape?[297,210]:[210,297];
-    if(!doc)doc=new jsPDF({orientation:landscape?'landscape':'portrait',unit:'mm',format:fmt});
-    else doc.addPage(fmt,landscape?'landscape':'portrait');
-    doc.addImage(imgInfo.src,'JPEG',0,0,fmt[0],fmt[1],'','FAST');
-    const cap=f.caption||f.name||'';
-    if(cap){doc.setFontSize(9);doc.setTextColor(100);doc.text(cap,6,fmt[1]-4);}
-  }
-  return doc?doc.output('arraybuffer'):null;
-}
-
-async function _loadJSZip(){
-  if(window.JSZip)return;
-  await new Promise((res,rej)=>{
-    const s=document.createElement('script');
-    s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-    s.onload=res;s.onerror=rej;document.head.appendChild(s);
-  });
-}
-
-async function exportTaskZip(){
-  try{
-    showToast('⏳ ZIP wird vorbereitet…','info');
-    await _loadJSZip();
-    const data=_collectTaskData();
-    const zip=new JSZip();
-    const safe=(data.title||'Task').replace(/[^\wÄÖÜäöüß\- ]/g,'_').trim()||'Task';
-    // 1. JSON
-    zip.file('aufgabe.json',JSON.stringify(data,null,2));
-    // 2. Lesbare Zusammenfassung
-    showToast('📄 Zusammenfassung wird erstellt…','info');
-    try{const b=_buildTaskSummaryPdfBytes(data);if(b)zip.file('aufgabe_zusammenfassung.pdf',b);}catch(e){console.warn('[PTP] SummaryPDF:',e);}
-    // 3. E-Mail Originale
-    if((taskEmailOriginals||[]).length&&gdriveToken){
-      showToast('📨 E-Mails werden geladen…','info');
-      for(const e of taskEmailOriginals){
-        try{const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(e.fileId)+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}});
-          if(r.ok)zip.folder('emails').file(e.name||'email',await r.arrayBuffer());}
-        catch(err){console.warn('[PTP] Email-DL:',err);}
-      }
-    }
-    // 4. E-Mail PDFs
-    if((taskEmailPdfs||[]).length&&gdriveToken){
-      for(const p of taskEmailPdfs){
-        try{const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(p.fileId)+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}});
-          if(r.ok)zip.folder('email_pdfs').file(p.name||'email.pdf',await r.arrayBuffer());}
-        catch(err){console.warn('[PTP] PDF-DL:',err);}
-      }
-    }
-    // 5. Dateianhänge
-    if((taskAttachments||[]).filter(a=>a.fileId).length&&gdriveToken){
-      showToast('📎 Anhänge werden geladen…','info');
-      for(const a of taskAttachments){
-        if(!a.fileId)continue;
-        try{const r=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(a.fileId)+'?alt=media',{headers:{Authorization:'Bearer '+gdriveToken}});
-          if(r.ok)zip.folder('anhaenge').file(a.name||'datei',await r.arrayBuffer());}
-        catch(err){console.warn('[PTP] Anhang-DL:',err);}
-      }
-    }
-    // 6. Fotos als PDF
-    if((taskFotos||[]).length){
-      showToast('📷 Fotos werden zusammengestellt…','info');
-      try{const b=await _buildFotosPdfForExport(taskFotos);if(b)zip.file('fotos.pdf',b);}
-      catch(e){console.warn('[PTP] FotosPDF:',e);}
-    }
-    // ZIP erstellen
-    showToast('📦 ZIP wird generiert…','info');
-    const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
-    const fname=safe+'_'+new Date().toISOString().slice(0,10)+'.zip';
-    // Drive-Ordner ermitteln: erst Projektordner, dann Drive-Link
-    const folderUrl=((document.getElementById('tGDOrdner')||{}).value||
-                     (document.getElementById('tGDOrdner')||{}).value||
-                     (document.getElementById('tGD')||{}).value||'').trim();
-    if(gdriveToken&&folderUrl){
-      const fid=_ezFolderId(folderUrl);
-      if(fid){
-        showToast('☁️ Dateien werden in Drive hochgeladen…','info',4000);
-        let uploaded=0;
-        for(const [folder,arr,pushFn] of [
-          ['emails',taskEmailOriginals,e=>taskEmailOriginals.push(e)],
-          ['email_pdfs',taskEmailPdfs,e=>taskEmailPdfs.push(e)],
-          ['anhaenge',taskAttachments,e=>taskAttachments.push(e)]
-        ]){
-          const paths=Object.keys(zip.files).filter(n=>n.startsWith(folder+'/'));
-          for(const path of paths){
-            const fileName=path.split('/').pop();
-            if(!fileName)continue;
-            try{
-              const ab=await zip.file(path).async('arraybuffer');
-              const r=await _ezUpload(ab,fileName,fid);
-              if(r&&r.id){
-                pushFn({name:fileName,fileId:r.id,url:'https://drive.google.com/file/d/'+r.id+'/view',uploadedAt:new Date().toLocaleDateString('de-DE')});
-                uploaded++;
-              }
-            }catch(e){console.warn('[PTP] ZIP-Upload fehlgeschlagen:',e);}
-          }
-        }
-        if(uploaded>0){
-          renderEmailSection();renderAttachList();
-          scheduleTaskFieldSave();
-          showToast('✅ '+uploaded+' Datei(en) in Drive hochgeladen','success',5000);
-        }
-      }
-    }
-  }catch(e){
-    showToast('⚠ Fehler beim Einlesen: '+e.message,'error',6000);
-    console.error('[PTP] importTaskFromZip:',e);
-  }
-}
-
-function _openNotizOverlay(){
-  const src=document.getElementById('taskDescInput');
-  if(!src)return;
-  const old=document.getElementById('_notizOverlay');if(old)old.remove();
-  const ov=document.createElement('div');
-  ov.id='_notizOverlay';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000000;display:flex;align-items:center;justify-content:center;';
-  const box=document.createElement('div');
-  box.style.cssText='background:var(--bg2);border-radius:12px;padding:20px;width:70vw;max-width:900px;height:70vh;display:flex;flex-direction:column;gap:10px;box-shadow:0 12px 50px rgba(0,0,0,.5);';
-  const hdr=document.createElement('div');
-  hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;';
-  hdr.innerHTML='<span style="font-size:13px;font-weight:700;color:var(--text2);">\u{1F4DD} Notizen bearbeiten</span>'
-    +'<button id="_notizOverlayClose" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2);line-height:1;padding:0 4px;" title="Schlie\u00DFen">\u2715</button>';
-  const ta=document.createElement('textarea');
-  ta.value=src.value;
-  ta.style.cssText='flex:1;resize:none;border:1px solid var(--border);border-radius:8px;padding:12px;font-size:14px;font-family:inherit;background:var(--bg3);color:var(--text);line-height:1.6;';
-  ta.placeholder='Interne Notizen\u2026';
-  const foot=document.createElement('div');
-  foot.style.cssText='display:flex;gap:8px;justify-content:flex-end;';
-  foot.innerHTML='<button onclick="document.getElementById(\'_notizOverlay\').remove()" style="padding:7px 18px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;">Abbrechen</button>'
-    +'<button id="_notizOverlaySave" style="padding:7px 18px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-weight:600;cursor:pointer;">\u00DCbernehmen</button>';
-  box.appendChild(hdr);box.appendChild(ta);box.appendChild(foot);
-  ov.appendChild(box);document.body.appendChild(ov);
-  ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);
-  function _save(){src.value=ta.value;ov.remove();}
-  document.getElementById('_notizOverlaySave').onclick=_save;
-  document.getElementById('_notizOverlayClose').onclick=_save;
-  ov.addEventListener('click',function(e){if(e.target===ov)_save();});
-  document.addEventListener('keydown',function _esc(e){if(e.key==='Escape'){_save();document.removeEventListener('keydown',_esc);}});
-}
-
-
-</script>
-</body>
-</html>
+  doc.setTextColor(255,255,255);doc.setFontSize(16);doc.setFont('helvetica',
