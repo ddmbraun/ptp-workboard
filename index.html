@@ -6667,7 +6667,7 @@ function _openEmailThumbnailGrid(){
 
   /* Sidebar */
   const sidebar=document.createElement('div');
-  sidebar.style.cssText='width:290px;flex-shrink:0;overflow-y:auto;border-right:1px solid var(--border);padding:8px;display:flex;flex-direction:column;gap:6px;background:var(--bg3);';
+  sidebar.style.cssText='width:310px;flex-shrink:0;overflow-y:auto;border-right:1px solid var(--border);padding:8px;display:flex;flex-direction:column;gap:6px;background:var(--bg3);';
 
   /* Vorschau */
   const previewWrap=document.createElement('div');
@@ -6728,12 +6728,17 @@ function _openEmailThumbnailGrid(){
               +'<div style="padding:14px 18px;font-size:13px;color:var(--text1);line-height:1.55;">'+cleanBody+'</div>';
           })
           .catch(ex=>{previewContent.innerHTML='<div style="padding:20px;color:var(--red);font-size:12px;">⚠ '+esc(ex.message)+'</div>';});
-      } else if(item.fileId&&gdriveToken){
-        previewContent.style.cssText='flex:1;overflow:hidden;';
-        const fr=document.createElement('iframe');
-        fr.src='https://drive.google.com/file/d/'+item.fileId+'/preview';
-        fr.style.cssText='width:100%;height:100%;border:none;';
-        previewContent.innerHTML='';previewContent.appendChild(fr);
+      } else if(item.fileId){
+        /* .msg Datei – keine Browservorschau möglich */
+        previewContent.style.cssText='flex:1;overflow-y:auto;display:flex;align-items:center;justify-content:center;';
+        const msgBox=document.createElement('div');
+        msgBox.style.cssText='text-align:center;padding:30px 24px;max-width:340px;';
+        const driveLink=item.fileId?'https://drive.google.com/file/d/'+item.fileId+'/view':'';
+        msgBox.innerHTML='<div style="font-size:48px;margin-bottom:12px;">📧</div>'
+          +'<div style="font-size:14px;font-weight:600;color:var(--text1);margin-bottom:8px;">'+esc(item.name||item.filename||'E-Mail')+'</div>'
+          +'<div style="font-size:12px;color:var(--text2);margin-bottom:18px;line-height:1.5;">.msg-Dateien können im Browser nicht direkt angezeigt werden.<br>Bitte öffne die Datei in Google Drive oder lade sie herunter.</div>'
+          +(driveLink?'<a href="'+driveLink+'" target="_blank" style="display:inline-block;padding:8px 16px;background:var(--accent);color:#fff;border-radius:6px;text-decoration:none;font-size:12px;font-weight:600;">🔗 In Drive öffnen</a>':'');
+        previewContent.innerHTML='';previewContent.appendChild(msgBox);
       } else {
         previewContent.style.cssText='flex:1;overflow-y:auto;';
         previewContent.innerHTML='<div style="padding:20px;font-size:12px;color:var(--text2);">📨 '+esc(item.name||'E-Mail')+'</div>';
@@ -6802,9 +6807,7 @@ function _openEmailThumbnailGrid(){
           .catch(()=>{bodyPrev.textContent='';});
       }
     } else if(isPdf){
-      bodyPrev.style.fontStyle='italic';
-      bodyPrev.style.opacity='.5';
-      bodyPrev.textContent='PDF-Vorschau rechts';
+      bodyPrev.textContent='';
     }
 
     tileTop.append(topRow,bodyPrev);
@@ -6905,7 +6908,7 @@ function _openAttachThumbnailGrid(){
   body.style.cssText='display:flex;flex:1;overflow:hidden;';
 
   const sidebar=document.createElement('div');
-  sidebar.style.cssText='width:245px;flex-shrink:0;overflow-y:auto;border-right:1px solid var(--border);padding:8px;display:flex;flex-direction:column;gap:5px;background:var(--bg3);';
+  sidebar.style.cssText='width:310px;flex-shrink:0;overflow-y:auto;border-right:1px solid var(--border);padding:8px;display:flex;flex-direction:column;gap:5px;background:var(--bg3);';
 
   const previewWrap=document.createElement('div');
   previewWrap.style.cssText='flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg2);';
@@ -7015,7 +7018,7 @@ function _openAttachThumbnailGrid(){
     const tileWrap=document.createElement('div');
     tileWrap.style.cssText='border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);overflow:hidden;transition:border-color .15s,box-shadow .15s;';
     const thumb=document.createElement('div');
-    thumb.style.cssText='width:100%;height:100px;display:flex;align-items:center;justify-content:center;background:#e8e8e8;overflow:hidden;cursor:pointer;';
+    thumb.style.cssText='width:100%;height:140px;display:flex;align-items:center;justify-content:center;background:#e8e8e8;overflow:hidden;cursor:pointer;';
     if(isImg&&a.data){
       const img=document.createElement('img');img.src=a.data;img.style.cssText='width:100%;height:100%;object-fit:cover;';thumb.appendChild(img);
     } else if(isPdf&&a.data){
@@ -7393,17 +7396,17 @@ async function _openEmailOrigInlinePreview(item){
   const name=(item.name||'').toLowerCase();
   const isMsg=name.endsWith('.msg');
   if(isMsg){
-    // .msg cannot be parsed in browser — show Drive preview iframe
-    if(item.url){
-      loader.remove();
-      const fr=document.createElement('iframe');
-      fr.src='https://drive.google.com/file/d/'+encodeURIComponent(item.fileId)+'/preview';
-      fr.style.cssText='width:100%;height:100%;border:none;';
-      fr.allow='autoplay';
-      content.appendChild(fr);
-    }else{
-      loader.innerHTML='⚠ .msg-Datei kann nicht im Browser angezeigt werden.<br><small>Bitte über ⬇ herunterladen und in Outlook öffnen.</small>';
-    }
+    // .msg cannot be parsed in browser — show friendly fallback
+    loader.remove();
+    const msgFb=document.createElement('div');
+    msgFb.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:30px;text-align:center;';
+    const driveUrl2=item.fileId?'https://drive.google.com/file/d/'+item.fileId+'/view':'';
+    msgFb.innerHTML='<div style="font-size:52px;margin-bottom:14px;">📧</div>'
+      +'<div style="font-size:15px;font-weight:600;margin-bottom:8px;">'+esc(item.name||item.filename||'E-Mail')+'</div>'
+      +'<div style="font-size:13px;color:#666;margin-bottom:20px;line-height:1.6;">.msg-Dateien können im Browser nicht angezeigt werden.<br>Bitte öffne die Datei in Google Drive oder lade sie herunter.</div>'
+      +(driveUrl2?'<a href="'+driveUrl2+'" target="_blank" style="padding:10px 20px;background:#1a73e8;color:#fff;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;margin-bottom:10px;">🔗 In Drive öffnen</a>':'')
+      +(item.url?'<a href="'+item.url+'" target="_blank" download style="padding:8px 16px;background:#eee;color:#333;border-radius:6px;text-decoration:none;font-size:12px;margin-top:6px;">⬇ Herunterladen</a>':'');
+    content.appendChild(msgFb);
     return;
   }
   // .eml: fetch from Drive, parse, render inline
