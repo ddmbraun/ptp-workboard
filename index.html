@@ -1684,8 +1684,12 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
           <div id="timerDisplayTop" class="timer-display" style="flex:1;">00:00:00</div>
           <button id="timerBtnTop" type="button" class="timer-toggle-btn" onclick="toggleTimer()">&#9654; Start</button>
         </div>
-        <input id="timerDesc" type="text" placeholder="Betreff / Tätigkeit…" maxlength="120"
-          style="padding:4px 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:11px;box-sizing:border-box;" autocomplete="off">
+        <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+          <input id="timerDesc" type="text" placeholder="Betreff / Tätigkeit…" maxlength="120"
+            style="flex:1;min-width:0;padding:4px 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:11px;" autocomplete="off">
+          <button type="button" title="Alle abgeschlossenen Einträge löschen" onclick="deleteAllTimerEntries()"
+            style="flex-shrink:0;padding:4px 8px;border-radius:5px;border:1px solid rgba(231,76,60,.4);background:transparent;color:var(--red);font-size:12px;cursor:pointer;white-space:nowrap;">🗑 Alle</button>
+        </div>
         <div id="timerEntries" class="timer-entries" style="font-size:11px;color:var(--text2);width:100%;display:none;"></div>
       </div>
       <!-- Kompakter E-Mail-Drop -->
@@ -2382,7 +2386,8 @@ function saveTaskData(){
     checkliste:JSON.parse(JSON.stringify(taskCheckliste||[])),
     emailOriginals:JSON.parse(JSON.stringify(taskEmailOriginals||[])),
     emailPdfs:JSON.parse(JSON.stringify(taskEmailPdfs||[])),
-    gmailLinks:JSON.parse(JSON.stringify(taskGmailLinks||[]))
+    gmailLinks:JSON.parse(JSON.stringify(taskGmailLinks||[])),
+    pruefberichte:JSON.parse(JSON.stringify(existingTask?.pruefberichte||[]))
   };
   if(!boards[currentBoard])boards[currentBoard]=[];
   if(id){
@@ -3177,6 +3182,8 @@ async function gdriveSaveData() {
                   mergedTask.ausserhausTermine=_mergeListByKey(remoteTask&&remoteTask.ausserhausTermine,lt.ausserhausTermine,e=>((e.date||'')+'|'+(e.von||'')+'|'+(e.bis||'')+'|'+(e.beschreibung||'')));
                   mergedTask.fotos=_mergeListByKey(remoteTask&&remoteTask.fotos,lt.fotos,f=>(f.id||f.driveId||f.path||f.name||''));
                   mergedTask.attachments=_mergeListByKey(remoteTask&&remoteTask.attachments,lt.attachments,f=>((f.name||'')+'|'+(f.size||0)));
+                  mergedTask.timeEntries=_mergeListByKey(remoteTask&&remoteTask.timeEntries,lt.timeEntries,e=>String(e.start||''));
+                  mergedTask.pruefberichte=_mergeListByKey(remoteTask&&remoteTask.pruefberichte,lt.pruefberichte,b=>(b.id||((b.titel||'')+'|'+(b.datum||''))));
                   if(remoteTask){merged[remoteBoardKey][remoteIdx]=mergedTask;}
                   else{if(!merged[k])merged[k]=[];merged[k].push(mergedTask);}
                   break;
@@ -3897,10 +3904,19 @@ function renderTaskNotizen(){
   }
   el.innerHTML=taskNotizVerlauf.map((n,i)=>
     '<div class="notiz-entry">'
-    +'<div class="notiz-entry-body"><div class="notiz-ts">'+esc(n.ts||'')+'</div><div class="notiz-text">'+esc(n.text||'')+'</div></div>'
+    +'<div class="notiz-entry-body">'
+    +'<input type="text" class="notiz-ts" value="'+esc(n.ts||'')+'" title="Zeitstempel bearbeiten"'
+    +' onblur="updateNotizTs('+i+',this.value)"'
+    +' onkeydown="if(event.key===\'Enter\'){this.blur();}"'
+    +' style="background:transparent;border:none;border-bottom:1px dashed var(--border);color:var(--text2);font-size:11px;font-weight:500;letter-spacing:.2px;padding:0;margin-bottom:3px;width:100%;outline:none;cursor:text;">'
+    +'<div class="notiz-text">'+esc(n.text||'')+'</div>'
+    +'</div>'
     +'<button type="button" class="notiz-del" onclick="removeTaskNotiz('+i+')" title="Eintrag löschen">✕</button>'
     +'</div>'
   ).join('');
+}
+function updateNotizTs(i,val){
+  if(taskNotizVerlauf[i]){taskNotizVerlauf[i].ts=val.trim();scheduleTaskFieldSave();}
 }
 function addTaskNotiz(){
   const inp=document.getElementById('newTaskNotizInput');
@@ -4201,12 +4217,24 @@ function parseAuftragText(text){
     const mieterEmail   = get('Mieter_Email')             || getFirst('Mieter E-Mail');
     const person        = mieter || eigentuemer || '';
 
-    // ── Titel: Kostenstelle–Straße_Ort–Person (ohne PLZ) ────────────────────
-    const strasseStr = strasse ? strasse.replace(/ /g,'_') : '';
+    // ── Titel: Kostenstelle–HVKürzel–Straße_Ort–Person–SchadenKurz ──────────
+    // HV-Kürzel: aus Auftragsakte (manuell eingegeben im VBS), sonst Initialen als Fallback
+    const hvKuerzelRaw = get('HV_Kuerzel') || '';
+    const hvKuerzel  = (hvKuerzelRaw && hvKuerzelRaw !== '(noch offen)')
+      ? hvKuerzelRaw.trim()
+      : (hausverwaltung
+          ? hausverwaltung.trim().split(/\s+/).map(w=>w.charAt(0).toUpperCase()).join('').substring(0,4)
+          : '');
+    // Schaden_Kurz aus VBS Schritt 4
+    const schadenKurzRaw = get('Schaden_Kurz') || '';
+    const schadenKurz = (schadenKurzRaw && schadenKurzRaw !== '(noch offen)') ? schadenKurzRaw.trim().replace(/ /g,'_') : '';
+    // Straße: bei neuem Format enthält Objekt_Strasse auch PLZ/Ort → nur Teil vor Komma
+    const strasseRaw = strasse ? strasse.split(',')[0].trim() : '';
+    const strasseStr = strasseRaw.replace(/ /g,'_');
     const ortStr     = ort     ? ort.replace(/ /g,'_')     : '';
     const personStr  = person  ? person.replace(/ /g,'_')  : '';
     const adressTeil = [strasseStr, ortStr].filter(Boolean).join('_');
-    const titel      = [kostenstelle, adressTeil, personStr].filter(Boolean).join('–');
+    const titel      = [kostenstelle, hvKuerzel, adressTeil, personStr, schadenKurz].filter(Boolean).join('–');
 
     // ── Adresse: Straße + PLZ/Ort ────────────────────────────────────────────
     const adresseFull = strasse && plzOrt ? strasse+', '+plzOrt : strasse || plzOrt || '';
@@ -4229,8 +4257,10 @@ function parseAuftragText(text){
     if(schadensbild)document.getElementById('tSch').value=schadensbild;
 
     try{
-      if(auftraggeber||agName||agTel||agEmail)
-        addKontaktPTP('ag',agName||'',agTel||'',agEmail||'');
+      // Auftraggeber-Name: Hausverwaltung bevorzugt, sonst Eigentümer, sonst Ansprechpartner
+      const agKontaktName = hausverwaltung || eigentuemer || agName || '';
+      if(agKontaktName||agTel||agEmail)
+        addKontaktPTP('ag',agKontaktName,agTel||'',agEmail||'');
     }catch(e){console.error('Fehler beim AG-Kontakt:',e);}
     try{
       if(eigentuemer||eigTel||eigEmail)
@@ -6467,7 +6497,12 @@ function renderTimerDisplay(){
   const taskId=document.getElementById('taskId').value;
   const task=taskId?findTaskById(taskId):null;
   const running=isTaskTimerRunning(taskId);
-  const ms=(running&&task)?getTaskTotalMs(task):0;
+  let ms=0;
+  if(running&&task){
+    // Nur die aktuelle laufende Session zeigen (offener Eintrag mit end:null)
+    const openEntry=(task.timeEntries||[]).find(e=>!e.end);
+    ms=openEntry?Date.now()-openEntry.start:0;
+  }
   const text=formatDuration(ms);
   const elTop=document.getElementById('timerDisplayTop');
   if(elTop){elTop.textContent=text;elTop.className='timer-display'+(running?' running':'');}
@@ -6492,6 +6527,14 @@ function deleteTimerEntry(taskId,idx){
   const finished=task.timeEntries.filter(e=>e.end);
   finished.splice(idx,1);
   task.timeEntries=task.timeEntries.filter(e=>!e.end).concat(finished);
+  renderTimerSection();autoSave();
+}
+function deleteAllTimerEntries(){
+  const taskId=document.getElementById('taskId').value;
+  const task=taskId?findTaskById(taskId):null;
+  if(!task)return;
+  if(!confirm('Alle abgeschlossenen Zeiteinträge löschen?'))return;
+  task.timeEntries=(task.timeEntries||[]).filter(e=>!e.end);
   renderTimerSection();autoSave();
 }
 function updateCardTimerBadge(taskId){
@@ -8974,7 +9017,6 @@ function _buildTaskSummaryPdfBytes(data){
   }
   // Zeiterfassung
   if(data.zeitEntries&&data.zeitEntries.length){
-    const total=data.zeitEntries.reduce((s,e)=>s+(parseInt(e.minuten,10)||0),0);
     doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);
     doc.text('Zeiterfassung – '+Math.floor(total/60)+'h '+(total%60)+'min',M,y);y+=4;
     doc.autoTable({startY:y,margin:{left:M,right:M},theme:'striped',styles:{fontSize:8,cellPadding:2},
@@ -9098,35 +9140,44 @@ async function exportTaskZip(){
     showToast('📦 ZIP wird generiert…','info');
     const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
     const fname=safe+'_'+new Date().toISOString().slice(0,10)+'.zip';
-    // ZIP direkt in Projektordner hochladen (oder lokal speichern)
-    const folderUrl=(document.getElementById('tGDOrdner')?.value||'').trim();
-    const fid=folderUrl?_ezFolderId(folderUrl):null;
-    if(gdriveToken&&fid){
-      showToast('☁️ ZIP wird in Drive gespeichert…','info',4000);
-      try{
-        const ab=await blob.arrayBuffer();
-        const r=await _driveUploadGeneric(ab,fname,'application/zip',fid);
-        if(r&&r.id){
-          showToast('✅ ZIP in Projektordner gespeichert: '+fname,'success',5000);
-        } else {
-          showToast('⚠ ZIP-Upload fehlgeschlagen (kein Ergebnis)','error',5000);
+    // Drive-Ordner ermitteln: erst Projektordner, dann Drive-Link
+    const folderUrl=((document.getElementById('tGDOrdner')||{}).value||
+                     (document.getElementById('tGDOrdner')||{}).value||
+                     (document.getElementById('tGD')||{}).value||'').trim();
+    if(gdriveToken&&folderUrl){
+      const fid=_ezFolderId(folderUrl);
+      if(fid){
+        showToast('☁️ Dateien werden in Drive hochgeladen…','info',4000);
+        let uploaded=0;
+        for(const [folder,arr,pushFn] of [
+          ['emails',taskEmailOriginals,e=>taskEmailOriginals.push(e)],
+          ['email_pdfs',taskEmailPdfs,e=>taskEmailPdfs.push(e)],
+          ['anhaenge',taskAttachments,e=>taskAttachments.push(e)]
+        ]){
+          const paths=Object.keys(zip.files).filter(n=>n.startsWith(folder+'/'));
+          for(const path of paths){
+            const fileName=path.split('/').pop();
+            if(!fileName)continue;
+            try{
+              const ab=await zip.file(path).async('arraybuffer');
+              const r=await _ezUpload(ab,fileName,fid);
+              if(r&&r.id){
+                pushFn({name:fileName,fileId:r.id,url:'https://drive.google.com/file/d/'+r.id+'/view',uploadedAt:new Date().toLocaleDateString('de-DE')});
+                uploaded++;
+              }
+            }catch(e){console.warn('[PTP] ZIP-Upload fehlgeschlagen:',e);}
+          }
         }
-      }catch(uploadErr){
-        showToast('⚠ ZIP-Upload Fehler: '+uploadErr.message,'error',6000);
+        if(uploaded>0){
+          renderEmailSection();renderAttachList();
+          scheduleTaskFieldSave();
+          showToast('✅ '+uploaded+' Datei(en) in Drive hochgeladen','success',5000);
+        }
       }
-    } else {
-      // Fallback: lokaler Download wenn kein Drive-Projektordner gesetzt
-      const a=document.createElement('a');
-      const url=URL.createObjectURL(blob);
-      a.href=url;a.download=fname;
-      document.body.appendChild(a);a.click();
-      document.body.removeChild(a);
-      setTimeout(()=>URL.revokeObjectURL(url),1000);
-      showToast('⬇ ZIP heruntergeladen'+(folderUrl?' (Ordner-ID ungültig)':' (kein Projektordner gesetzt)'),'success',4000);
     }
   }catch(e){
-    showToast('⚠ Fehler beim Sichern: '+e.message,'error',6000);
-    console.error('[PTP] exportTaskZip:',e);
+    showToast('⚠ Fehler beim Einlesen: '+e.message,'error',6000);
+    console.error('[PTP] importTaskFromZip:',e);
   }
 }
 
