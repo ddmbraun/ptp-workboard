@@ -5835,8 +5835,10 @@ function _openWartungsprotokoll(existingIdx){
   const footer=document.createElement('div');
   footer.style.cssText='display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--border);background:var(--bg3);border-radius:0 0 12px 12px;flex-shrink:0;';
   const pdfBtn=document.createElement('button');pdfBtn.type='button';
+  pdfBtn.id='_wpFotoArea_pdfBtn';
   pdfBtn.style.cssText='flex:1;padding:10px;border-radius:8px;background:#1a5c3a;color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;';
-  pdfBtn.textContent='📄 PDF erstellen';
+  const _wpPdfCount=(bericht.fotos||[]).filter(x=>x.inReport).length;
+  pdfBtn.textContent=_wpPdfCount?'📄 PDF ('+_wpPdfCount+' Fotos)':'📄 PDF erstellen';
   pdfBtn.onclick=()=>_wpPdf(berichtIdx);
   const closeBtn2=document.createElement('button');closeBtn2.type='button';
   closeBtn2.style.cssText='padding:10px 18px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:13px;cursor:pointer;';
@@ -5858,15 +5860,23 @@ function _wpRenderFotos(bericht,grid){
   }
   bericht.fotos.forEach((f,fi)=>{
     const cell=document.createElement('div');
-    cell.style.cssText='position:relative;border:2px solid '+(f.inReport?'#1a7a3c':'var(--border)')+';border-radius:6px;overflow:hidden;cursor:pointer;background:var(--bg3);aspect-ratio:1;';
-    cell.title=(f.inReport?'Im PDF ✓':'Für PDF auswählen')+' – '+(f.name||'')+'\nDoppelklick = Foto öffnen';
+    cell.style.cssText='position:relative;border:2px solid '+(f.inReport?'#1a7a3c':'var(--border)')+';border-radius:6px;overflow:hidden;background:var(--bg3);aspect-ratio:1;';
+    cell.title=(f.inReport?'Im PDF ✓':'Für PDF auswählen')+' – '+(f.name||'')+'\nEinfachklick=Auswahl, Doppelklick=Öffnen';
     cell.onclick=()=>{
       f.inReport=!f.inReport;
       cell.style.borderColor=f.inReport?'#1a7a3c':'var(--border)';
       const badge=cell.querySelector('.wp-badge');if(badge)badge.style.display=f.inReport?'flex':'none';
+      // PDF-Button Zähler aktualisieren
+      const pdfB=document.querySelector('#_wpFotoArea_pdfBtn');
+      if(pdfB){const n=(bericht.fotos||[]).filter(x=>x.inReport).length;pdfB.textContent=n?'📄 PDF ('+n+' Fotos)':'📄 PDF erstellen';}
       scheduleTaskFieldSave();
     };
     cell.ondblclick=(e)=>{e.stopPropagation();_wpOpenFoto(bericht,fi);};
+    // ✕ Löschen-Button
+    const delBtn=document.createElement('button');delBtn.type='button';delBtn.textContent='✕';
+    delBtn.title='Foto aus Liste entfernen';
+    delBtn.style.cssText='position:absolute;bottom:3px;right:3px;background:rgba(0,0,0,.65);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:9px;cursor:pointer;padding:0;line-height:18px;text-align:center;z-index:3;';
+    delBtn.onclick=(e)=>{e.stopPropagation();bericht.fotos.splice(fi,1);scheduleTaskFieldSave();_wpRenderFotos(bericht,grid);};
     if(f.driveId&&gdriveToken){
       const img=document.createElement('img');
       img.style.cssText='width:100%;height:100%;object-fit:cover;pointer-events:none;';
@@ -5884,7 +5894,7 @@ function _wpRenderFotos(bericht,grid){
     const nLbl=document.createElement('div');
     nLbl.style.cssText='position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.5);color:#fff;font-size:8px;padding:2px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
     nLbl.textContent=f.name||'';
-    cell.append(openBtn,badge,nLbl);grid.appendChild(cell);
+    cell.append(openBtn,delBtn,badge,nLbl);grid.appendChild(cell);
   });
 }
 
@@ -5897,6 +5907,9 @@ async function _wpOpenFoto(bericht,startIdx){
   const lbl=document.getElementById('previewLabel');
   const capBar=document.getElementById('fotoLbCapBar');
   if(capBar)capBar.classList.remove('visible');
+  // Zeichenwerkzeuge im WP-Kontext deaktivieren
+  const drawBar=document.getElementById('deskDrawBar');
+  if(drawBar)drawBar.style.display='none';
   lb.classList.add('open');
   // Nav-Buttons hinzufügen (falls nicht vorhanden)
   let navWrap=document.getElementById('_wpLbNav');
