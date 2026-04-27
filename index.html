@@ -579,7 +579,7 @@ async function _pdfAuftragCreate(boardName){
   if(!p)return;
   var _isNotiz=(boardTypes[boardName]||'baustelle')==='notiz';
   var _folderDefault=_isNotiz
-    ?'https://drive.google.com/drive/u/0/folders/18z9bRXtzUteTCf0Xu58gKti0ykHuZEGB'
+    ?'https://drive.google.com/drive/u/0/folders/1iSEa-ibrBmv-WrkiLrIBVzAozbr97yJ7'
     :'https://drive.google.com/drive/u/0/folders/1GBcSWtUkKw7pJJ2CKvbTs_WZCZ1_RJ07';
   var newTask={
     id:generateId(),
@@ -759,7 +759,7 @@ async function _auftragConfirm(){
   // Zielordner ermitteln: Board-Default oder Fallback
   var _isNotiz=(boardTypes[boardName]||'baustelle')==='notiz';
   var _folderDefault=_isNotiz
-    ?'https://drive.google.com/drive/u/0/folders/18z9bRXtzUteTCf0Xu58gKti0ykHuZEGB'
+    ?'https://drive.google.com/drive/u/0/folders/1iSEa-ibrBmv-WrkiLrIBVzAozbr97yJ7'
     :'https://drive.google.com/drive/u/0/folders/1GBcSWtUkKw7pJJ2CKvbTs_WZCZ1_RJ07';
 
   // ── SCHRITT 1: Task SOFORT anlegen und speichern ──
@@ -6466,9 +6466,9 @@ function renderTimerSection(){
 function renderTimerDisplay(){
   const taskId=document.getElementById('taskId').value;
   const task=taskId?findTaskById(taskId):null;
-  const ms=task?getTaskTotalMs(task):0;
-  const text=formatDuration(ms);
   const running=isTaskTimerRunning(taskId);
+  const ms=(running&&task)?getTaskTotalMs(task):0;
+  const text=formatDuration(ms);
   const elTop=document.getElementById('timerDisplayTop');
   if(elTop){elTop.textContent=text;elTop.className='timer-display'+(running?' running':'');}
 }
@@ -8105,7 +8105,7 @@ function openNewTaskModal(){
   document.getElementById('taskKundenNr').value='';
   ['tHV','tAdr','tSch'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const _driveDefault='https://drive.google.com/drive/u/0/folders/1GBcSWtUkKw7pJJ2CKvbTs_WZCZ1_RJ07';
-  const _aufgabenDefault='https://drive.google.com/drive/u/0/folders/18z9bRXtzUteTCf0Xu58gKti0ykHuZEGB';
+  const _aufgabenDefault='https://drive.google.com/drive/u/0/folders/1iSEa-ibrBmv-WrkiLrIBVzAozbr97yJ7';
   const _nasDefault='\\\\nas-ddbraun\\Kunden';
   const _isAufgaben=(boardTypes[currentBoard]||'baustelle')==='notiz';
   // Foto-Ordner: nur Baustelle; Projektordner + E-Mail-Ordner: je nach Typ
@@ -8168,7 +8168,7 @@ function openEditTaskModal(id){
   let _taskBoard=currentBoard;
   for(const bk of Object.keys(boards)){if((boards[bk]||[]).some(t=>t.id===task.id)){_taskBoard=bk;break;}}
   const _dDef='https://drive.google.com/drive/u/0/folders/1GBcSWtUkKw7pJJ2CKvbTs_WZCZ1_RJ07';
-  const _aufgabenDef='https://drive.google.com/drive/u/0/folders/18z9bRXtzUteTCf0Xu58gKti0ykHuZEGB';
+  const _aufgabenDef='https://drive.google.com/drive/u/0/folders/1iSEa-ibrBmv-WrkiLrIBVzAozbr97yJ7';
   const _nDef='\\\\nas-ddbraun\\Kunden';
   const _isAufgabenEdit=(boardTypes[_taskBoard]||'baustelle')==='notiz';
   document.getElementById('tGDOrdner').value=task.gdriveOrdner||(_isAufgabenEdit?_aufgabenDef:_dDef);
