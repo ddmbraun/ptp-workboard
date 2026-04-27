@@ -586,7 +586,7 @@ async function _pdfAuftragCreate(boardName){
     title:p.title||'Neuer Auftrag',
     desc:'',owner:'Braun',due:'',
     status:(getBoardStatuses(boardName)||[])[0]||'',
-    ampel:'grün',ausführungsdatum:'',tags:[],source:'',repNr:'',kundenNr:'',
+    ampel:'grün',ausführungsdatum:'',aktivitaet:'',tags:[],source:'',repNr:'',kundenNr:'',
     hausverwaltung:'',adresse:'',schadensbild:'',kontakte:[],
     links:[],attachments:[],ausserhausTermine:[],zeitEntries:[],
     notizVerlauf:[],fotos:[],checkliste:[],gmailLinks:[],
@@ -773,6 +773,7 @@ async function _auftragConfirm(){
     status:(getBoardStatuses(boardName)||[])[0]||'',
     ampel:'grün',
     ausführungsdatum:'',
+    aktivitaet:'',
     tags:[],
     source:'',
     repNr:'',
@@ -1733,6 +1734,16 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
           <div class="modal-field baustelle-only" style="margin:0;font-size:11px"><label style="font-size:10px">Auftrag erteilt</label><input type="date" id="taskAusfInput" style="font-size:12px;padding:4px 6px" onchange="scheduleTaskFieldSave()" autocomplete="off"></div>
           <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Status</label><select id="taskStatusInput" style="font-size:12px;padding:4px 6px" onchange="updateGcalModalBtn();scheduleTaskFieldSave();_updateStammSummary()"></select></div>
         </div>
+        <!-- Zeile Aktivität -->
+        <div style="margin-bottom:5px;">
+          <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Aktivität</label>
+            <select id="taskAktivitaetInput" style="font-size:12px;padding:4px 6px;width:100%" onchange="scheduleTaskFieldSave()">
+              <option value="">— keine —</option>
+              <option value="anruf">📞 Telefonanruf</option>
+              <option value="besichtigung">📍 Besichtigungstermin</option>
+            </select>
+          </div>
+        </div>
         <!-- Zeile 2: Kostenstelle | Rep.-Nr. | Kunden-Nr. | [Bau-Btn] (nur Baustelle) -->
         <div class="baustelle-only" style="display:grid;grid-template-columns:1.8fr 0.85fr 0.85fr auto;gap:5px;margin-bottom:4px;align-items:end;">
           <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Kostenstelle / Tags</label><input type="text" id="taskTagsInput" placeholder="z.B. 260036" style="font-size:12px;padding:4px 6px" oninput="scheduleTaskFieldSave();_updateStammSummary()" autocomplete="off"></div>
@@ -2366,6 +2377,7 @@ function saveTaskData(){
     status:document.getElementById('taskStatusInput').value,
     ampel:document.getElementById('taskAmpelInput').value||'grün',
     ausführungsdatum:document.getElementById('taskAusfInput').value,
+    aktivitaet:document.getElementById('taskAktivitaetInput')?document.getElementById('taskAktivitaetInput').value:'',
     tags:document.getElementById('taskTagsInput').value.split(',').map(s=>s.trim()).filter(Boolean),
     source:document.getElementById('taskSourceInput').value.trim(),
     repNr:document.getElementById('taskRepNr').value.trim(),
@@ -3552,6 +3564,7 @@ function taskCardHTML(task){
       const bauTotal=bauTermCount+bauZeitCount;
       return`<div class="task-card-meta">
         ${isNotizBoard?'':'<span class="ampel ampel-'+(task.ampel==='grün'?'green':task.ampel==='orange'?'orange':'red')+'"></span>'}
+        ${task.aktivitaet==='anruf'?'<span style="font-size:11px;padding:2px 7px;border-radius:10px;background:#e8f0fe;color:#1a56c4;font-weight:600;border:1px solid #b3c8fa;">📞 Anruf</span>':task.aktivitaet==='besichtigung'?'<span style="font-size:11px;padding:2px 7px;border-radius:10px;background:#e6f4ea;color:#1e7e34;font-weight:600;border:1px solid #a8d5b5;">📍 Besichtigung</span>':''}
         <span class="task-card-owner">${esc(task.owner)}</span>
         ${task.due?`<span class="task-card-due ${overdue?'overdue':''}">${formatDate(task.due)}</span>`:''}
         ${task.ausführungsdatum?`<span class="task-card-due" style="color:#e67e22;font-weight:600;">📋 ${formatDate(task.ausführungsdatum)}</span>`:''}
@@ -3730,9 +3743,13 @@ function renderHeute(){
     if(dringlichkeit==='overdue'){var d=diffDays(t.due);extra='<span style="font-size:11px;color:var(--red);font-weight:600;white-space:nowrap;">'+d+(d===1?' Tag':' Tage')+' überfällig</span>';}
     else if(dringlichkeit==='bald'){extra='<span style="font-size:11px;color:var(--text2);white-space:nowrap;">'+fmtDue(t.due)+'</span>';}
     var owner=t.owner?'<span style="font-size:11px;color:var(--text2);">'+esc(t.owner)+'</span>':'';
+    var aktBadge='';
+    if(t.aktivitaet==='anruf')aktBadge='<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#e8f0fe;color:#1a56c4;font-weight:600;border:1px solid #b3c8fa;white-space:nowrap;">📞 Anruf</span>';
+    else if(t.aktivitaet==='besichtigung')aktBadge='<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#e6f4ea;color:#1e7e34;font-weight:600;border:1px solid #a8d5b5;white-space:nowrap;">📍 Besichtigung</span>';
     return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;margin-bottom:6px;cursor:pointer;" onclick="openEditTaskModal(\''+esc(t.id)+'\')">'
       +dot
       +'<span style="flex:1;font-size:13px;font-weight:500;color:var(--text);">'+esc(t.title)+'</span>'
+      +aktBadge
       +boardChip(item.board)
       +owner
       +extra
@@ -8914,6 +8931,7 @@ function openNewTaskModal(){
   document.getElementById('taskStatusInput').value=getBoardStatuses(currentBoard)[0]||'';
   document.getElementById('taskAmpelInput').value='grün';
   document.getElementById('taskAusfInput').value='';
+  const _aktEl=document.getElementById('taskAktivitaetInput');if(_aktEl)_aktEl.value='';
   document.getElementById('taskTagsInput').value='';
   document.getElementById('taskSourceInput').value='';
   document.getElementById('taskRepNr').value='';
@@ -8961,6 +8979,7 @@ function openEditTaskModal(id){
   document.getElementById('taskStatusInput').value=task.status;
   document.getElementById('taskAmpelInput').value=task.ampel||'grün';
   document.getElementById('taskAusfInput').value=task.ausführungsdatum||'';
+  const _aktEditEl=document.getElementById('taskAktivitaetInput');if(_aktEditEl)_aktEditEl.value=task.aktivitaet||'';
   document.getElementById('taskTagsInput').value=(task.tags||[]).join(', ');
   document.getElementById('taskSourceInput').value=task.source||'';
   document.getElementById('taskRepNr').value=task.repNr||'';
