@@ -7667,7 +7667,7 @@ dz.addEventListener('drop',e=>{
 });
 
 // ── KONTAKTE (dynamisch) ──
-function addKontaktPTP(rolle,name,tel,email){
+function addKontaktPTP(rolle,name,tel,email,anrufKontakt){
   const c=document.getElementById('tKontakteContainer');if(!c)return;
   const rolleOpts=['ag','mieter','eigentuemer','sonstiges'];
   const rolleLabel={ag:'👔 AG Kontakt',mieter:'🏠 Mieter',eigentuemer:'👤 Eigentümer',sonstiges:'👥 Sonstiges'};
@@ -7678,6 +7678,8 @@ function addKontaktPTP(rolle,name,tel,email){
     +'<select class="k-rolle" style="font-size:11px;padding:2px 4px;">'
     +rolleOpts.map(r=>'<option value="'+r+'"'+(r===rolle?' selected':'')+'>'+rolleLabel[r]+'</option>').join('')
     +'</select>'
+    +'<label style="display:flex;align-items:center;gap:4px;font-size:10px;color:#1a56c4;cursor:pointer;margin-left:6px;" title="Dieser Kontakt wird auf Mobil als Anruf-Button angezeigt">'
+    +'<input type="checkbox" class="k-anruf"'+(anrufKontakt?' checked':'')+' style="width:13px;height:13px;accent-color:#1a56c4;cursor:pointer;">📞 Anruf</label>'
     +'<button type="button" class="rm-btn" style="padding:2px 6px;font-size:11px;" onclick="this.closest(\'.kontakt-entry\').remove();updateKontaktePTPTitle()" title="Entfernen">✕</button>'
     +'</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">'
@@ -7701,7 +7703,7 @@ function addKontaktPTP(rolle,name,tel,email){
 function renderKontaktePTP(kontakte){
   const c=document.getElementById('tKontakteContainer');if(!c)return;
   c.innerHTML='';
-  for(const k of(kontakte||[]))addKontaktPTP(k.rolle||'sonstiges',k.name||'',k.tel||'',k.email||'');
+  for(const k of(kontakte||[]))addKontaktPTP(k.rolle||'sonstiges',k.name||'',k.tel||'',k.email||'',k.anrufKontakt||false);
 }
 function getKontaktePTP(){
   const c=document.getElementById('tKontakteContainer');if(!c)return[];
@@ -7709,7 +7711,8 @@ function getKontaktePTP(){
     rolle:e.querySelector('.k-rolle').value,
     name:e.querySelector('.k-name').value.trim(),
     tel:e.querySelector('.k-tel').value.trim(),
-    email:e.querySelector('.k-email').value.trim()
+    email:e.querySelector('.k-email').value.trim(),
+    anrufKontakt:e.querySelector('.k-anruf')?e.querySelector('.k-anruf').checked:false
   })).filter(k=>k.name||k.tel||k.email);
 }
 function updateKontaktePTPTitle(){
