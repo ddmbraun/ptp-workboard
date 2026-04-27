@@ -1542,7 +1542,8 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 <div class="toolbar">
   <div class="toolbar-left">
     <div class="view-tabs">
-      <button class="view-tab active" data-view="kanban" onclick="switchView('kanban')">&#9638; Kanban</button>
+      <button class="view-tab active" data-view="heute" onclick="switchView('heute')">&#128197; Heute</button>
+      <button class="view-tab" data-view="kanban" onclick="switchView('kanban')">&#9638; Kanban</button>
       <button class="view-tab" data-view="list" onclick="switchView('list')">&#9776; Liste</button>
       <button class="view-tab" data-view="table" onclick="switchView('table')">&#9638;&#9638; Tabelle</button>
     </div>
@@ -2134,7 +2135,7 @@ let boardStatuses = {}; // pro Board eigene Spalten: { 'Projektname': ['Spalte1'
 let currentBoard = '';
 let mobileBoards = []; // Whitelist für PTP Mobile — leer = alle Boards aufs Handy
 let boardTypes = {}; // Typ pro Board: 'baustelle' (Standard) | 'notiz'
-let currentView = 'kanban';
+let currentView = 'heute';
 let filters = {owner:null,ampel:null,tag:null};
 let searchQuery = '';
 let listSortField = 'due', listSortDir = 1;
@@ -3694,6 +3695,76 @@ function _alleDropBody(e){
   render();
 }
 
+function renderHeute(){
+  const today=new Date().toISOString().split('T')[0];
+  const in3=new Date(Date.now()+3*864e5).toISOString().split('T')[0];
+  const ueberfaellig=[],heuteFaellig=[],bald=[];
+  Object.keys(boards).forEach(function(boardName){
+    if(boardName.startsWith('_'))return;
+    (boards[boardName]||[]).forEach(function(t){
+      if(!t.due)return;
+      if(t.due<today)ueberfaellig.push({t:t,board:boardName});
+      else if(t.due===today)heuteFaellig.push({t:t,board:boardName});
+      else if(t.due<=in3)bald.push({t:t,board:boardName});
+    });
+  });
+  ueberfaellig.sort(function(a,b){return a.t.due<b.t.due?-1:1;});
+  bald.sort(function(a,b){return a.t.due<b.t.due?-1:1;});
+
+  function diffDays(due){
+    return Math.round((new Date(today)-new Date(due))/(864e5));
+  }
+  function fmtDue(due){
+    var p=due.split('-');return p[2]+'.'+p[1]+'.'+p[0].substr(2);
+  }
+  function boardChip(name){
+    return '<span style="font-size:11px;padding:2px 8px;border-radius:5px;background:var(--bg4);color:var(--text2);white-space:nowrap;">'+esc(name)+'</span>';
+  }
+  function taskRow(item,dringlichkeit){
+    var t=item.t;
+    var dot='';
+    if(dringlichkeit==='overdue')dot='<span style="width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0;display:inline-block;"></span>';
+    else if(dringlichkeit==='heute')dot='<span style="width:8px;height:8px;border-radius:50%;background:var(--orange);flex-shrink:0;display:inline-block;"></span>';
+    else dot='<span style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;display:inline-block;"></span>';
+    var extra='';
+    if(dringlichkeit==='overdue'){var d=diffDays(t.due);extra='<span style="font-size:11px;color:var(--red);font-weight:600;white-space:nowrap;">'+d+(d===1?' Tag':' Tage')+' überfällig</span>';}
+    else if(dringlichkeit==='bald'){extra='<span style="font-size:11px;color:var(--text2);white-space:nowrap;">'+fmtDue(t.due)+'</span>';}
+    var owner=t.owner?'<span style="font-size:11px;color:var(--text2);">'+esc(t.owner)+'</span>':'';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;margin-bottom:6px;cursor:pointer;" onclick="openEditTaskModal(\''+esc(t.id)+'\')">'
+      +dot
+      +'<span style="flex:1;font-size:13px;font-weight:500;color:var(--text);">'+esc(t.title)+'</span>'
+      +boardChip(item.board)
+      +owner
+      +extra
+      +'</div>';
+  }
+  function section(label,count,color,items,dringlichkeit){
+    if(!items.length)return'';
+    var badge='<span style="font-size:11px;padding:1px 7px;border-radius:10px;font-weight:500;background:'+color+'22;color:'+color+';">'+count+'</span>';
+    var rows=items.map(function(item){return taskRow(item,dringlichkeit);}).join('');
+    return '<div style="margin-bottom:1.5rem;">'
+      +'<div style="font-size:11px;font-weight:500;letter-spacing:.6px;text-transform:uppercase;color:var(--text2);margin-bottom:10px;display:flex;align-items:center;gap:8px;">'+label+' '+badge+'</div>'
+      +rows
+      +'</div>';
+  }
+  var d=new Date();
+  var dateStr=d.toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  var html='<div style="padding:20px 24px;max-width:900px;">'
+    +'<div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">'
+    +'<span style="font-size:18px;font-weight:600;color:var(--text);">Was steht heute an?</span>'
+    +'<span style="font-size:13px;color:var(--text2);background:var(--bg3);padding:4px 12px;border-radius:20px;border:1px solid var(--border);">'+dateStr+'</span>'
+    +'</div>';
+  if(!ueberfaellig.length&&!heuteFaellig.length&&!bald.length){
+    html+='<div style="color:var(--text2);font-size:14px;padding:20px 0;">Keine fälligen Aufgaben — alles erledigt!</div>';
+  } else {
+    html+=section('Überfällig',ueberfaellig.length,'var(--red)',ueberfaellig,'overdue');
+    html+=section('Heute fällig',heuteFaellig.length,'var(--orange)',heuteFaellig,'heute');
+    html+=section('Nächste 3 Tage',bald.length,'var(--green)',bald,'bald');
+  }
+  html+='</div>';
+  document.getElementById('mainContent').innerHTML=html;
+}
+
 function renderKanban(){
   const tasks=getTasks();
   const curStatuses=getBoardStatuses();
@@ -3789,7 +3860,8 @@ function renderTable(){
 
 function render(){
   renderBoardTabs();updateFilterDropdowns();updateStatusSelect();
-  if(currentView==='kanban'){renderKanban();setTimeout(initColResize,0);}
+  if(currentView==='heute')renderHeute();
+  else if(currentView==='kanban'){renderKanban();setTimeout(initColResize,0);}
   else if(currentView==='list')renderList();
   else renderTable();
 }
