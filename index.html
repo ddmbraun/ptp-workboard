@@ -4999,35 +4999,60 @@ function _fileImageMime(file){
   if(/\.(heic|heif)$/i.test(file.name))return 'image/heic';
   return 'image/jpeg';
 }
-function handleFileAttach(e){
+async function handleFileAttach(e){
   const files=[...e.target.files];
-  // Max 5 MB für Base64-Anhänge (werden in workboard.json gespeichert!).
-  // Größere Fotos → bitte "📷 Drive-Foto" Button nutzen (direkt in Drive)
-  const MAX=5*1024*1024;
-  files.forEach(file=>{
-    const isImg=_fileIsImage(file);
-    if(isImg && file.size>MAX){
-      alert(`"${file.name}" ist ${(file.size/1024/1024).toFixed(1)} MB groß.\n\nFotos bitte über den "📷 Drive-Foto"-Button einfügen – diese werden direkt in Google Drive gespeichert und machen die workboard.json nicht zu groß.\n\n(Limit für Dateianhänge: 5 MB)`);
-      return;
-    }
-    if(!isImg && file.size>MAX){
-      alert(`"${file.name}" ist zu groß (max. 5 MB für Anhänge).`);
-      return;
-    }
-    const forcedMime=isImg?_fileImageMime(file):file.type;
-    const reader=new FileReader();
-    reader.onload=ev=>{
-      let data=ev.target.result;
-      // Bei Kamera-Formaten mit falschem MIME: data-URL korrigieren
-      if(isImg&&forcedMime&&!data.startsWith('data:'+forcedMime)){
-        data='data:'+forcedMime+';base64,'+data.split(',')[1];
-      }
-      taskAttachments.push({name:file.name,type:forcedMime||file.type,size:file.size,data});
-      renderAttachList();
-    };
-    reader.readAsDataURL(file);
-  });
+  if(!files.length)return;
   e.target.value='';
+
+  // Drive-Upload bevorzugt (kein Größenlimit, JSON bleibt klein)
+  const folderUrl=(document.getElementById('tGDOrdner')?.value||document.getElementById('tGD')?.value||'').trim();
+  const folderId=_ezFolderId(folderUrl);
+
+  for(const file of files){
+    const mime=file.type||'application/octet-stream';
+
+    // ── Drive-Upload (bevorzugt) ──────────────────────────────────────────
+    if(gdriveToken && folderId){
+      showToast('⏳ "'+file.name+'" wird hochgeladen…','info',4000);
+      try{
+        const buf=await new Promise((res,rej)=>{
+          const r=new FileReader();r.onload=ev=>res(ev.target.result);r.onerror=rej;r.readAsArrayBuffer(file);
+        });
+        const result=await _driveUploadGeneric(buf,file.name,mime,folderId);
+        const fileId=result.id;
+        const url='https://drive.google.com/file/d/'+fileId+'/view';
+        taskAttachments.push({name:file.name,type:mime,size:file.size,fileId,url,uploadedAt:new Date().toLocaleDateString('de-DE')});
+        renderAttachList();
+        scheduleTaskFieldSave();
+        showToast('✅ "'+file.name+'" hochgeladen','success',3000);
+      }catch(err){
+        showToast('⚠ Upload fehlgeschlagen: '+err.message,'error',5000);
+      }
+      continue;
+    }
+
+    // ── Fallback: Base64 (max 20 MB, kein Drive oder kein Ordner) ────────
+    const MAX=20*1024*1024;
+    if(file.size>MAX){
+      alert('"'+file.name+'" ist zu groß (max. 20 MB ohne Drive-Verbindung).\n\nBitte zuerst einen Drive-Projektordner eintragen.');
+      continue;
+    }
+    if(!gdriveToken){
+      showToast('ℹ Kein Drive verbunden – Datei wird lokal gespeichert (max. 20 MB)','info',4000);
+    } else if(!folderId){
+      showToast('ℹ Kein Projektordner eingetragen – Datei wird lokal gespeichert','info',4000);
+    }
+    await new Promise(res=>{
+      const reader=new FileReader();
+      reader.onload=ev=>{
+        taskAttachments.push({name:file.name,type:mime,size:file.size,data:ev.target.result,uploadedAt:new Date().toLocaleDateString('de-DE')});
+        renderAttachList();
+        scheduleTaskFieldSave();
+        res();
+      };
+      reader.readAsDataURL(file);
+    });
+  }
 }
 let _attachImgsOpen=false;
 function toggleAttachImgs(){
@@ -7060,11 +7085,11 @@ function _openEmailThumbnailGrid(){
 
   /* Body */
   const body=document.createElement('div');
-  body.style.cssText='display:flex;flex:1;overflow:hidden;';
+  body.style.cssText='display:flex;flex:1;overflow:hidden;min-height:0;';
 
   /* Sidebar */
   const sidebar=document.createElement('div');
-  sidebar.style.cssText='width:310px;flex-shrink:0;overflow-y:auto;border-right:1px solid var(--border);padding:8px;display:flex;flex-direction:column;gap:6px;background:var(--bg3);';
+  sidebar.style.cssText='width:310px;flex-shrink:0;overflow-y:auto;border-right:1px solid var(--border);padding:8px;display:flex;flex-direction:column;gap:6px;background:var(--bg3);min-height:0;';
 
   /* Vorschau */
   const previewWrap=document.createElement('div');
@@ -7203,7 +7228,7 @@ function _openEmailThumbnailGrid(){
 
     /* E-Mail-Karte */
     const tileWrap=document.createElement('div');
-    tileWrap.style.cssText='border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);overflow:hidden;transition:border-color .15s,box-shadow .15s;';
+    tileWrap.style.cssText='border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);overflow:hidden;transition:border-color .15s,box-shadow .15s;flex-shrink:0;';
 
     /* Oberer Bereich: klickbar für Vorschau */
     const tileTop=document.createElement('div');
@@ -7355,7 +7380,7 @@ function _openAttachThumbnailGrid(){
   hdr.append(titleEl,closeBtn);
 
   const body=document.createElement('div');
-  body.style.cssText='display:flex;flex:1;overflow:hidden;';
+  body.style.cssText='display:flex;flex:1;overflow:hidden;min-height:0;';
 
   const sidebar=document.createElement('div');
   sidebar.style.cssText='width:310px;flex-shrink:0;overflow-y:auto;border-right:1px solid var(--border);padding:8px;display:flex;flex-direction:column;gap:5px;background:var(--bg3);min-height:0;';
@@ -7467,7 +7492,7 @@ function _openAttachThumbnailGrid(){
     const isImg=a.type&&a.type.startsWith('image/');
     const isPdf=a.type==='application/pdf'||(a.name||'').toLowerCase().endsWith('.pdf');
     const tileWrap=document.createElement('div');
-    tileWrap.style.cssText='border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);overflow:hidden;transition:border-color .15s,box-shadow .15s;';
+    tileWrap.style.cssText='border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);overflow:hidden;transition:border-color .15s,box-shadow .15s;flex-shrink:0;';
     const thumb=document.createElement('div');
     thumb.style.cssText='width:100%;height:120px;display:flex;align-items:center;justify-content:center;background:#e8e8e8;overflow:hidden;cursor:pointer;position:relative;';
     if(isImg&&a.data){
