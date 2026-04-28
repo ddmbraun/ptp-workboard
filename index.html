@@ -3712,9 +3712,9 @@ function _alleDropBody(e){
 }
 
 function renderHeute(){
-  const today=new Date().toISOString().split('T')[0];
-  const in3=new Date(Date.now()+3*864e5).toISOString().split('T')[0];
-  const ueberfaellig=[],heuteFaellig=[],bald=[];
+  var today=new Date().toISOString().split('T')[0];
+  var in3=new Date(Date.now()+3*864e5).toISOString().split('T')[0];
+  var ueberfaellig=[],heuteFaellig=[],bald=[];
   Object.keys(boards).forEach(function(boardName){
     if(boardName.startsWith('_'))return;
     (boards[boardName]||[]).forEach(function(t){
@@ -3728,64 +3728,79 @@ function renderHeute(){
   bald.sort(function(a,b){return a.t.due<b.t.due?-1:1;});
   function diffDays(due){return Math.round((new Date(today)-new Date(due))/(864e5));}
   function fmtDate(due){var p=due.split('-');return p[2]+'.'+p[1]+'.';}
+
+  var HZKEY='ptp_heute_pc_zoom';
+  var zoom=100;
+  try{var z=parseInt(localStorage.getItem(HZKEY)||'100',10);if(z>=70&&z<=150)zoom=z;}catch(e){}
+
   var phoneIcon='<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:#fff;flex-shrink:0;"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>';
   var pinIcon='<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:#fff;flex-shrink:0;"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>';
-  function actionBlock(t){
-    var s='display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 0;border-left:0.5px solid var(--border);flex-shrink:0;gap:4px;width:80px;min-width:80px;';
-    var btnBase='width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid ';
-    if(t.aktivitaet==='anruf'){
-      var k=(t.kontakte||[]).find(function(c){return c.anrufKontakt&&c.tel;});
-      if(k&&k.tel){
-        var clean=k.tel.replace(/[^0-9+]/g,'');
-        var nm=k.name?esc(k.name):'';
-        return '<div style="'+s+'">'
-          +'<a href="tel:'+clean+'" onclick="event.stopPropagation()" style="'+btnBase+'#0d3880;background:#1565c0;text-decoration:none;">'+phoneIcon+'</a>'
-          +(nm?'<span style="font-size:10px;color:var(--text2);text-align:center;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+nm+'</span>':'')
-          +'</div>';
-      }
-    }
-    if(t.aktivitaet==='besichtigung'){
-      var adr=(t.adresse||'').trim();
-      if(adr){
-        var mapsUrl='https://maps.google.com/?q='+encodeURIComponent(adr);
-        return '<div style="'+s+'">'
-          +'<a href="'+mapsUrl+'" onclick="event.stopPropagation()" target="_blank" style="'+btnBase+'#1b5e20;background:#2e7d32;text-decoration:none;">'+pinIcon+'</a>'
-          +'<span style="font-size:10px;color:var(--text2);text-align:center;">Maps</span>'
-          +'</div>';
-      }
-      return '<div style="'+s+'">'
-        +'<div style="'+btnBase+'#1b5e20;background:#2e7d32;">'+pinIcon+'</div>'
-        +'<span style="font-size:10px;color:var(--text2);">Besichtigung</span>'
+
+  function actionLine(t){
+    var isAnruf=t.aktivitaet==='anruf';
+    var isBesicht=t.aktivitaet==='besichtigung';
+    var k=(t.kontakte||[]).find(function(c){return c.anrufKontakt&&c.tel;});
+    var adr=(t.adresse||'').trim();
+    var showTel=k&&k.tel&&(isAnruf||(isBesicht&&!!k));
+    var showMaps=adr&&isBesicht;
+    if(!showTel&&!showMaps)return'';
+    var btnBase='width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;text-decoration:none;border:none;cursor:pointer;';
+    var telBtn=showTel
+      ?'<a href="tel:'+k.tel.replace(/[^0-9+]/g,'')+'" onclick="event.stopPropagation()" style="'+btnBase+'background:#1565c0;">'+phoneIcon+'</a>'
+      :'';
+    var mapsBtn=showMaps
+      ?'<a href="https://maps.google.com/?q='+encodeURIComponent(adr)+'" target="_blank" onclick="event.stopPropagation()" style="'+btnBase+'background:#2e7d32;">'+pinIcon+'</a>'
+      :'';
+    var mainText='';
+    if(showTel&&showMaps){
+      mainText='<div style="flex:1;min-width:0;">'
+        +(k.name?'<div style="font-size:13px;color:var(--text);font-weight:500;">'+esc(k.name)+'</div>':'')
+        +'<div style="font-size:12px;color:var(--text2);">'+esc(adr)+'</div>'
         +'</div>';
+    }else if(showTel){
+      mainText='<span style="font-size:13px;color:var(--text);font-weight:500;flex:1;min-width:0;">'+(k.name?esc(k.name):esc(k.tel))+'</span>';
+    }else{
+      mainText='<span style="font-size:12px;color:var(--text2);flex:1;min-width:0;">'+esc(adr)+'</span>';
     }
-    return '<div style="'+s+'"></div>';
+    return'<div style="display:flex;align-items:center;gap:8px;padding:5px 12px 8px;border-top:0.5px solid var(--border);">'
+      +mainText+telBtn+mapsBtn+'</div>';
   }
-  function chip(text,extra){return '<span style="font-size:11px;padding:2px 7px;border-radius:4px;white-space:nowrap;background:var(--bg3);border:1px solid var(--border);color:var(--text2);'+(extra||'')+'">'+text+'</span>';}
+
+  function chip(text,extra){return'<span style="font-size:11px;padding:2px 7px;border-radius:4px;white-space:nowrap;background:var(--bg3);border:0.5px solid var(--border);color:var(--text2);'+(extra||'')+'">'+text+'</span>';}
+
   function taskRow(item,dringlichkeit){
     var t=item.t;
     var bc=dringlichkeit==='overdue'?'#E24B4A':dringlichkeit==='heute'?'#EF9F27':'#639922';
-    var chips='';
-    chips+=chip(esc(item.board));
-    chips+=' '+chip(esc(t.status));
+    var isBesicht=t.aktivitaet==='besichtigung';
+    var isAnruf=t.aktivitaet==='anruf';
+    var k=(t.kontakte||[]).find(function(c){return c.anrufKontakt&&c.tel;});
+    // Zeile 2: Aktivitäts-Badges + Status + Datum
+    var badges='';
+    if(isBesicht)badges+=chip('Besichtigung','background:#2e7d3215;border-color:#2e7d3240;color:#2e7d32;font-weight:600;');
+    if(isAnruf)badges+=chip('Anruf','background:#1565c015;border-color:#1565c040;color:#1565c0;font-weight:600;');
+    if(isBesicht&&k)badges+=' '+chip('+ Anruf','background:#1565c015;border-color:#1565c040;color:#1565c0;font-weight:600;');
+    badges+=' '+chip(esc(t.status));
     if(dringlichkeit==='overdue'){
       var d=diffDays(t.due);
-      chips+=' '+chip(fmtDate(t.due)+' · '+d+(d===1?' Tag':' Tage')+' überfällig','background:#FCEBEB;border-color:#F7C1C1;color:#A32D2D;');
+      badges+=' '+chip(fmtDate(t.due)+' · '+d+(d===1?' Tag':' Tage')+' überfällig','background:#FCEBEB;border-color:#F7C1C1;color:#A32D2D;font-weight:600;');
     }else if(dringlichkeit==='heute'){
-      chips+=' '+chip(fmtDate(t.due),'background:#FAEEDA;border-color:#FAC775;color:#854F0B;');
+      badges+=' '+chip(fmtDate(t.due),'background:#FAEEDA;border-color:#FAC775;color:#854F0B;font-weight:600;');
     }else{
-      chips+=' '+chip(fmtDate(t.due),'background:#EAF3DE;border-color:#C0DD97;color:#3B6D11;');
+      badges+=' '+chip(fmtDate(t.due),'background:#EAF3DE;border-color:#C0DD97;color:#3B6D11;font-weight:600;');
     }
-    return '<div style="display:flex;align-items:stretch;border:0.5px solid var(--border);border-left:3px solid '+bc+';border-radius:8px;background:var(--bg2);margin-bottom:5px;cursor:pointer;overflow:hidden;" onclick="openEditTaskModal(\''+esc(t.id)+'\')">'
-      +'<div style="flex:1;padding:8px 12px;min-width:0;">'
-      +'<div style="font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(t.title)+'</div>'
-      +'<div style="display:flex;align-items:center;gap:5px;margin-top:5px;flex-wrap:wrap;">'+chips+'</div>'
-      +'</div>'
-      +actionBlock(t)
+    var al=actionLine(t);
+    return'<div style="display:flex;flex-direction:column;border:0.5px solid var(--border);border-left:3px solid '+bc
+      +';border-radius:0 8px 8px 0;background:var(--bg2);margin-bottom:5px;cursor:pointer;overflow:hidden;" '
+      +'onclick="openEditTaskModal(\''+esc(t.id)+'\')">'
+      +'<div style="padding:8px 12px 3px;font-size:14px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(t.title)+'</div>'
+      +'<div style="padding:3px 12px 6px;display:flex;align-items:center;gap:5px;flex-wrap:wrap;">'+badges+'</div>'
+      +al
       +'</div>';
   }
+
   function section(label,color,items,dringlichkeit){
     if(!items.length)return'';
-    return '<div style="margin-bottom:1.25rem;">'
+    return'<div style="margin-bottom:1.25rem;">'
       +'<div style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:6px;">'
       +'<span style="width:6px;height:6px;border-radius:50%;background:'+color+';display:inline-block;"></span>'
       +label
@@ -3794,13 +3809,24 @@ function renderHeute(){
       +items.map(function(item){return taskRow(item,dringlichkeit);}).join('')
       +'</div>';
   }
+
   var d=new Date();
   var dateStr=d.toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  var zoomBar='<div style="display:flex;align-items:center;gap:8px;margin-bottom:1rem;max-width:860px;">'
+    +'<span style="font-size:11px;color:var(--text2);flex-shrink:0;">A</span>'
+    +'<input type="range" min="70" max="150" step="5" value="'+zoom+'" style="flex:1;max-width:180px;accent-color:var(--accent);" '
+    +'oninput="(function(v){var c=document.getElementById(\'heuteZoomContent\');if(c)c.style.zoom=v+\'%\';'
+    +'var lbl=document.getElementById(\'heuteZoomVal\');if(lbl)lbl.textContent=v+\'%\';'
+    +'try{localStorage.setItem(\'ptp_heute_pc_zoom\',v);}catch(e){}}).call(null,this.value)">'
+    +'<span id="heuteZoomVal" style="font-size:11px;color:var(--text);min-width:32px;flex-shrink:0;">'+zoom+'%</span>'
+    +'</div>';
   var html='<div style="padding:20px 24px;max-width:860px;">'
-    +'<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:1.5rem;">'
+    +'<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:1rem;">'
     +'<span style="font-size:18px;font-weight:600;color:var(--text);">Was steht heute an?</span>'
     +'<span style="font-size:13px;color:var(--text2);">'+dateStr+'</span>'
-    +'</div>';
+    +'</div>'
+    +zoomBar
+    +'<div id="heuteZoomContent" style="zoom:'+zoom+'%;">';
   if(!ueberfaellig.length&&!heuteFaellig.length&&!bald.length){
     html+='<div style="color:var(--text2);font-size:14px;padding:20px 0;">Keine fälligen Aufgaben — alles erledigt!</div>';
   }else{
@@ -3808,11 +3834,9 @@ function renderHeute(){
     html+=section('Heute','#EF9F27',heuteFaellig,'heute');
     html+=section('Nächste 3 Tage','#639922',bald,'bald');
   }
-  html+='</div>';
+  html+='</div></div>';
   document.getElementById('mainContent').innerHTML=html;
 }
-
-
 function renderKanban(){
   const tasks=getTasks();
   const curStatuses=getBoardStatuses();
