@@ -471,7 +471,7 @@ function _parseEmlText(rawText){
   return{subject:subject,sender:sender,date:date,bodyText:plain.substring(0,8000),bodyHtml:htmlBody||''};
 }
 
-function tEmailOrdnerOeffnen(){var u=(document.getElementById('tEmailOrdner')||{}).value||'';if(u.trim())window.open(u,'_blank');else alert('Bitte zuerst eine Google Drive Ordner-URL eintragen.');}
+function tEmailOrdnerOeffnen(){var u=(document.getElementById('tEmailOrdner')||{}).value||'';if(u.trim())window.open(u,'_blank');else showToast('⚠ Bitte zuerst eine Google Drive Ordner-URL eintragen','error',4000);}
 
 // ── AUFTRAG ANLEGEN (Haupt-Drop-Zone) ──
 var _auftragPending=null; // speichert geparste E-Mail + Rohdaten bis Board gewählt
@@ -525,7 +525,7 @@ async function _pdfAuftragDrop(dt){
 }
 
 async function _auftragDrop(dt){
-  if(!gdriveToken){alert('Bitte zuerst mit Google Drive verbinden.');return;}
+  if(!gdriveToken){showToast('⚠ Bitte zuerst mit Google Drive verbinden (oben rechts: ☁️ Google Drive)','error',5000);return;}
   var zone=document.getElementById('auftragDropBar');
   zone.classList.add('adz-hover');
   try{
@@ -569,7 +569,7 @@ function _auftragFileSelect(evt){
   var f=evt.target.files&&evt.target.files[0];
   evt.target.value='';
   if(!f)return;
-  if(!gdriveToken){alert('Bitte zuerst mit Google Drive verbinden.');return;}
+  if(!gdriveToken){showToast('⚠ Bitte zuerst mit Google Drive verbinden (oben rechts: ☁️ Google Drive)','error',5000);return;}
   var dt={files:[f],types:['Files'],getData:function(){return '';}};
   _auftragDrop(dt);
 }
@@ -2615,7 +2615,7 @@ async function gdriveTokenCallback(resp) {
       }
       return;
     }
-    alert('Google Drive Anmeldefehler: ' + resp.error);
+    showToast('⚠ Google Drive Anmeldefehler: ' + resp.error,'error',8000);
     return;
   }
   console.log('[Drive] Token erhalten, expires_in=', resp.expires_in);
@@ -2632,6 +2632,7 @@ async function gdriveTokenCallback(resp) {
   }
   clearTimeout(_gdriveRefreshTimer); // kein Timer mehr – visibilitychange übernimmt
   _hideDriveWarnBanner(); // Warnbanner ausblenden (falls sichtbar)
+  _warnToastShown = false; // Toast kann beim nächsten Ablauf wieder erscheinen
   updateDriveBtnBar(); // Timer-Anzeige starten
   const action = gdrivePendingAction;
   gdrivePendingAction = null;
@@ -2753,8 +2754,10 @@ function _silentTokenRefresh(onSuccess, onFail){
 }
 
 // Jede Minute prüfen: wie lange noch?
-// < 10 Min: stille Erneuerung versuchen
-// Schlägt stille Erneuerung fehl oder < 5 Min: Banner anzeigen
+// < 10 Min: Banner sofort zeigen + stille Erneuerung versuchen (klappt sie, verschwindet Banner)
+// Hinweis: requestAccessToken({prompt:'none'}) funktioniert nicht zuverlässig ohne Nutzeraktion.
+// Daher: Banner früh genug zeigen, damit der Nutzer rechtzeitig selbst klicken kann.
+let _warnToastShown = false; // Toast nur einmal pro Session
 setInterval(()=>{
   if(!gdriveTokenClient)return;
   // Kein Token aber Datei war gespeichert → stille Erneuerung versuchen
@@ -2774,11 +2777,18 @@ setInterval(()=>{
     _showDriveWarnBanner(0);
     return;
   }
-  if(msLeft > 300000) return; // mehr als 5 Min → nichts tun
-  // Weniger als 5 Min → stille Erneuerung versuchen
+  if(msLeft > 600000) return; // mehr als 10 Min → nichts tun
+  // Weniger als 10 Min → Banner SOFORT zeigen (nicht erst nach fehlgeschlagenem Silent-Refresh)
+  _showDriveWarnBanner(msLeft/1000);
+  // Einmalig Toast anzeigen damit Nutzer es sicher bemerkt
+  if(!_warnToastShown){
+    _warnToastShown=true;
+    showToast('⚠ Google Drive Verbindung läuft bald ab – bitte oben auf „Erneut anmelden" klicken','error',10000);
+  }
+  // Trotzdem stille Erneuerung versuchen – klappt sie, verschwindet der Banner automatisch
   _silentTokenRefresh(
-    ()=>{ _hideDriveWarnBanner(); }, // Erfolg
-    ()=>{ _showDriveWarnBanner(msLeft/1000); } // Fehlgeschlagen → Banner
+    ()=>{ _hideDriveWarnBanner(); _warnToastShown=false; }, // Erfolg → Banner weg
+    ()=>{ /* Banner bleibt – Nutzer muss klicken */ }
   );
 },60*1000);
 
@@ -2791,10 +2801,11 @@ document.addEventListener('visibilitychange', () => {
     _showDriveWarnBanner(0);
     return;
   }
-  if(msLeft > 300000) return;
+  if(msLeft > 600000) return;
+  _showDriveWarnBanner(msLeft/1000);
   _silentTokenRefresh(
     ()=>{ _hideDriveWarnBanner(); },
-    ()=>{ _showDriveWarnBanner(msLeft/1000); }
+    ()=>{ /* Banner bleibt */ }
   );
 });
 function gdriveTokenValid() { return !!gdriveToken && Date.now() < gdriveTokenExpires; }
@@ -2838,16 +2849,27 @@ function _driveCheckResponse(r){
   if(!r.ok)throw new Error('HTTP '+r.status);
 }
 
+// Stellt sicher dass gdriveTokenClient initialisiert ist.
+// Gibt true zurück wenn bereit, false wenn GSI noch nicht geladen.
+// Zeigt in letzterem Fall automatisch einen Toast.
+function _ensureTokenClient(){
+  if(gdriveTokenClient) return true;
+  gdriveInit();
+  if(!gdriveTokenClient){
+    showToast('⚠ Google-Dienst noch nicht geladen – bitte 2–3 Sekunden warten und nochmals drücken','error',6000);
+    return false;
+  }
+  return true;
+}
+
 function gdriveRequestToken(action) {
   gdrivePendingAction = action;
   console.log('[Drive] gdriveRequestToken:', action, 'tokenClient=', !!gdriveTokenClient);
   _driveSetStatus('⏳ Google-Anmeldung wird gestartet…', false);
   if (!gdriveTokenClient) {
-    gdriveInit();
-    if (!gdriveTokenClient) {
-      // GSI noch nicht geladen → Start-Modal sichtbar lassen und Hinweis geben
+    if(!_ensureTokenClient()){
+      // GSI noch nicht geladen → Status setzen und abbrechen
       _driveSetStatus('⚠ Google-Dienst nicht geladen – bitte Seite neu laden (F5)', true);
-      showToast('⚠ Google-Dienst noch nicht geladen – bitte 2–3 Sekunden warten und nochmals drücken','error',6000);
       gdrivePendingAction = null;
       return;
     }
@@ -2870,27 +2892,14 @@ function gdriveRequestToken(action) {
 }
 
 function gdriveOpenExisting() {
-  // Erst prüfen ob Google-Dienst bereit ist
-  if (!gdriveToken && !gdriveTokenClient) {
-    gdriveInit();
-    if (!gdriveTokenClient) {
-      showToast('⚠ Google-Dienst noch nicht geladen – bitte 2–3 Sekunden warten und nochmals drücken','error',6000);
-      return;
-    }
-  }
+  if (!gdriveToken && !_ensureTokenClient()) return;
   closeStartModal();
   if (!gdriveToken) { gdriveRequestToken('load'); return; }
   gdrivePickAndLoad();
 }
 
 function gdriveCreateNew() {
-  if (!gdriveToken && !gdriveTokenClient) {
-    gdriveInit();
-    if (!gdriveTokenClient) {
-      showToast('⚠ Google-Dienst noch nicht geladen – bitte 2–3 Sekunden warten und nochmals drücken','error',6000);
-      return;
-    }
-  }
+  if (!gdriveToken && !_ensureTokenClient()) return;
   closeStartModal();
   if (!gdriveToken) { gdriveRequestToken('new'); return; }
   gdriveCreateFile();
@@ -3114,7 +3123,7 @@ async function gdriveCreateFile(keepCurrentData) {
     render();
   } catch(e) {
     updateFileStatus('unsaved','Drive-Fehler','⚠ ' + e.message);
-    alert('Google Drive Fehler beim Erstellen: ' + e.message);
+    showToast('⚠ Google Drive Fehler beim Erstellen: ' + e.message,'error',8000);
   }
 }
 
@@ -5234,7 +5243,7 @@ async function handleFileAttach(e){
     // ── Fallback: Base64 (max 20 MB, kein Drive oder kein Ordner) ────────
     const MAX=20*1024*1024;
     if(file.size>MAX){
-      alert('"'+file.name+'" ist zu groß (max. 20 MB ohne Drive-Verbindung).\n\nBitte zuerst einen Drive-Projektordner eintragen.');
+      showToast('⚠ „'+file.name+'" ist zu groß (max. 20 MB ohne Drive-Verbindung). Bitte zuerst einen Drive-Projektordner eintragen.','error',7000);
       continue;
     }
     if(!gdriveToken){
@@ -6829,7 +6838,11 @@ async function deskSaveDraw(){
   const canvas=document.getElementById('desktopDrawCanvas');
   if(!img||!canvas){deskDiscardDraw();return;}
   if(_currentFotoLbIdx<0||!taskFotos||!taskFotos[_currentFotoLbIdx]){showToast('Kein Foto gewählt','error');deskDiscardDraw();return;}
-  const f=taskFotos[_currentFotoLbIdx];
+  // Index VOR dem ersten await sichern – _currentFotoLbIdx kann sich während des
+  // asynchronen Uploads ändern (z.B. Lightbox geschlossen → -1), was sonst
+  // taskFotos[-1]=undefined liefert und einen Duplikat-Eintrag per push() erzeugt.
+  const savedIdx=_currentFotoLbIdx;
+  const f=taskFotos[savedIdx];
   const mc=document.createElement('canvas');
   mc.width=img.naturalWidth||canvas.width;
   mc.height=img.naturalHeight||canvas.height;
@@ -6857,12 +6870,14 @@ async function deskSaveDraw(){
     if(!taskFotos)taskFotos=[];
     const blobUrl=URL.createObjectURL(blob);
     _desktopFotoBlobCache.set(meta.id,blobUrl);
-    const origFoto=taskFotos[_currentFotoLbIdx];
+    // savedIdx verwenden – nicht _currentFotoLbIdx (könnte sich geändert haben)
+    const origFoto=taskFotos[savedIdx];
     if(origFoto){
       origFoto.editedDriveId=meta.id;
       origFoto.editedName=meta.name||copyName;
     } else {
-      taskFotos.push({driveId:meta.id,name:meta.name||copyName,mimeType:meta.mimeType||'image/jpeg',caption:'Zeichnung'});
+      // Fallback: Foto existiert nicht mehr (z.B. zwischenzeitlich gelöscht)
+      console.warn('[PTP] deskSaveDraw: origFoto nicht mehr gefunden bei Index',savedIdx);
     }
     scheduleTaskFieldSave();
     renderFotoListDesktop();
@@ -7059,8 +7074,8 @@ async function _driveUploadPDF(name,arrayBuffer,parentId){
 async function createAbschlussakte(){
   const gdrive=document.getElementById('tGD').value.trim();
   const folderId=_extractFolderIdFromUrl(gdrive);
-  if(!folderId){alert('Bitte zuerst einen Google Drive-Foto-Ordner im Task eintragen.');return;}
-  if(!gdriveToken){alert('Nicht mit Google Drive verbunden.');return;}
+  if(!folderId){showToast('⚠ Bitte zuerst einen Google Drive-Foto-Ordner im Task eintragen','error',5000);return;}
+  if(!gdriveToken){showToast('⚠ Bitte zuerst mit Google Drive verbinden (☁️ oben rechts)','error',5000);return;}
   if(!window.jspdf){alert('PDF-Bibliothek noch nicht geladen. Bitte kurz warten und erneut versuchen.');return;}
   const btn=document.getElementById('abschlussBtn');
   btn.textContent='⏳ Erstelle PDF…';btn.disabled=true;
@@ -7862,12 +7877,12 @@ function tMapsOeffnen(){
 function tDriveOeffnen(){
   const url=document.getElementById('tGD').value.trim();
   if(url)window.open(url,'_blank');
-  else alert('Bitte zuerst einen Google Drive Link eingeben.');
+  else showToast('⚠ Bitte zuerst einen Google Drive Link eingeben','error',4000);
 }
 function tDriveOrdnerOeffnen(){
   const url=document.getElementById('tGDOrdner').value.trim();
   if(url)window.open(url,'_blank');
-  else alert('Bitte zuerst einen Google Drive Link eingeben.');
+  else showToast('⚠ Bitte zuerst einen Google Drive Link eingeben','error',4000);
 }
 function tNasKopieren(){
   const v=document.getElementById('tNAS').value.trim();
