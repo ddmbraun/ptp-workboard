@@ -3726,54 +3726,74 @@ function renderHeute(){
   });
   ueberfaellig.sort(function(a,b){return a.t.due<b.t.due?-1:1;});
   bald.sort(function(a,b){return a.t.due<b.t.due?-1:1;});
-
   function diffDays(due){return Math.round((new Date(today)-new Date(due))/(864e5));}
-  function fmtDue(due){var p=due.split('-');return p[2]+'.'+p[1]+'.';}
-
-  function _anrufBlock(t){
-    if(t.aktivitaet!=='anruf')return'';
-    var kk=t.kontakte||[];
-    var k=kk.find(function(x){return x.anrufKontakt&&x.tel;});
-    if(!k)return'';
-    var clean=k.tel.replace(/[^0-9+]/g,'');
-    var nameChip=k.name?'<span style="font-size:11px;padding:2px 7px;border-radius:4px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);white-space:nowrap;">'+esc(k.name)+'</span>':'';
-    return '<a href="tel:'+clean+'" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:5px;background:#185FA5;color:#e6f1fb;font-size:12px;font-weight:500;text-decoration:none;white-space:nowrap;flex-shrink:0;">📞</a>'
-      +(nameChip?'<span style="flex-shrink:0;">'+nameChip+'</span>':'');
+  function fmtDate(due){var p=due.split('-');return p[2]+'.'+p[1]+'.';}
+  var phoneIcon='<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:#fff;flex-shrink:0;"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>';
+  var pinIcon='<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:#fff;flex-shrink:0;"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>';
+  function actionBlock(t){
+    var s='display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 0;border-left:0.5px solid var(--border);flex-shrink:0;gap:4px;width:80px;min-width:80px;';
+    var btnBase='width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid ';
+    if(t.aktivitaet==='anruf'){
+      var k=(t.kontakte||[]).find(function(c){return c.anrufKontakt&&c.tel;});
+      if(k&&k.tel){
+        var clean=k.tel.replace(/[^0-9+]/g,'');
+        var nm=k.name?esc(k.name):'';
+        return '<div style="'+s+'">'
+          +'<a href="tel:'+clean+'" onclick="event.stopPropagation()" style="'+btnBase+'#0d3880;background:#1565c0;text-decoration:none;">'+phoneIcon+'</a>'
+          +(nm?'<span style="font-size:10px;color:var(--text2);text-align:center;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+nm+'</span>':'')
+          +'</div>';
+      }
+    }
+    if(t.aktivitaet==='besichtigung'){
+      var adr=(t.adresse||'').trim();
+      if(adr){
+        var mapsUrl='https://maps.google.com/?q='+encodeURIComponent(adr);
+        return '<div style="'+s+'">'
+          +'<a href="'+mapsUrl+'" onclick="event.stopPropagation()" target="_blank" style="'+btnBase+'#1b5e20;background:#2e7d32;text-decoration:none;">'+pinIcon+'</a>'
+          +'<span style="font-size:10px;color:var(--text2);text-align:center;">Maps</span>'
+          +'</div>';
+      }
+      return '<div style="'+s+'">'
+        +'<div style="'+btnBase+'#1b5e20;background:#2e7d32;">'+pinIcon+'</div>'
+        +'<span style="font-size:10px;color:var(--text2);">Besichtigung</span>'
+        +'</div>';
+    }
+    return '<div style="'+s+'"></div>';
   }
-
+  function chip(text,extra){return '<span style="font-size:11px;padding:2px 7px;border-radius:4px;white-space:nowrap;background:var(--bg3);border:1px solid var(--border);color:var(--text2);'+(extra||'')+'">'+text+'</span>';}
   function taskRow(item,dringlichkeit){
     var t=item.t;
-    var borderColor=dringlichkeit==='overdue'?'#E24B4A':dringlichkeit==='heute'?'#EF9F27':'#639922';
-    // Zeile 2: Chips
+    var bc=dringlichkeit==='overdue'?'#E24B4A':dringlichkeit==='heute'?'#EF9F27':'#639922';
     var chips='';
-    var typ=t.source&&t.source.toLowerCase().includes('bau')?'Baustelle':'Aufgabe';
-    chips+='<span style="font-size:11px;padding:2px 7px;border-radius:4px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);white-space:nowrap;">'+typ+'</span>';
-    chips+=' <span style="font-size:11px;padding:2px 7px;border-radius:4px;white-space:nowrap;';
-    if(dringlichkeit==='overdue'){var d=diffDays(t.due);chips+='background:#FCEBEB;border:1px solid #F7C1C1;color:#A32D2D;">'+d+(d===1?' Tag':' Tage')+' überfällig</span>';}
-    else if(dringlichkeit==='heute'){chips+='background:#FAEEDA;border:1px solid #FAC775;color:#854F0B;">Heute</span>';}
-    else{chips+='background:#EAF3DE;border:1px solid #C0DD97;color:#3B6D11;">'+fmtDue(t.due)+'</span>';}
-    if(t.owner)chips+=' <span style="font-size:11px;padding:2px 7px;border-radius:4px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);white-space:nowrap;">'+esc(t.owner)+'</span>';
-    chips+=' <span style="font-size:11px;padding:2px 7px;border-radius:4px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);white-space:nowrap;">'+esc(item.board)+'</span>';
-    var anruf=_anrufBlock(t);
-    return '<div style="display:flex;align-items:center;gap:0;border:0.5px solid var(--border);border-left:3px solid '+borderColor+';border-radius:8px;background:var(--bg2);margin-bottom:5px;cursor:pointer;overflow:hidden;" onclick="openEditTaskModal(\''+esc(t.id)+'\')">'
+    chips+=chip(esc(item.board));
+    chips+=' '+chip(esc(t.status));
+    if(dringlichkeit==='overdue'){
+      var d=diffDays(t.due);
+      chips+=' '+chip(fmtDate(t.due)+' · '+d+(d===1?' Tag':' Tage')+' überfällig','background:#FCEBEB;border-color:#F7C1C1;color:#A32D2D;');
+    }else if(dringlichkeit==='heute'){
+      chips+=' '+chip(fmtDate(t.due),'background:#FAEEDA;border-color:#FAC775;color:#854F0B;');
+    }else{
+      chips+=' '+chip(fmtDate(t.due),'background:#EAF3DE;border-color:#C0DD97;color:#3B6D11;');
+    }
+    return '<div style="display:flex;align-items:stretch;border:0.5px solid var(--border);border-left:3px solid '+bc+';border-radius:8px;background:var(--bg2);margin-bottom:5px;cursor:pointer;overflow:hidden;" onclick="openEditTaskModal(\''+esc(t.id)+'\')">'
       +'<div style="flex:1;padding:8px 12px;min-width:0;">'
       +'<div style="font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(t.title)+'</div>'
-      +'<div style="display:flex;align-items:center;gap:5px;margin-top:4px;flex-wrap:wrap;">'+chips+'</div>'
+      +'<div style="display:flex;align-items:center;gap:5px;margin-top:5px;flex-wrap:wrap;">'+chips+'</div>'
       +'</div>'
-      +(anruf?'<div style="display:flex;align-items:center;gap:5px;padding:0 10px;flex-shrink:0;">'+anruf+'</div>':'')
+      +actionBlock(t)
       +'</div>';
   }
-
   function section(label,color,items,dringlichkeit){
     if(!items.length)return'';
-    var dot='<span style="width:6px;height:6px;border-radius:50%;background:'+color+';display:inline-block;flex-shrink:0;"></span>';
-    var badge='<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:11px;font-weight:500;background:'+color+'22;color:'+color+';">'+items.length+'</span>';
-    var rows=items.map(function(item){return taskRow(item,dringlichkeit);}).join('');
     return '<div style="margin-bottom:1.25rem;">'
-      +'<div style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:6px;">'+dot+label+badge+'</div>'
-      +rows+'</div>';
+      +'<div style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin-bottom:6px;">'
+      +'<span style="width:6px;height:6px;border-radius:50%;background:'+color+';display:inline-block;"></span>'
+      +label
+      +'<span style="width:18px;height:18px;border-radius:50%;font-size:11px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;background:'+color+'22;color:'+color+';">'+items.length+'</span>'
+      +'</div>'
+      +items.map(function(item){return taskRow(item,dringlichkeit);}).join('')
+      +'</div>';
   }
-
   var d=new Date();
   var dateStr=d.toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
   var html='<div style="padding:20px 24px;max-width:860px;">'
@@ -3791,6 +3811,7 @@ function renderHeute(){
   html+='</div>';
   document.getElementById('mainContent').innerHTML=html;
 }
+
 
 function renderKanban(){
   const tasks=getTasks();
