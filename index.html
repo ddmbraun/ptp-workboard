@@ -10224,24 +10224,4 @@ function _openNotizOverlay(){
     +'<button id="_notizOverlayClose" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2);line-height:1;padding:0 4px;" title="Schließen">✕</button>';
   const ta=document.createElement('textarea');
   ta.value=src.value;
-  ta.style.cssText='flex:1;resize:none;border:1px solid var(--border);border-radius:8px;padding:12px;font-size:14px;font-family:inherit;background:var(--bg3);color:var(--text);line-height:1.6;';
-  ta.placeholder='Interne Notizen…';
-  const foot=document.createElement('div');
-  foot.style.cssText='display:flex;gap:8px;justify-content:flex-end;';
-  foot.innerHTML='<button onclick="document.getElementById(\'_notizOverlay\').remove()" style="padding:7px 18px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;">Abbrechen</button>'
-    +'<button id="_notizOverlaySave" style="padding:7px 18px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-weight:600;cursor:pointer;">Übernehmen</button>';
-  box.appendChild(hdr);box.appendChild(ta);box.appendChild(foot);
-  ov.appendChild(box);document.body.appendChild(ov);
-  ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);
-  function _save(){src.value=ta.value;ov.remove();}
-  document.getElementById('_notizOverlaySave').onclick=_save;
-  document.getElementById('_notizOverlayClose').onclick=_save;
-  ov.addEventListener('click',function(e){if(e.target===ov)_save();});
-  document.addEventListener('keydown',function _esc(e){if(e.key==='Escape'){_save();document.removeEventListener('keydown',_esc);}});
-}
-
-
-
-</script>
-</body>
-</html>
+  ta.style.cssText='flex:1;r
