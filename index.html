@@ -10223,7 +10223,6 @@ function _openNotizOverlay(){
   hdr.innerHTML='<span style="font-size:13px;font-weight:700;color:var(--text2);">📝 Notizen bearbeiten</span>'
     +'<button id="_notizOverlayClose" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2);line-height:1;padding:0 4px;" title="Schließen">✕</button>';
   const ta=document.createElement('textarea');
-  ta.value=src.value;
   ta.style.cssText='flex:1;resize:none;border:1px solid var(--border);border-radius:8px;padding:12px;font-size:14px;font-family:inherit;background:var(--bg3);color:var(--text);line-height:1.6;';
   ta.placeholder='Interne Notizen…';
   const foot=document.createElement('div');
