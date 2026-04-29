@@ -586,7 +586,7 @@ async function _pdfAuftragCreate(boardName){
     title:p.title||'Neuer Auftrag',
     desc:'',owner:'Braun',due:'',
     status:(getBoardStatuses(boardName)||[])[0]||'',
-    ampel:'grün',ausführungsdatum:'',aktivitaet:'',tags:[],source:'',repNr:'',kundenNr:'',
+    ampel:'grün',ausführungsdatum:'',ausfuehrungstermin:'',aktivitaet:'',tags:[],source:'',repNr:'',kundenNr:'',
     hausverwaltung:'',adresse:'',schadensbild:'',kontakte:[],
     links:[],attachments:[],ausserhausTermine:[],zeitEntries:[],
     notizVerlauf:[],fotos:[],checkliste:[],gmailLinks:[],
@@ -773,6 +773,7 @@ async function _auftragConfirm(){
     status:(getBoardStatuses(boardName)||[])[0]||'',
     ampel:'grün',
     ausführungsdatum:'',
+    ausfuehrungstermin:'',
     aktivitaet:'',
     tags:[],
     source:'',
@@ -1728,12 +1729,25 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
         <!-- versteckte Felder für Daten-Kompatibilität -->
         <select id="taskAmpelInput" style="display:none"><option value="grün">🟢</option><option value="orange">🟠</option><option value="rot">🔴</option></select>
         <input type="hidden" id="taskSourceInput" value="" autocomplete="off">
-        <!-- Zeile 1: Bearbeiter | Fälligkeit | Auftrag erteilt | Status -->
-        <div style="display:grid;grid-template-columns:1.5fr 0.9fr 0.9fr 1.6fr;gap:5px;margin-bottom:5px;">
+        <!-- Zeile 1: Bearbeiter | Maps-Button | Status -->
+        <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:5px;margin-bottom:5px;align-items:end;">
           <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Bearbeiter</label><input type="text" id="taskOwnerInput" placeholder="Name" style="font-size:12px;padding:4px 6px" oninput="scheduleTaskFieldSave();_updateStammSummary()" autocomplete="off"></div>
-          <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Fälligkeit</label><input type="date" id="taskDueInput" style="font-size:12px;padding:4px 6px" onchange="scheduleTaskFieldSave();_updateStammSummary()" autocomplete="off"></div>
-          <div class="modal-field baustelle-only" style="margin:0;font-size:11px"><label style="font-size:10px">Auftrag erteilt</label><input type="date" id="taskAusfInput" style="font-size:12px;padding:4px 6px" onchange="scheduleTaskFieldSave()" autocomplete="off"></div>
+          <div class="baustelle-only" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding-bottom:1px;">
+            <span style="font-size:10px;color:var(--text2);white-space:nowrap;">Adresse</span>
+            <button type="button" id="taskMapsBtn" onclick="_openTaskMaps()" title="In Google Maps öffnen" style="width:32px;height:32px;border-radius:50%;background:#2e7d32;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0.4;" disabled>
+              <svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:#fff;pointer-events:none;"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+            </button>
+          </div>
           <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Status</label><select id="taskStatusInput" style="font-size:12px;padding:4px 6px" onchange="updateGcalModalBtn();scheduleTaskFieldSave();_updateStammSummary()"></select></div>
+        </div>
+        <!-- Zeile 2: Termine-Gruppe -->
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:7px 10px;margin-bottom:5px;">
+          <div style="font-size:10px;color:var(--text2);margin-bottom:5px;letter-spacing:.3px;">Termine</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;">
+            <div class="modal-field" style="margin:0;font-size:11px"><label style="font-size:10px">Fälligkeit</label><input type="date" id="taskDueInput" style="font-size:12px;padding:4px 6px" onchange="scheduleTaskFieldSave();_updateStammSummary()" autocomplete="off"><div style="font-size:9px;color:var(--text2);margin-top:2px;">interne Deadline</div></div>
+            <div class="modal-field baustelle-only" style="margin:0;font-size:11px"><label style="font-size:10px">Auftrag erteilt</label><input type="date" id="taskAusfInput" style="font-size:12px;padding:4px 6px" onchange="scheduleTaskFieldSave()" autocomplete="off"><div style="font-size:9px;color:var(--text2);margin-top:2px;">von Hausverwaltung</div></div>
+            <div class="modal-field baustelle-only" style="margin:0;font-size:11px"><label style="font-size:10px;color:var(--accent);font-weight:600;">Ausführungstermin</label><input type="date" id="taskAusfTerminInput" style="font-size:12px;padding:4px 6px;border-color:var(--accent);" onchange="scheduleTaskFieldSave()" autocomplete="off"><div style="font-size:9px;color:var(--text2);margin-top:2px;">Handwerker vor Ort</div></div>
+          </div>
         </div>
         <!-- Zeile Aktivität -->
         <div style="margin-bottom:5px;">
@@ -1767,7 +1781,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
           <div class="modal-field full">
             <label>Adresse (Straße + PLZ + Ort)</label>
             <div style="display:flex;gap:6px;">
-              <input type="text" id="tAdr" placeholder="Musterstraße 44, 99086 Erfurt" style="flex:1;" autocomplete="off">
+              <input type="text" id="tAdr" placeholder="Musterstraße 44, 99086 Erfurt" style="flex:1;" oninput="scheduleTaskFieldSave();_updateMapsBtn()" autocomplete="off">
               <button type="button" onclick="tMapsOeffnen()" style="padding:8px 14px;border-radius:8px;background:var(--accent);color:#fff;font-size:13px;font-weight:600;border:none;cursor:pointer;flex-shrink:0;">🗺 Maps</button>
             </div>
           </div>
@@ -2366,6 +2380,19 @@ function _updateStammSummary(){
   const parts=[owner,dueFmt,status,tags,repNr?'Rep.'+repNr:''].filter(Boolean);
   el.textContent=parts.length?parts.join(' · '):'Felder einklappbar';
 }
+function _openTaskMaps(){
+  const adr=(document.getElementById('tAdr')?.value||'').trim();
+  if(!adr)return;
+  window.open('https://maps.google.com/?q='+encodeURIComponent(adr),'_blank');
+}
+function _updateMapsBtn(){
+  const btn=document.getElementById('taskMapsBtn');
+  if(!btn)return;
+  const adr=(document.getElementById('tAdr')?.value||'').trim();
+  btn.disabled=!adr;
+  btn.style.opacity=adr?'1':'0.4';
+  btn.style.cursor=adr?'pointer':'default';
+}
 // Speichert Task-Daten ohne Modal zu schließen
 function saveTaskData(){
   const title=document.getElementById('taskTitleInput').value.trim();
@@ -2380,6 +2407,7 @@ function saveTaskData(){
     status:document.getElementById('taskStatusInput').value,
     ampel:document.getElementById('taskAmpelInput').value||'grün',
     ausführungsdatum:document.getElementById('taskAusfInput').value,
+    ausfuehrungstermin:(document.getElementById('taskAusfTerminInput')?document.getElementById('taskAusfTerminInput').value:''),
     aktivitaet:document.getElementById('taskAktivitaetInput')?document.getElementById('taskAktivitaetInput').value:'',
     tags:document.getElementById('taskTagsInput').value.split(',').map(s=>s.trim()).filter(Boolean),
     source:document.getElementById('taskSourceInput').value.trim(),
@@ -3576,10 +3604,11 @@ function taskCardHTML(task){
       const bauTotal=bauTermCount+bauZeitCount;
       return`<div class="task-card-meta">
         ${isNotizBoard?'':'<span class="ampel ampel-'+(task.ampel==='grün'?'green':task.ampel==='orange'?'orange':'red')+'"></span>'}
-        ${task.aktivitaet==='anruf'?'<span style="font-size:11px;padding:2px 7px;border-radius:10px;background:#e8f0fe;color:#1a56c4;font-weight:600;border:1px solid #b3c8fa;">📞 Anruf</span>':task.aktivitaet==='besichtigung'?'<span style="font-size:11px;padding:2px 7px;border-radius:10px;background:#e6f4ea;color:#1e7e34;font-weight:600;border:1px solid #a8d5b5;">📍 Besichtigung</span>':''}
+        ${task.aktivitaet==='anruf'?'<span style="font-size:11px;padding:2px 7px;border-radius:10px;background:#e8f0fe;color:#1a56c4;font-weight:600;border:1px solid #b3c8fa;">📞 Anruf</span>':task.aktivitaet==='besichtigung'?'<svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:#E24B4A;flex-shrink:0;vertical-align:middle;"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>'+(task.ausfuehrungstermin?`<span style="font-size:11px;padding:2px 7px;border-radius:4px;background:#E6F1FB;color:#185FA5;font-weight:600;border:0.5px solid #B5D4F4;">Ausf. ${formatDate(task.ausfuehrungstermin)}</span>`:'<span style="font-size:11px;padding:2px 7px;border-radius:4px;background:#e6f4ea;color:#1e7e34;font-weight:600;border:0.5px solid #a8d5b5;">Besichtigung</span>'):''}
         <span class="task-card-owner">${esc(task.owner)}</span>
-        ${task.due?`<span class="task-card-due ${overdue?'overdue':''}">${formatDate(task.due)}</span>`:''}
-        ${task.ausführungsdatum?`<span class="task-card-due" style="color:#e67e22;font-weight:600;">📋 ${formatDate(task.ausführungsdatum)}</span>`:''}
+        ${task.due?`<span class="task-card-due ${overdue?'overdue':''}" style="font-size:11px;padding:2px 6px;border-radius:4px;background:${overdue?'#FCEBEB':'var(--bg3)'};border:0.5px solid ${overdue?'#F7C1C1':'var(--border)'};color:${overdue?'#A32D2D':'var(--text2)'};font-weight:${overdue?'600':'400'};">Fäll. ${formatDate(task.due)}</span>`:''}
+        ${task.ausführungsdatum?`<span style="font-size:11px;padding:2px 6px;border-radius:4px;background:#FAEEDA;border:0.5px solid #FAC775;color:#854F0B;">Ert. ${formatDate(task.ausführungsdatum)}</span>`:''}
+        ${task.ausfuehrungstermin&&task.aktivitaet!=='besichtigung'?`<span style="font-size:11px;padding:2px 6px;border-radius:4px;background:#E6F1FB;border:0.5px solid #B5D4F4;color:#185FA5;font-weight:600;">Ausf. ${formatDate(task.ausfuehrungstermin)}</span>`:''}
         ${(task.tags||[]).map(t=>`<span class="task-tag">${esc(t)}</span>`).join('')}
         ${hasLinks?`<span class="task-icon-badge">🔗 ${(task.links||[]).length}</span>`:''}
         ${hasAttach?`<span class="task-icon-badge">📎 ${(task.attachments||[]).length}</span>`:''}
@@ -3724,9 +3753,11 @@ function renderHeute(){
   var today=new Date().toISOString().split('T')[0];
   var in3=new Date(Date.now()+3*864e5).toISOString().split('T')[0];
   var ueberfaellig=[],heuteFaellig=[],bald=[];
+  var ausfuehrungHeute=[];
   Object.keys(boards).forEach(function(boardName){
     if(boardName.startsWith('_'))return;
     (boards[boardName]||[]).forEach(function(t){
+      if(t.ausfuehrungstermin===today)ausfuehrungHeute.push({t:t,board:boardName});
       if(!t.due)return;
       if(t.due<today)ueberfaellig.push({t:t,board:boardName});
       else if(t.due===today)heuteFaellig.push({t:t,board:boardName});
@@ -3794,8 +3825,13 @@ function renderHeute(){
       badges+=' '+chip(fmtDate(t.due)+' · '+d+(d===1?' Tag':' Tage')+' überfällig','background:#FCEBEB;border-color:#F7C1C1;color:#A32D2D;font-weight:600;');
     }else if(dringlichkeit==='heute'){
       badges+=' '+chip(fmtDate(t.due),'background:#FAEEDA;border-color:#FAC775;color:#854F0B;font-weight:600;');
+    }else if(dringlichkeit==='ausf'){
+      badges+=' '+chip('Ausf. '+fmtDate(t.ausfuehrungstermin),'background:#E6F1FB;border-color:#B5D4F4;color:#185FA5;font-weight:600;');
     }else{
       badges+=' '+chip(fmtDate(t.due),'background:#EAF3DE;border-color:#C0DD97;color:#3B6D11;font-weight:600;');
+    }
+    if(t.ausfuehrungstermin&&dringlichkeit!=='ausf'){
+      badges+=' '+chip('Ausf. '+fmtDate(t.ausfuehrungstermin),'background:#E6F1FB;border-color:#B5D4F4;color:#185FA5;font-weight:500;');
     }
     var al=actionLine(t);
     return'<div style="display:flex;flex-direction:column;border:0.5px solid var(--border);border-left:3px solid '+bc
@@ -3836,10 +3872,11 @@ function renderHeute(){
     +'</div>'
     +zoomBar
     +'<div id="heuteZoomContent" style="zoom:'+zoom+'%;">';
-  if(!ueberfaellig.length&&!heuteFaellig.length&&!bald.length){
+  if(!ueberfaellig.length&&!heuteFaellig.length&&!bald.length&&!ausfuehrungHeute.length){
     html+='<div style="color:var(--text2);font-size:14px;padding:20px 0;">Keine fälligen Aufgaben — alles erledigt!</div>';
   }else{
     html+=section('Überfällig','#E24B4A',ueberfaellig,'overdue');
+    html+=section('Ausführung heute','#378ADD',ausfuehrungHeute,'ausf');
     html+=section('Heute','#EF9F27',heuteFaellig,'heute');
     html+=section('Nächste 3 Tage','#639922',bald,'bald');
   }
@@ -3958,11 +3995,14 @@ function renderTable(){
 }
 
 function render(){
+  const _mc=document.getElementById('mainContent');
+  const _sc=_mc?_mc.scrollTop:0;
   renderBoardTabs();updateFilterDropdowns();updateStatusSelect();
   if(currentView==='heute')renderHeute();
   else if(currentView==='kanban'){renderKanban();setTimeout(initColResize,0);}
   else if(currentView==='list')renderList();
   else renderTable();
+  if(_mc&&_sc>0)_mc.scrollTop=_sc;
 }
 function updateStatusSelect(){
   const sel=document.getElementById('taskStatusInput');const cur=sel.value;
@@ -9115,6 +9155,7 @@ function openEditTaskModal(id){
   document.getElementById('taskStatusInput').value=task.status;
   document.getElementById('taskAmpelInput').value=task.ampel||'grün';
   document.getElementById('taskAusfInput').value=task.ausführungsdatum||'';
+  const _atEl=document.getElementById('taskAusfTerminInput');if(_atEl)_atEl.value=task.ausfuehrungstermin||'';
   const _aktEditEl=document.getElementById('taskAktivitaetInput');if(_aktEditEl)_aktEditEl.value=task.aktivitaet||'';
   document.getElementById('taskTagsInput').value=(task.tags||[]).join(', ');
   document.getElementById('taskSourceInput').value=task.source||'';
@@ -9123,6 +9164,7 @@ function openEditTaskModal(id){
   document.getElementById('tHV').value=task.hausverwaltung||'';
   document.getElementById('tAdr').value=task.adresse||'';
   document.getElementById('tSch').value=task.schadensbild||'';
+  setTimeout(_updateMapsBtn,50);
   // Kontakte: migrate old static fields if no kontakte array yet
   let _kontakte=task.kontakte||[];
   if(!_kontakte.length){
@@ -10104,6 +10146,7 @@ async function importTaskFromZip(file){
       status:getBoardStatuses()[0]||'Backlog',
       ampel:json.ampel||'grün',
       ausführungsdatum:json.ausführungsdatum||'',
+      ausfuehrungstermin:json.ausfuehrungstermin||'',
       aktivitaet:json.aktivitaet||'',
       tags:(typeof json.tags==='string'?json.tags.split(',').map(s=>s.trim()).filter(Boolean):json.tags)||[],
       source:json.source||'',
@@ -10159,6 +10202,7 @@ function duplicateTask(){
   copy.attachments=[];
   copy.due='';
   copy.ausführungsdatum='';
+  copy.ausfuehrungstermin='';
   if(!boards[currentBoard])boards[currentBoard]=[];
   boards[currentBoard].push(copy);
   scheduleTaskFieldSave();
@@ -10175,7 +10219,6 @@ function moveTaskToBoard(){
   if(!allBoards.length){showToast('Keine anderen Boards vorhanden.','info');return;}
   const old=document.getElementById('_moveBoardPop');if(old)old.remove();
   const pop=document.createElement('div');
-  pop.id='_moveBoardPop';
   pop.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg2);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.35);z-index:200000;padding:20px;min-width:280px;max-width:380px;';
   let html='<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:14px;">↗ Task verschieben nach…</div>';
   html+='<div style="display:flex;flex-direction:column;gap:6px;">';
