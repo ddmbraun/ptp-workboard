@@ -1663,7 +1663,6 @@ var _sdSilentRefreshing = false;
 function _sdSilentRefresh(onSuccess, onFail){
   if(_sdSilentRefreshing) return;
   _sdSilentRefreshing = true;
-  var orig = gdriveTokenCallback;
   var done = false;
   function finish(ok){
     if(done) return; done = true;
@@ -1726,7 +1725,7 @@ function _autoSaveNow(silent){
         _sdAutoSaveRetrying = true;
         _sdSilentRefresh(function(){
           _sdAutoSaveRetrying = false;
-          _autoSaveNow(silent); // einmaliger Retry nach Token-Erneuerung
+          _autoSaveNow(silent);
         }, function(){
           _sdAutoSaveRetrying = false;
           _sdShowWarnBanner(0);
@@ -2136,4 +2135,86 @@ async function pdfNachDrive(){
     // ── I — Einsatzbewertung
     hdr('I — Einsatzbewertung');
     rowIf('Ampelstatus Bühne', mapV(o.amp,ampM));
-    rowIf('Hinweise Fremdfirma', o
+    rowIf('Hinweise Fremdfirma', o.hff);
+    rowIf('Aktualisiert am', o.akt);
+    rowIf('Aktualisiert durch', o.aktd);
+
+    // ── Unterschrift / Footer
+    var pgCount=doc.getNumberOfPages();
+    for(var pg=1;pg<=pgCount;pg++){
+      doc.setPage(pg);
+      // Fußzeile
+      doc.setFontSize(7); doc.setTextColor(150,150,150);
+      doc.text('Stammblatt-Verwaltung  |  '+o.adr+(o.plz?' — '+o.plz+' '+o.ort:''),M,292);
+      doc.text('Seite '+pg+' / '+pgCount,M+CW,292,{align:'right'});
+      doc.setDrawColor(200,200,200); doc.line(M,290,M+CW,290);
+    }
+    // Letzte Seite: Unterschriftsbereich
+    chk(35);
+    y+=8;
+    doc.setFontSize(8); doc.setTextColor(80,80,80);
+    doc.text('Datum der Erfassung:',M,y+4);
+    doc.line(M+42,y+4.5,M+CW-10,y+4.5);
+    y+=14;
+    doc.text('Unterschrift Erfasser:',M,y+4);
+    doc.line(M+42,y+4.5,M+CW-10,y+4.5);
+    var bArr=doc.output('arraybuffer');
+    var d=new Date();
+    var dd=String(d.getDate()).padStart(2,'0');
+    var mm=String(d.getMonth()+1).padStart(2,'0');
+    var yy=d.getFullYear();
+    var pdfName=(o.adr||'Objekt').replace(/[/\\:*?"<>|]/g,'_')+'_Stammblatt_'+yy+'-'+mm+'-'+dd+'.pdf';
+    var boundary='---SBBoundary'+Date.now();
+    var meta=JSON.stringify({name:pdfName,parents:[fid]});
+    var body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+meta+'\r\n--'+boundary+'\r\nContent-Type: application/pdf\r\n\r\n';
+    var bodyEnd='\r\n--'+boundary+'--';
+    var enc=new TextEncoder();
+    var bodyBytes=enc.encode(body);
+    var endBytes=enc.encode(bodyEnd);
+    var pdf=new Uint8Array(bArr);
+    var full=new Uint8Array(bodyBytes.length+pdf.length+endBytes.length);
+    full.set(bodyBytes); full.set(pdf,bodyBytes.length); full.set(endBytes,bodyBytes.length+pdf.length);
+    var resp=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{
+      method:'POST',
+      headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'multipart/related; boundary='+boundary},
+      body:full
+    });
+    if(!resp.ok){ var e=await resp.json(); toast('Drive-Fehler: '+(e.error&&e.error.message||resp.status),'err'); return; }
+    toast('PDF gespeichert: '+pdfName,'ok');
+  }catch(e){ toast('PDF-Fehler: '+e.message,'err'); console.error(e); }
+}
+
+async function shortcutNachDrive(){
+  if(!cid){ toast('Kein Objekt gewählt','err'); return; }
+  sammelDaten(); var o=holeObj(); if(!o) return;
+  var furl=(o.driveOrdner||'').trim(); var fid=_folderId(furl);
+  if(!fid){ toast('Bitte zuerst einen Drive-Ordner für dieses Objekt eintragen','err'); return; }
+  if(!gdriveToken||!gdriveFileId){ toast('Bitte zuerst mit Drive verbinden (☁️ Drive-Button)','err'); return; }
+  try{
+    // Basis-URL der Stammblatt-Seite (ohne Query/Hash)
+    var sbUrl=window.location.href.split('?')[0].split('#')[0];
+    var shortcutContent='[InternetShortcut]\r\nURL='+sbUrl+'\r\n';
+    var shortcutName='Stammblatt.url';
+    // Multipart-Upload zu Drive
+    var boundary='---SBSCBoundary'+Date.now();
+    var meta=JSON.stringify({name:shortcutName,parents:[fid],'mimeType':'application/octet-stream'});
+    var body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+meta+'\r\n--'+boundary+'\r\nContent-Type: application/octet-stream\r\n\r\n';
+    var bodyEnd='\r\n--'+boundary+'--';
+    var enc=new TextEncoder();
+    var bodyBytes=enc.encode(body);
+    var contentBytes=enc.encode(shortcutContent);
+    var endBytes=enc.encode(bodyEnd);
+    var full=new Uint8Array(bodyBytes.length+contentBytes.length+endBytes.length);
+    full.set(bodyBytes); full.set(contentBytes,bodyBytes.length); full.set(endBytes,bodyBytes.length+contentBytes.length);
+    var resp=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{
+      method:'POST',
+      headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'multipart/related; boundary='+boundary},
+      body:full
+    });
+    if(!resp.ok){ var e=await resp.json(); toast('Drive-Fehler: '+(e.error&&e.error.message||resp.status),'err'); return; }
+    toast('🔗 Stammblatt.url in Drive-Ordner gespeichert ✓','ok');
+  }catch(e){ toast('Shortcut-Fehler: '+e.message,'err'); console.error(e); }
+}
+</script>
+</body>
+</html>
