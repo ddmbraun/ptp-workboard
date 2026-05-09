@@ -2036,10 +2036,11 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
           <div class="mv2-section-label">👤 Bearbeitung</div>
           <!-- versteckter Maps-Button für JS-Kompatibilität -->
           <button type="button" id="taskMapsBtn" onclick="_openTaskMaps()" style="display:none;" disabled></button>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-bottom:6px;">
             <div class="modal-field" style="margin:0;font-size:calc(11px * var(--modal-scale,1))"><label style="font-size:calc(10px * var(--modal-scale,1))">Bearbeiter</label><input type="text" id="taskOwnerInput" placeholder="Name" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px" oninput="scheduleTaskFieldSave();_updateStammSummary();_updateHdrMeta()" autocomplete="off"></div>
             <div class="modal-field" style="margin:0;font-size:calc(11px * var(--modal-scale,1))"><label style="font-size:calc(10px * var(--modal-scale,1))">Task</label><select id="taskStatusInput" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px" onchange="updateGcalModalBtn();scheduleTaskFieldSave();_updateStammSummary();_updateMapsBtn()"></select></div>
             <div class="modal-field" style="margin:0;font-size:calc(11px * var(--modal-scale,1))"><label style="font-size:calc(10px * var(--modal-scale,1))">Anfrage - Eingang</label><select id="taskAktivitaetInput" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%" onchange="scheduleTaskFieldSave();_updateMapsBtn();_updateStammSummary()"><option value="">— keine —</option><option value="telefon">📞 Telefon</option><option value="besichtigung">📍 Besichtigung</option><option value="auftrag_erteilt">📋 Auftrag erteilt</option><option value="angebot">📝 Angebot</option><option value="email">📧 E-Mail</option><option value="rueckfragen">❓ Rückfragen</option><option value="abgeschlossen">✅ Abgeschlossen</option></select></div>
+            <div class="modal-field" style="margin:0;font-size:calc(11px * var(--modal-scale,1))"><label style="font-size:calc(10px * var(--modal-scale,1))">Datum Eingang</label><input type="date" id="taskAnfrageEingangDatum" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%" onchange="scheduleTaskFieldSave();" autocomplete="off"></div>
           </div>
           <div class="baustelle-only" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:end;">
             <div class="modal-field" style="margin:0"><label style="font-size:calc(11px * var(--modal-scale,1))">Kostenstelle</label><input type="text" id="taskTagsInput" placeholder="z.B. 260036" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px" oninput="scheduleTaskFieldSave();_updateStammSummary();_updateHdrMeta()" autocomplete="off"></div>
@@ -2831,6 +2832,7 @@ function saveTaskData(){
     ausführungsdatum:document.getElementById('taskAusfInput').value,
     ausfuehrungstermin:(document.getElementById('taskAusfTerminInput')?document.getElementById('taskAusfTerminInput').value:''),
     aktivitaet:document.getElementById('taskAktivitaetInput')?document.getElementById('taskAktivitaetInput').value:'',
+    anfrageEingangDatum:(document.getElementById('taskAnfrageEingangDatum')?document.getElementById('taskAnfrageEingangDatum').value:''),
     ortstermin:(document.getElementById('taskOrtsterminInput')?document.getElementById('taskOrtsterminInput').value:''),
     tags:document.getElementById('taskTagsInput').value.split(',').map(s=>s.trim()).filter(Boolean),
     source:document.getElementById('taskSourceInput').value.trim(),
@@ -8945,7 +8947,7 @@ function addKontaktPTP(rolle,name,tel,email,anrufKontakt){
     +rolleOpts.map(r=>'<option value="'+r+'"'+(r===rolle?' selected':'')+'>'+rolleLabel[r]+'</option>').join('')
     +'</select>'
     +'<label style="display:flex;align-items:center;gap:4px;font-size:10px;color:#1a56c4;cursor:pointer;margin-left:6px;" title="Dieser Kontakt wird auf Mobil als Anruf-Button angezeigt">'
-    +'<input type="checkbox" class="k-anruf"'+(anrufKontakt?' checked':'')+' style="width:13px;height:13px;accent-color:#1a56c4;cursor:pointer;">📞 Anruf</label>'
+    +'<input type="checkbox" class="k-anruf"'+(anrufKontakt?' checked':'')+' style="width:13px;height:13px;accent-color:#1a56c4;cursor:pointer;" onchange="_updateMapsBtn()">📞 Anruf</label>'
     +'<button type="button" class="rm-btn" style="padding:2px 6px;font-size:11px;" onclick="this.closest(\'.kontakt-entry\').remove();updateKontaktePTPTitle()" title="Entfernen">✕</button>'
     +'</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">'
@@ -10857,6 +10859,7 @@ function openEditTaskModal(id){
   document.getElementById('taskAusfInput').value=task.ausführungsdatum||'';
   const _atEl=document.getElementById('taskAusfTerminInput');if(_atEl)_atEl.value=task.ausfuehrungstermin||'';
   const _aktEditEl=document.getElementById('taskAktivitaetInput');if(_aktEditEl)_aktEditEl.value=task.aktivitaet||'';
+  const _aeEl=document.getElementById('taskAnfrageEingangDatum');if(_aeEl)_aeEl.value=task.anfrageEingangDatum||'';
   const _ortEditEl=document.getElementById('taskOrtsterminInput');if(_ortEditEl)_ortEditEl.value=task.ortstermin||'';
   document.getElementById('taskTagsInput').value=(task.tags||[]).join(', ');
   document.getElementById('taskSourceInput').value=task.source||'';
