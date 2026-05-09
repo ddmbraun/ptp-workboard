@@ -11626,4 +11626,16 @@ function _buildTaskSummaryPdfBytes(data){
     doc.autoTable({startY:y,margin:{left:M,right:M},theme:'striped',styles:{fontSize:8,cellPadding:2},
       head:[['Typ','Dateiname','Datum']],body:allFiles});
   }
-  const pag
+  const pageCount=doc.internal.getNumberOfPages();
+  for(let p=1;p<=pageCount;p++){
+    doc.setPage(p);
+    doc.setDrawColor(200,200,200);doc.setLineWidth(0.2);doc.line(M,288,PW-M,288);
+    doc.setFontSize(7.5);doc.setFont('helvetica','normal');doc.setTextColor(160,163,175);
+    doc.text('PAM Workboard',M,293);
+    doc.text('Seite '+p+' / '+pageCount,PW-M,293,{align:'right'});
+  }
+  return doc.output('arraybuffer');
+}
+</script>
+</body>
+</html>

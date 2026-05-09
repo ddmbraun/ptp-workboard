@@ -2219,4 +2219,16 @@ async function shortcutNachDrive(){
     var contentBytes=enc.encode(shortcutContent);
     var endBytes=enc.encode(bodyEnd);
     var full=new Uint8Array(bodyBytes.length+contentBytes.length+endBytes.length);
-    full.set(bodyBytes); full.set(contentBytes,bodyBytes.length); full.set(e
+    full.set(bodyBytes); full.set(contentBytes,bodyBytes.length); full.set(endBytes,bodyBytes.length+contentBytes.length);
+    var resp=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{
+      method:'POST',
+      headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'multipart/related; boundary='+boundary},
+      body:full
+    });
+    if(!resp.ok){ var e=await resp.json(); toast('Drive-Fehler: '+(e.error&&e.error.message||resp.status),'err'); return; }
+    toast('🔗 Stammblatt.url in Drive-Ordner gespeichert ✓','ok');
+  }catch(e){ toast('Shortcut-Fehler: '+e.message,'err'); console.error(e); }
+}
+</script>
+</body>
+</html>
