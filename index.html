@@ -1855,20 +1855,12 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
         <span id="_hdrStatus"></span>
         <span id="_hdrAkt" style="display:none;"></span>
         <span id="_hdrZeitTerminBadge" style="display:none;border:0.5px solid #C0DD97;border-radius:8px;overflow:hidden;font-size:calc(11px * var(--modal-scale,1));font-weight:600;white-space:nowrap;line-height:1;">
-          <span style="display:flex;align-items:stretch;">
-            <span id="_hdrZeitRow" style="display:flex;align-items:center;gap:4px;padding:3px 8px;background:#FAEEDA;border-right:0.5px solid #FAC775;">
-              <span style="color:#854F0B;">⏱ Zeiterf.</span>
-              <span id="_hdrZeitVal" style="color:#633806;padding-left:4px;"></span>
-            </span>
-            <span id="_hdrTerminRow" style="display:flex;align-items:center;gap:4px;padding:3px 8px;background:#E6F1FB;border-right:0.5px solid #B5D4F4;">
-              <span style="color:#185FA5;">📅 Termine</span>
-              <span id="_hdrTerminVal" style="color:#0C447C;padding-left:4px;"></span>
-            </span>
-            <span id="_hdrGesamtRow" style="display:flex;align-items:center;gap:4px;padding:3px 8px;background:#EAF3DE;">
-              <span style="color:#3B6D11;">∑ Gesamt</span>
-              <span id="_hdrGesamtVal" style="color:#27500A;padding-left:4px;"></span>
-            </span>
+          <span id="_hdrGesamtRow" style="display:flex;align-items:center;gap:4px;padding:3px 8px;background:#EAF3DE;">
+            <span style="color:#3B6D11;">⏱ Zeiterfassung</span>
+            <span id="_hdrGesamtVal" style="color:#27500A;padding-left:4px;"></span>
           </span>
+          <span id="_hdrZeitRow" style="display:none;"><span id="_hdrZeitVal"></span></span>
+          <span id="_hdrTerminRow" style="display:none;"><span id="_hdrTerminVal"></span></span>
         </span>
         <span class="mv2-subhdr-obj-lbl baustelle-only" id="_hdrObjLabel" style="display:none;">Objekt:</span>
         <button type="button" class="mv2-subhdr-maps baustelle-only" id="_hdrMapsBtn" onclick="_openTaskMaps()" title="In Google Maps öffnen" style="display:none;">📍 Maps</button>
@@ -2061,32 +2053,9 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
         <div class="mv2-section mv2-termine-card">
           <div class="mv2-section-label" style="color:var(--accent);">📅 Termine</div>
           <div style="display:flex;flex-direction:column;gap:4px;">
-            <!-- Ausführungstermin (prominent) -->
-            <div class="modal-field baustelle-only date-field-row" id="taskAusfTerminInputRow" style="margin:0;font-size:calc(11px * var(--modal-scale,1))">
-              <label style="font-size:calc(10px * var(--modal-scale,1));color:var(--accent);font-weight:600;">🔧 Ausführungstermin <span style="font-weight:400;color:var(--text2);">– Handwerker vor Ort</span></label>
-              <input type="date" id="taskAusfTerminInput" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%;border-color:var(--accent);" onchange="scheduleTaskFieldSave();_updateDateFieldVis();" autocomplete="off">
-            </div>
-            <button class="date-add-btn baustelle-only" id="taskAusfTerminInputAdd" onclick="_showDateField('taskAusfTerminInput')" style="display:none;">＋ Ausführungstermin hinzufügen</button>
-            <!-- Ortstermin -->
-            <div class="modal-field baustelle-only date-field-row" id="taskOrtsterminInputRow" style="margin:0;font-size:calc(11px * var(--modal-scale,1))">
-              <label style="font-size:calc(10px * var(--modal-scale,1))">📍 Ortstermin <span style="font-weight:400;color:var(--text2);">– Besichtigungstermin vor Ort</span></label>
-              <input type="date" id="taskOrtsterminInput" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%" onchange="scheduleTaskFieldSave();" autocomplete="off">
-            </div>
-            <!-- Fälligkeit -->
-            <div class="modal-field date-field-row" id="taskDueInputRow" style="margin:0;font-size:calc(11px * var(--modal-scale,1))">
-              <label style="font-size:calc(10px * var(--modal-scale,1))">📅 Erledigen bis <span style="font-weight:400;color:var(--text2);">– interne Deadline</span></label>
-              <input type="date" id="taskDueInput" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%" onchange="scheduleTaskFieldSave();_updateStammSummary();_updateDateFieldVis();" autocomplete="off">
-            </div>
-            <button class="date-add-btn" id="taskDueInputAdd" onclick="_showDateField('taskDueInput')" style="display:none;">＋ Erledigen bis hinzufügen</button>
-            <!-- Auftrag erteilt -->
-            <div class="modal-field baustelle-only date-field-row" id="taskAusfInputRow" style="margin:0;font-size:calc(11px * var(--modal-scale,1))">
-              <label style="font-size:calc(10px * var(--modal-scale,1))">📋 Auftrag erteilt <span style="font-weight:400;color:var(--text2);">– von Hausverwaltung</span></label>
-              <input type="date" id="taskAusfInput" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%" onchange="scheduleTaskFieldSave();_updateDateFieldVis();" autocomplete="off">
-            </div>
-            <button class="date-add-btn baustelle-only" id="taskAusfInputAdd" onclick="_showDateField('taskAusfInput')" style="display:none;">＋ Auftrag erteilt hinzufügen</button>
-            <!-- Status (ehemals Aktivität) -->
-            <div class="modal-field" style="margin:0;margin-top:2px;font-size:calc(11px * var(--modal-scale,1))">
-              <label style="font-size:calc(10px * var(--modal-scale,1))">Status</label>
+            <!-- Aufgabe (ehemals Aktivität/Status) -->
+            <div class="modal-field" style="margin:0;margin-bottom:4px;font-size:calc(11px * var(--modal-scale,1))">
+              <label style="font-size:calc(10px * var(--modal-scale,1))">Aufgabe</label>
               <select id="taskAktivitaetInput" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%" onchange="scheduleTaskFieldSave();_updateMapsBtn();_updateStammSummary()">
                 <option value="">— keine —</option>
                 <option value="telefon">📞 Telefon</option>
@@ -2098,6 +2067,25 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
                 <option value="abgeschlossen">✅ Abgeschlossen</option>
               </select>
             </div>
+            <!-- Auftragseingang (ehemals Auftrag erteilt von HV) -->
+            <div class="modal-field baustelle-only" id="taskAusfInputRow" style="margin:0;font-size:calc(11px * var(--modal-scale,1))">
+              <label style="font-size:calc(10px * var(--modal-scale,1))">📋 Auftragseingang</label>
+              <input type="date" id="taskAusfInput" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%" onchange="scheduleTaskFieldSave();" autocomplete="off">
+            </div>
+            <!-- Auftrag erteilt (ehemals Erledigen bis) -->
+            <div class="modal-field" id="taskDueInputRow" style="margin:0;font-size:calc(11px * var(--modal-scale,1))">
+              <label style="font-size:calc(10px * var(--modal-scale,1))">📅 Auftrag erteilt</label>
+              <input type="date" id="taskDueInput" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%" onchange="scheduleTaskFieldSave();_updateStammSummary();" autocomplete="off">
+            </div>
+            <!-- Dynamische Aufgaben-Liste -->
+            <div style="margin-top:6px;border-top:0.5px solid var(--border);padding-top:6px;">
+              <label style="font-size:calc(10px * var(--modal-scale,1));font-weight:600;color:var(--accent);display:block;margin-bottom:4px;">🗓 Aufgaben mit Termin</label>
+              <div id="aufgabenList" style="display:flex;flex-direction:column;gap:4px;"></div>
+              <button type="button" onclick="addAufgabe()" style="margin-top:4px;width:100%;background:none;border:0.5px dashed var(--border);border-radius:5px;padding:4px 8px;font-size:calc(11px * var(--modal-scale,1));color:var(--text2);cursor:pointer;">＋ Aufgabe hinzufügen</button>
+            </div>
+            <!-- Versteckte Felder für Rückwärtskompatibilität -->
+            <input type="date" id="taskAusfTerminInput" style="display:none;" onchange="scheduleTaskFieldSave();" autocomplete="off">
+            <input type="date" id="taskOrtsterminInput" style="display:none;" onchange="scheduleTaskFieldSave();" autocomplete="off">
           </div>
         </div>
 
@@ -2582,6 +2570,46 @@ let _colSort = {}; // { [status]: {field:'title'|'tags', dir:1|-1} }
 
 // ── MODAL DATA STATE ──
 let taskAusserhausTermine = [];
+let taskAufgaben = []; // Dynamische Aufgaben mit Typ + Datum
+let _aufgabenIdCnt = 0;
+const AUFGABEN_TYPEN = ['Ortstermin','Anruf','Ausführungstermin','Besichtigung','Auftrag erteilt','Angebot','E-Mail','Rückfragen','Abgeschlossen'];
+const AUFGABEN_COLORS = [
+  {bg:'#E6F1FB',border:'#185FA5',txt:'#042C53',lbl:'#185FA5'},
+  {bg:'#EAF3DE',border:'#3B6D11',txt:'#173404',lbl:'#3B6D11'},
+  {bg:'#FAEEDA',border:'#854F0B',txt:'#412402',lbl:'#854F0B'},
+  {bg:'#EEEDFE',border:'#534AB7',txt:'#26215C',lbl:'#534AB7'},
+  {bg:'#FAECE7',border:'#993C1D',txt:'#4A1B0C',lbl:'#993C1D'},
+];
+function addAufgabe(){
+  taskAufgaben.push({id:_aufgabenIdCnt++,typ:AUFGABEN_TYPEN[0],datum:''});
+  renderAufgabenList();scheduleTaskFieldSave();
+}
+function removeAufgabe(id){
+  taskAufgaben=taskAufgaben.filter(a=>a.id!==id);
+  renderAufgabenList();_updateMapsBtn();scheduleTaskFieldSave();
+}
+function changeAufgabeTyp(id,val){
+  const a=taskAufgaben.find(a=>a.id===id);if(a){a.typ=val;}
+  renderAufgabenList();_updateMapsBtn();scheduleTaskFieldSave();
+}
+function changeAufgabeDatum(id,val){
+  const a=taskAufgaben.find(a=>a.id===id);if(a){a.datum=val;}
+  _updateMapsBtn();scheduleTaskFieldSave();
+}
+function renderAufgabenList(){
+  const el=document.getElementById('aufgabenList');if(!el)return;
+  const sc=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--modal-scale')||1)||1;
+  const fs=Math.round(11*sc)+'px';
+  el.innerHTML=taskAufgaben.map(a=>{
+    return'<div style="display:flex;align-items:center;gap:4px;">'
+      +'<select onchange="changeAufgabeTyp('+a.id+',this.value)" style="flex:1;font-size:'+fs+';padding:3px 5px;border:0.5px solid var(--border);border-radius:4px;background:var(--bg1);color:var(--text1);">'
+      +AUFGABEN_TYPEN.map(t=>'<option'+(t===a.typ?' selected':'')+'>'+t+'</option>').join('')
+      +'</select>'
+      +'<input type="date" value="'+a.datum+'" onchange="changeAufgabeDatum('+a.id+',this.value)" style="font-size:'+fs+';padding:3px 5px;border:0.5px solid var(--border);border-radius:4px;background:var(--bg1);color:var(--text1);">'
+      +'<button type="button" onclick="removeAufgabe('+a.id+')" style="background:none;border:0.5px solid var(--border);border-radius:4px;padding:2px 6px;font-size:'+fs+';color:var(--text2);cursor:pointer;">✕</button>'
+      +'</div>';
+  }).join('');
+}
 let taskZeitEntries = [];
 let taskNotizVerlauf = [];
 let taskCheckliste = [];
@@ -2714,7 +2742,7 @@ function _updateMapsBtn(){
     };
     const chip=akt&&_aktChipMapH[akt]?_aktChipMapH[akt]:null;
     if(chip){
-      aktEl.innerHTML='<span style="color:var(--text2);font-size:11px;font-weight:500;margin-right:3px;">Status:</span>'
+      aktEl.innerHTML='<span style="color:var(--text2);font-size:11px;font-weight:500;margin-right:3px;">Aufgabe:</span>'
         +'<span class="task-card-chip '+chip.cls+'" style="font-size:11px;padding:2px 8px;">'+chip.lbl+'</span>';
       aktEl.style.display='inline-flex';
       aktEl.style.alignItems='center';
@@ -2724,24 +2752,31 @@ function _updateMapsBtn(){
       aktEl.style.display='none';
     }
   }
-  // Header: Datums-Boxen (wie geschlossene Karte)
+  // Header: Datums-Boxen – dynamisch aus taskAufgaben
   const datesEl=document.getElementById('_hdrDates');
   if(datesEl){
     try{
-      const tid=document.getElementById('taskId')?.value;
-      const task=tid?findTaskById(tid):null;
-      function _dbox(lbl,val,dotStyle){
-        return'<div class="task-card-datebox"><div class="task-card-dbox-dot" style="'+dotStyle+'"></div><div class="task-card-dbox-lbl">'+lbl+'</div><div class="task-card-dbox-val">'+(val||'–')+'</div></div>';
+      const _aufgColors=[
+        {bg:'#E6F1FB',border:'#185FA5',txt:'#042C53',lbl:'#185FA5'},
+        {bg:'#EAF3DE',border:'#3B6D11',txt:'#173404',lbl:'#3B6D11'},
+        {bg:'#FAEEDA',border:'#854F0B',txt:'#412402',lbl:'#854F0B'},
+        {bg:'#EEEDFE',border:'#534AB7',txt:'#26215C',lbl:'#534AB7'},
+        {bg:'#FAECE7',border:'#993C1D',txt:'#4A1B0C',lbl:'#993C1D'},
+      ];
+      const _aufgWithDate=(taskAufgaben||[]).filter(a=>a.datum);
+      if(_aufgWithDate.length===0){datesEl.style.display='none';}
+      else{
+        datesEl.innerHTML=_aufgWithDate.map((a,i)=>{
+          const c=_aufgColors[i%_aufgColors.length];
+          return'<div style="display:flex;flex-direction:column;gap:3px;padding:8px 14px;border-radius:7px;border:1.5px solid '+c.border+';background:'+c.bg+';flex:1;min-width:100px;">'
+            +'<div style="font-size:calc(9px * var(--modal-scale,1));font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:'+c.lbl+';">'+esc(a.typ)+'</div>'
+            +'<div style="font-size:calc(14px * var(--modal-scale,1));font-weight:600;color:'+c.txt+';">'+formatDate(a.datum)+'</div>'
+            +'</div>';
+        }).join('');
+        datesEl.style.display='flex';
+        datesEl.style.gap='8px';
+        datesEl.style.padding='8px 12px';
       }
-      const overdue=task&&task.due&&isOverdue(task.due);
-      const boxes=[
-        task&&task.ausführungsdatum?_dbox('Erteilt',formatDate(task.ausführungsdatum),'background:#FAEEDA;border-color:#854F0B;'):'',
-        task&&task.ortstermin?_dbox('Ortstermin',formatDate(task.ortstermin),'background:#B5D4F4;border-color:#185FA5;'):'',
-        task&&task.ausfuehrungstermin?_dbox('Ausführung',formatDate(task.ausfuehrungstermin),'background:#C0DD97;border-color:#3B6D11;'):'',
-        task&&task.due?_dbox('Erledigen bis',formatDate(task.due),overdue?'background:#F7C1C1;border-color:#A32D2D;':'background:#FAEEDA;border-color:#854F0B;'):'',
-      ].filter(Boolean).join('');
-      datesEl.innerHTML=boxes;
-      datesEl.style.display=boxes?'flex':'none';
     }catch(e){datesEl.style.display='none';}
   }
   // Header: kombiniertes Zeiterfassung/Termine-Tabellen-Badge
@@ -2762,13 +2797,8 @@ function _updateMapsBtn(){
     const gVal=document.getElementById('_hdrGesamtVal');
     if(!wrap)return;
     if(gMins===0){wrap.style.display='none';return;}
-    if(zVal)zVal.textContent=_fm(zMins);
-    if(tVal)tVal.textContent=_fm(tMins);
     if(gVal)gVal.textContent=_fm(gMins);
-    if(zRow)zRow.style.display=zMins>0?'flex':'none';
-    if(tRow)tRow.style.display=tMins>0?'flex':'none';
-    // Gesamt-Zeile nur zeigen wenn beide Typen vorhanden
-    if(gRow)gRow.style.display=(zMins>0&&tMins>0)?'flex':'none';
+    if(gRow)gRow.style.display='flex';
     wrap.style.display='inline-block';
   })();
   // Header: Maps-Button
@@ -2834,6 +2864,7 @@ function saveTaskData(){
     links:taskLinks.filter(l=>l.url.trim()),
     attachments:JSON.parse(JSON.stringify(taskAttachments||[])),
     timeEntries:existingTask?.timeEntries||[],
+    aufgaben:JSON.parse(JSON.stringify(taskAufgaben||[])),
     ausserhausTermine:JSON.parse(JSON.stringify(taskAusserhausTermine||[])),
     zeitEntries:JSON.parse(JSON.stringify(taskZeitEntries||[])),
     notizVerlauf:JSON.parse(JSON.stringify(taskNotizVerlauf||[])),
@@ -10695,10 +10726,11 @@ function openNewTaskModal(){
   document.getElementById('deleteTaskBtn').style.display='none';
   document.getElementById('abschlussBtn').style.display='none';
   const _abHb=document.getElementById('abschlussHtmlBtn');if(_abHb)_abHb.style.display='none';
-  taskLinks=[];taskAttachments=[];taskAusserhausTermine=[];taskZeitEntries=[];taskNotizVerlauf=[];taskFotos=[];taskCheckliste=[];taskEmailOriginals=[];taskEmailPdfs=[];taskGmailLinks=[];
+  taskLinks=[];taskAttachments=[];taskAufgaben=[];taskAusserhausTermine=[];taskZeitEntries=[];taskNotizVerlauf=[];taskFotos=[];taskCheckliste=[];taskEmailOriginals=[];taskEmailPdfs=[];taskGmailLinks=[];
   _attachImgsOpen=false;
   renderLinksList();renderAttachList();renderFotoListDesktop();renderPruefberichteDesktop();
   renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();renderCheckliste();renderEmailOriginals();renderEmailPdfs();renderGmailLinks();
+  renderAufgabenList();
   const _ni=document.getElementById('newTaskNotizInput');if(_ni)_ni.value='';
   const _ci=document.getElementById('newChecklistInput');if(_ci)_ci.value='';
   const _gu=document.getElementById('newGmailLinkUrl');if(_gu)_gu.value='';
@@ -10882,6 +10914,12 @@ function openEditTaskModal(id){
   // abschlussBtn: wird von _applyBoardType gesteuert (nur Baustelle-Typ)
   taskLinks=JSON.parse(JSON.stringify(task.links||[]));
   taskAttachments=JSON.parse(JSON.stringify(task.attachments||[]));
+  // Aufgaben laden – Migration: alte Einzelfelder in taskAufgaben übernehmen
+  taskAufgaben=JSON.parse(JSON.stringify(task.aufgaben||[]));
+  if(!taskAufgaben.length){
+    if(task.ortstermin){taskAufgaben.push({id:_aufgabenIdCnt++,typ:'Ortstermin',datum:task.ortstermin});}
+    if(task.ausfuehrungstermin){taskAufgaben.push({id:_aufgabenIdCnt++,typ:'Ausführungstermin',datum:task.ausfuehrungstermin});}
+  }
   taskAusserhausTermine=JSON.parse(JSON.stringify(task.ausserhausTermine||[]));
   taskZeitEntries=JSON.parse(JSON.stringify(task.zeitEntries||[]));
   taskNotizVerlauf=JSON.parse(JSON.stringify(task.notizVerlauf||[]));
@@ -10893,6 +10931,7 @@ function openEditTaskModal(id){
   _attachImgsOpen=false;
   renderLinksList();renderAttachList();renderFotoListDesktop();renderPruefberichteDesktop();
   renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();renderCheckliste();renderEmailOriginals();renderEmailPdfs();renderGmailLinks();
+  renderAufgabenList();
   const _ni=document.getElementById('newTaskNotizInput');if(_ni)_ni.value='';
   const _ci=document.getElementById('newChecklistInput');if(_ci)_ci.value='';
   const _gu=document.getElementById('newGmailLinkUrl');if(_gu)_gu.value='';
