@@ -2036,9 +2036,10 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
           <div class="mv2-section-label">👤 Bearbeitung</div>
           <!-- versteckter Maps-Button für JS-Kompatibilität -->
           <button type="button" id="taskMapsBtn" onclick="_openTaskMaps()" style="display:none;" disabled></button>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px;">
             <div class="modal-field" style="margin:0;font-size:calc(11px * var(--modal-scale,1))"><label style="font-size:calc(10px * var(--modal-scale,1))">Bearbeiter</label><input type="text" id="taskOwnerInput" placeholder="Name" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px" oninput="scheduleTaskFieldSave();_updateStammSummary();_updateHdrMeta()" autocomplete="off"></div>
             <div class="modal-field" style="margin:0;font-size:calc(11px * var(--modal-scale,1))"><label style="font-size:calc(10px * var(--modal-scale,1))">Task</label><select id="taskStatusInput" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px" onchange="updateGcalModalBtn();scheduleTaskFieldSave();_updateStammSummary();_updateMapsBtn()"></select></div>
+            <div class="modal-field" style="margin:0;font-size:calc(11px * var(--modal-scale,1))"><label style="font-size:calc(10px * var(--modal-scale,1))">Anfrage - Eingang</label><select id="taskAktivitaetInput" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%" onchange="scheduleTaskFieldSave();_updateMapsBtn();_updateStammSummary()"><option value="">— keine —</option><option value="telefon">📞 Telefon</option><option value="besichtigung">📍 Besichtigung</option><option value="auftrag_erteilt">📋 Auftrag erteilt</option><option value="angebot">📝 Angebot</option><option value="email">📧 E-Mail</option><option value="rueckfragen">❓ Rückfragen</option><option value="abgeschlossen">✅ Abgeschlossen</option></select></div>
           </div>
           <div class="baustelle-only" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:end;">
             <div class="modal-field" style="margin:0"><label style="font-size:calc(11px * var(--modal-scale,1))">Kostenstelle</label><input type="text" id="taskTagsInput" placeholder="z.B. 260036" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px" oninput="scheduleTaskFieldSave();_updateStammSummary();_updateHdrMeta()" autocomplete="off"></div>
@@ -2058,11 +2059,8 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
               <label style="font-size:calc(10px * var(--modal-scale,1))">📋 Anfrage - Eingang</label>
               <input type="date" id="taskAusfInput" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%" onchange="scheduleTaskFieldSave();" autocomplete="off">
             </div>
-            <!-- Auftrag erteilt (ehemals Erledigen bis) -->
-            <div class="modal-field" id="taskDueInputRow" style="margin:0;font-size:calc(11px * var(--modal-scale,1))">
-              <label style="font-size:calc(10px * var(--modal-scale,1))">📅 Auftrag erteilt</label>
-              <input type="date" id="taskDueInput" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%" onchange="scheduleTaskFieldSave();_updateStammSummary();" autocomplete="off">
-            </div>
+            <!-- Auftrag erteilt (ausgeblendet, für Rückwärtskompatibilität) -->
+            <input type="date" id="taskDueInput" style="display:none;" onchange="scheduleTaskFieldSave();_updateStammSummary();" autocomplete="off">
             <!-- Dynamische Aufgaben-Liste -->
             <div style="margin-top:6px;border-top:0.5px solid var(--border);padding-top:6px;">
               <label style="font-size:calc(10px * var(--modal-scale,1));font-weight:600;color:var(--accent);display:block;margin-bottom:4px;">🗓 Aufgaben mit Termin</label>
@@ -2796,7 +2794,7 @@ function _updateMapsBtn(){
     let tel='',telName='';
     try{
       const contacts=typeof getKontaktePTP==='function'?getKontaktePTP():[];
-      const k=contacts.find(c=>c.tel&&c.tel.trim());
+      const k=contacts.find(c=>c.anrufKontakt&&c.tel&&c.tel.trim())||contacts.find(c=>c.tel&&c.tel.trim());
       if(k){tel=k.tel.trim();telName=k.name||'';}
     }catch(e){}
     hTel.style.display=tel?'':'none';
@@ -4978,7 +4976,7 @@ function renderZeiterfassung(){
       const tFmt=(e.von&&e.bis)?e.von+'–'+e.bis:(!e.von&&!e.bis?'':((e.von||'?')+'–'+(e.bis||'?')));
       const calBtn=hasTime?`<button class="zr-btn-cal gcal" title="Google Kalender" onclick="_openGcalZeitPC(${i})">📅</button><button class="zr-btn-cal out" title="Outlook" onclick="_openOutlookZeitPC(${i})">📆</button>`:'<span class="zr-no-btn"></span><span class="zr-no-btn"></span>';
       return `<div class="zeit-compact-row" data-idx="${i}">
-  <span class="zr-date" title="Datum ändern"><input type="date" value="${e.date||''}" oninput="syncZeitEntry(${i},'date',this.value)" autocomplete="off" style="opacity:0;position:absolute;width:100%;height:100%;top:0;left:0;cursor:pointer;border:none;background:none;"><span class="zr-date-lbl">${dFmt}</span></span>
+  <span class="zr-date" title="Datum ändern"><input type="date" value="${e.date||''}" onchange="syncZeitEntry(${i},'date',this.value)" autocomplete="off" style="opacity:0;position:absolute;width:100%;height:100%;top:0;left:0;cursor:pointer;border:none;background:none;"><span class="zr-date-lbl">${dFmt}</span></span>
   <input type="time" value="${e.von||''}" oninput="syncZeitEntry(${i},'von',this.value)" autocomplete="off" class="zr-time-input" placeholder="von">
   <input type="time" value="${e.bis||''}" oninput="syncZeitEntry(${i},'bis',this.value)" autocomplete="off" class="zr-time-input" placeholder="bis">
   <input class="zr-desc" type="text" value="${esc(e.beschreibung||'')}" placeholder="Beschreibung" oninput="syncZeitEntry(${i},'beschreibung',this.value)" autocomplete="off">
