@@ -1286,6 +1286,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .modal-field{margin-bottom:12px;}
 .modal-field label{display:block;font-size:calc(12px * var(--modal-scale, 1));color:var(--text2);margin-bottom:4px;font-weight:500;}
 .modal-field input,.modal-field select,.modal-field textarea{width:100%;padding:calc(8px * var(--modal-scale, 1)) calc(10px * var(--modal-scale, 1));border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:calc(13px * var(--modal-scale, 1));outline:none;}
+.mv2-left select,.mv2-right select{font-size:calc(13px * var(--modal-scale,1)) !important;}
 .modal-field input:focus,.modal-field select:focus,.modal-field textarea:focus{border-color:var(--accent);}
 .modal-field textarea{resize:vertical;min-height:calc(60px * var(--modal-scale, 1));}
 .modal-field textarea.expandable-ta.expanded{min-height:calc(280px * var(--modal-scale, 1));font-size:calc(14px * var(--modal-scale, 1));line-height:1.5;}
@@ -2101,7 +2102,8 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px;">
             <div class="modal-field" style="margin:0;font-size:calc(11px * var(--modal-scale,1))"><label style="font-size:calc(10px * var(--modal-scale,1))">Bearbeiter</label><input type="text" id="taskOwnerInput" placeholder="Name" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px" oninput="scheduleTaskFieldSave();_updateStammSummary();_updateHdrMeta()" autocomplete="off"></div>
             <div class="modal-field" style="margin:0;font-size:calc(11px * var(--modal-scale,1))"><label style="font-size:calc(10px * var(--modal-scale,1))">Task</label><select id="taskStatusInput" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px" onchange="updateGcalModalBtn();scheduleTaskFieldSave();_updateStammSummary();_updateMapsBtn()"></select></div>
-            <div class="modal-field" style="margin:0;font-size:calc(11px * var(--modal-scale,1))"><label style="font-size:calc(10px * var(--modal-scale,1))">Anfrage - Eingang</label><select id="taskAktivitaetInput" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%" onchange="scheduleTaskFieldSave();_updateMapsBtn();_updateStammSummary()"><option value="">— keine —</option><option value="telefon">📞 Telefon</option><option value="besichtigung">📍 Besichtigung</option><option value="auftrag_erteilt">📋 Auftrag erteilt</option><option value="angebot">📝 Angebot</option><option value="email">📧 E-Mail</option><option value="rueckfragen">❓ Rückfragen</option><option value="abgeschlossen">✅ Abgeschlossen</option></select></div>
+            <div class="modal-field" style="margin:0;font-size:calc(11px * var(--modal-scale,1))"><label style="font-size:calc(10px * var(--modal-scale,1))">Anfrage - Eingang</label><input type="date" id="taskAnfrageEingangDatum" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%" onchange="scheduleTaskFieldSave();_updateMapsBtn();" autocomplete="off"></div>
+            <input type="hidden" id="taskAktivitaetInput" value="">
           </div>
           <div class="baustelle-only" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:end;">
             <div class="modal-field" style="margin:0"><label style="font-size:calc(11px * var(--modal-scale,1))">Kostenstelle</label><input type="text" id="taskTagsInput" placeholder="z.B. 260036" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px" oninput="scheduleTaskFieldSave();_updateStammSummary();_updateHdrMeta()" autocomplete="off"></div>
@@ -2763,8 +2765,8 @@ function _updateMapsBtn(){
       const _bStatuses=getBoardStatuses(currentBoard);
       const _si=_bStatuses.indexOf(status);
       const _sc=typeof colColor==='function'&&_si>=0?colColor(_si):'#4a4a6a';
-      stEl.innerHTML='<span style="color:var(--text2);font-size:11px;font-weight:500;margin-right:3px;">Task:</span>'
-        +'<span style="display:inline-flex;align-items:center;font-size:11px;font-weight:700;padding:2px 9px;border-radius:10px;background:'+_sc+'22;color:'+_sc+';border:1px solid '+_sc+'55;white-space:nowrap;">'+esc(status)+'</span>';
+      stEl.innerHTML='<span style="color:var(--text2);font-size:13px;font-weight:500;margin-right:3px;">Task:</span>'
+        +'<span style="display:inline-flex;align-items:center;font-size:13px;font-weight:700;padding:3px 11px;border-radius:10px;background:'+_sc+'22;color:'+_sc+';border:1px solid '+_sc+'55;white-space:nowrap;">'+esc(status)+'</span>';
       stEl.style.display='inline-flex';
       stEl.style.alignItems='center';
       stEl.style.gap='2px';
@@ -2773,23 +2775,15 @@ function _updateMapsBtn(){
       stEl.style.display='none';
     }
   }
-  // Header: "Status: [Aktivitäts-Chip]"
+  // Header: "Anfrage - Eingang: [Datum]"
   const aktEl=document.getElementById('_hdrAkt');
   if(aktEl){
-    const _aktChipMapH={
-      telefon:{cls:'task-card-chip-tel',lbl:'📞 Telefon'},
-      anruf:{cls:'task-card-chip-tel',lbl:'📞 Telefon'},
-      besichtigung:{cls:'task-card-chip-besi',lbl:'📍 Besichtigung'},
-      auftrag_erteilt:{cls:'task-card-chip-erteilt',lbl:'📋 Auftrag erteilt'},
-      angebot:{cls:'task-card-chip-angebot',lbl:'📝 Angebot'},
-      email:{cls:'task-card-chip-email',lbl:'📧 E-Mail'},
-      rueckfragen:{cls:'task-card-chip-rueckfragen',lbl:'❓ Rückfragen'},
-      abgeschlossen:{cls:'task-card-chip-abgeschlossen',lbl:'✅ Abgeschlossen'},
-    };
-    const chip=akt&&_aktChipMapH[akt]?_aktChipMapH[akt]:null;
-    if(chip){
-      aktEl.innerHTML='<span style="color:var(--text2);font-size:11px;font-weight:500;margin-right:3px;">Anfrage - Eingang:</span>'
-        +'<span class="task-card-chip '+chip.cls+'" style="font-size:11px;padding:2px 8px;">'+chip.lbl+'</span>';
+    const eingangDat=(document.getElementById('taskAnfrageEingangDatum')?document.getElementById('taskAnfrageEingangDatum').value:'');
+    if(eingangDat){
+      const [y,m,d]=eingangDat.split('-');
+      const datFmt=(d||'?')+'.'+(m||'?')+'.'+(y||'?');
+      aktEl.innerHTML='<span style="color:var(--text2);font-size:13px;font-weight:500;margin-right:3px;">Anfrage - Eingang:</span>'
+        +'<span style="font-size:13px;font-weight:700;color:var(--accent);padding:2px 8px;border-radius:8px;background:rgba(108,99,255,0.1);border:1px solid rgba(108,99,255,0.3);">📅 '+datFmt+'</span>';
       aktEl.style.display='inline-flex';
       aktEl.style.alignItems='center';
       aktEl.style.gap='2px';
@@ -2812,11 +2806,14 @@ function _updateMapsBtn(){
       const _aufgWithDate=(taskAufgaben||[]).filter(a=>a.datum);
       if(_aufgWithDate.length===0){datesEl.style.display='none';}
       else{
+        const _aufgIcons={'Ortstermin':'📍','Anruf':'📞','Ausführungstermin':'🔨','Besichtigung':'👁','Auftrag erteilt':'📋','Angebot':'📝','E-Mail':'📧','Rückfragen':'❓','Abgeschlossen':'✅'};
         datesEl.innerHTML=_aufgWithDate.map((a,i)=>{
           const c=_aufgColors[i%_aufgColors.length];
-          return'<div style="display:flex;flex-direction:column;gap:3px;padding:8px 14px;border-radius:7px;border:1.5px solid '+c.border+';background:'+c.bg+';flex:0 0 calc(33.333% - 6px);box-sizing:border-box;">'
-            +'<div style="font-size:calc(11px * var(--modal-scale,1));font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:'+c.lbl+';">'+esc(a.typ)+'</div>'
-            +'<div style="font-size:calc(17px * var(--modal-scale,1));font-weight:700;color:'+c.txt+';">'+formatDate(a.datum)+'</div>'
+          const ico=_aufgIcons[a.typ]||'🗓';
+          return'<div style="display:flex;flex-direction:row;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;border:1.5px solid '+c.border+';background:'+c.bg+';flex:0 0 calc(33.333% - 6px);box-sizing:border-box;">'
+            +'<span style="font-size:13px;line-height:1;">'+ico+'</span>'
+            +'<span style="font-size:calc(11px * var(--modal-scale,1));font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:'+c.lbl+';white-space:nowrap;">'+esc(a.typ)+'</span>'
+            +'<span style="font-size:calc(11px * var(--modal-scale,1));font-weight:700;color:'+c.txt+';white-space:nowrap;">'+formatDate(a.datum)+'</span>'
             +'</div>';
         }).join('');
         datesEl.style.display='flex';
