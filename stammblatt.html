@@ -1464,6 +1464,7 @@ const GDRIVE_FOLDER_NAME = 'PTP-BAU Daten';
 const GDRIVE_FILE_NAME   = 'stammblatt-daten.json';
 const SD_TOKEN_KEY  = 'sd_gdrive_token_v1';
 const SD_FILE_KEY   = 'sd_gdrive_file_v1';
+var _sdSilentGaveUp = false; // Nach immediate_failed: kein weiterer Auto-Versuch
 
 let gdriveToken = null;
 let gdriveTokenExpires = 0;
@@ -1491,10 +1492,17 @@ function gdriveInit(){
     scope: GDRIVE_SCOPE,
     callback: gdriveTokenCallback,
     error_callback: function(err){
-      if(err && (err.type==='popup_failed_to_open'||err.type==='popup_closed'||err.type==='immediate_failed')){
-        toast('⚠ Google-Popup blockiert – Popup-Blocker deaktivieren','err');
+      if(!err) return;
+      if(err.type === 'immediate_failed'){
+        _sdSilentGaveUp = true; // kein weiterer Auto-Versuch
+        _sdShowWarnBanner(0);
+      } else if(err.type === 'popup_failed_to_open'){
+        toast('⚠ Popup blockiert – Popup-Blocker für diese Seite deaktivieren','err',8000);
+        _sdShowWarnBanner(0);
+      } else if(err.type === 'popup_closed'){
+        toast('ℹ Anmeldefenster geschlossen – bitte „Jetzt erneuern" drücken','err',4000);
       } else {
-        toast('⚠ Drive-Fehler: '+(err&&err.type||'unbekannt'),'err');
+        toast('⚠ Drive-Fehler: '+(err.type||'unbekannt'),'err');
       }
     }
   });
@@ -1512,7 +1520,7 @@ function gdriveInit(){
       return;
     }
     // Token abgelaufen → stille Erneuerung
-    if(sf && sf.id){
+    if(sf && sf.id && !_sdSilentGaveUp){
       gdrivePendingAction = 'autoload';
       try{ gdriveTokenClient.requestAccessToken({prompt:'none'}); }catch(e){ gdrivePendingAction=null; }
     }
@@ -1532,7 +1540,15 @@ async function gdriveTokenCallback(resp){
   }
   gdriveToken = resp.access_token;
   gdriveTokenExpires = Date.now() + (Number(resp.expires_in||3600) - 60) * 1000;
+  _sdSilentGaveUp = false; // Erfolgreicher Login
   try{ localStorage.setItem(SD_TOKEN_KEY, JSON.stringify({token:gdriveToken, exp:gdriveTokenExpires})); }catch(e){}
+  // E-Mail für login_hint speichern (einmalig – verhindert Konto-Dialog bei nächstem Besuch)
+  if(!localStorage.getItem('sd_user_email_v1')){
+    fetch('https://www.googleapis.com/oauth2/v3/userinfo',{headers:{Authorization:'Bearer '+gdriveToken}})
+      .then(function(r){return r.json();})
+      .then(function(u){if(u.email)try{localStorage.setItem('sd_user_email_v1',u.email);}catch(e){}})
+      .catch(function(){});
+  }
   updateDriveBtn();
   var action = gdrivePendingAction; gdrivePendingAction = null;
   try{ await _ensureWorkspaceFolder(); }catch(e){}
@@ -1644,9 +1660,16 @@ async function _driveResumableUpdate(token, fileId, content, mimeType, etag) {
 }
 
 function gdriveRequestToken(action){
+  _sdSilentGaveUp = false; // Nutzer klickt → wieder erlaubt
   gdrivePendingAction = action;
   if(!gdriveTokenClient){ toast('⏳ Google lädt noch – bitte 3 Sek. warten','err'); return; }
-  try{ gdriveTokenClient.requestAccessToken({prompt:''}); }catch(e){ toast('⚠ Popup-Fehler: '+e.message,'err'); }
+  try{
+    var opts = {};
+    var hint = localStorage.getItem('sd_user_email_v1') || '';
+    if(hint) opts.login_hint = hint;
+    // prompt leer lassen: Google wählt Konto automatisch wenn hint bekannt (kein Dialog)
+    gdriveTokenClient.requestAccessToken(opts);
+  }catch(e){ toast('⚠ Popup-Fehler: '+e.message,'err'); }
 }
 
 function gdriveStartLoad(){ gdriveRequestToken('load'); }
