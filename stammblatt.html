@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; connect-src 'self' https://*.googleapis.com https://accounts.google.com https://www.googleapis.com https://oauth2.googleapis.com; img-src 'self' data: blob: https://*.googleusercontent.com https://drive.google.com https://lh3.googleusercontent.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; frame-src https://accounts.google.com; worker-src blob: 'self';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; connect-src 'self' https://*.googleapis.com https://accounts.google.com https://www.googleapis.com https://oauth2.googleapis.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; img-src 'self' data: blob: https://*.googleusercontent.com https://drive.google.com https://lh3.googleusercontent.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; frame-src https://accounts.google.com; worker-src blob: 'self';">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Stammblatt-Verwaltung</title>
 <script src="https://accounts.google.com/gsi/client" defer onload="gdriveInit()"></script>
@@ -921,18 +921,17 @@ function fuellForm(o){
   sv('fAspN',o.aspn); sv('fAspT',o.aspt); sR('schl',o.schl); sv('fSchlB',o.schlb); sv('fZugI',o.zugi);
   sR('ras',o.ras); sR('hof',o.hof); sR('wae',o.wae); sv('fAuM',o.aum);
   sG('zuf',o.zuf); sG('zuf_s',o.zuf_s); sG('fw',o.fw); sv('fFwB',o.fwb); sv('fFwBVer',o.fwbver); sR('fwb_s',o.fwb_s); sv('fEng',o.eng); sG('park',o.park);
-  sR('hvb',o.hvb); sv('ugStr',o.ugstr); sv('ugHof',o.ughof); sv('ugGl',o.uggl); sv('ugGr',o.uggr);
-  sv('ugStrL',o.ugstrl||'Straßenseite'); sv('ugHofL',o.ughofl||'Hofseite'); sv('ugGlL',o.uggll||'Giebel links'); sv('ugGrL',o.uggrl||'Giebel rechts');
+  // hvb, ugStr/Hof/Gl/Gr und deren Labels existieren nicht mehr im HTML – Zeilen entfernt
   sR('auf_b',o.auf_b); if(o.auf_b==='eingeschr'){document.getElementById('frAufBG').style.display='';} sv('fAufBG',o.auf_b_g); sR('auf_g',o.auf_g); if(o.auf_g==='eingeschr'){document.getElementById('frAufGG').style.display='';} sv('fAufGG',o.auf_g_g); sG('abs',o.abs); sG('hind',o.hind); sG('vorb',o.vorb); sv('fZufI',o.zufi);
   sR('re',o.re); sG('rs',o.rs); sv('fTrH',o.trh); sR('sfg',o.sfg); sR('gst',o.gst); sv('fRiH',o.rih);
-  sG('dzf',o.dzf); sR('bf',o.bf); sR('ugf',o.ugf); sR('rrf',o.rrf);
+  sG('dzf',o.dzf); sR('bf',o.bf); sR('rrf',o.rrf); // ugf entfernt (kein HTML-Element)
   sR('dbz',o.dbz); sR('dbt',o.dbt); sR('dba',o.dba);
   sG('dza',o.dza); sv('fLukeEing',o.luke_eing); sv('fBtA',o.bta); sR('luk',o.luk); sv('fLukI',o.luki);
   sR('ma',o.ma); sv('fMaI',o.mai); sR('dbl',o.dbl); sv('fDbB',o.dbb);
   sR('df',o.df); sR('ng',o.ng); sv('fNgGrad',o.ng_grad); sR('zt',o.zt); sv('fZH',o.zh); sv('fZFa',o.zfa);
-  sR('fi',o.fi); sR('sch',o.sch); sv('fSchI',o.schi); sR('gau',o.gau); sG('gat',o.gat);
+  sR('sch',o.sch); sv('fSchI',o.schi); sR('gau',o.gau); sG('gat',o.gat); // fi entfernt (kein HTML-Element)
   sv('fGauI',o.gaui); sR('wdf',o.wdf_v); sv('fWdfI',o.wdfi); sR('pv_v',o.pv_v); sv('fPvSize',o.pv_size); sR('rm',o.rm);
-  sv('fDfZ',o.dfz); sv('fDjZ',o.djz); sv('fFr',o.fr_v); sR('zd',o.zd); sR('mo',o.mo_v); sv('fDiZ',o.diz);
+  sv('fDfZ',o.dfz); sv('fDjZ',o.djz); sv('fFr',o.fr_v); sv('fDiZ',o.diz); // zd, mo entfernt (kein HTML-Element)
   sG('abd',o.abd); sv('fAbdTyp',o.abd_typ); sR('ofl',o.ofl); sG('enw',o.enw); sv('fGul',o.gul);
   sv('fDfF',o.dff); sv('fDjF',o.djf); sR('gefF',o.geff); sR('lk',o.lk); sv('fLkI',o.lki); sR('lk_pv',o.lk_pv); sv('fLkPvG',o.lk_pvg); sR('dra',o.dra); sv('fAttH',o.att_h); sv('fDiF',o.dif);
   sG('bt',o.bt); sv('fBtI',o.bti);
@@ -959,18 +958,17 @@ function sammelDaten(){
   o.asptyp=gR('asptyp'); o.aspn=v('fAspN'); o.aspt=v('fAspT'); o.schl=gR('schl'); o.schlb=v('fSchlB'); o.zugi=v('fZugI');
   o.ras=gR('ras'); o.hof=gR('hof'); o.wae=gR('wae'); o.aum=v('fAuM');
   o.zuf=gG('zuf'); o.zuf_s=gG('zuf_s'); o.fw=gG('fw'); o.fwb=v('fFwB'); o.fwbver=v('fFwBVer'); o.fwb_s=gR('fwb_s'); o.eng=v('fEng'); o.park=gG('park');
-  o.hvb=gR('hvb'); o.ugstr=v('ugStr'); o.ughof=v('ugHof'); o.uggl=v('ugGl'); o.uggr=v('ugGr');
-  o.ugstrl=v('ugStrL'); o.ughofl=v('ugHofL'); o.uggll=v('ugGlL'); o.uggrl=v('ugGrL');
+  // hvb, ugstr/ughof/uggl/uggr und Labels: kein HTML mehr – nicht überschreiben, Daten bleiben erhalten
   o.auf_b=gR('auf_b'); o.auf_b_g=v('fAufBG'); o.auf_g=gR('auf_g'); o.auf_g_g=v('fAufGG'); o.abs=gG('abs'); o.hind=gG('hind'); o.vorb=gG('vorb'); o.zufi=v('fZufI');
   o.re=gR('re'); o.rs=gG('rs'); o.trh=v('fTrH'); o.sfg=gR('sfg'); o.gst=gR('gst'); o.rih=v('fRiH');
-  o.dzf=gG('dzf'); o.bf=gR('bf'); o.ugf=gR('ugf'); o.rrf=gR('rrf');
+  o.dzf=gG('dzf'); o.bf=gR('bf'); o.rrf=gR('rrf'); // ugf entfernt
   o.dbz=gR('dbz'); o.dbt=gR('dbt'); o.dba=gR('dba');
   o.dza=gG('dza'); o.luke_eing=v('fLukeEing'); o.bta=v('fBtA'); o.luk=gR('luk'); o.luki=v('fLukI');
   o.ma=gR('ma'); o.mai=v('fMaI'); o.dbl=gR('dbl'); o.dbb=v('fDbB');
   o.df=gR('df'); o.ng=gR('ng'); o.ng_grad=v('fNgGrad'); o.zt=gR('zt'); o.zh=v('fZH'); o.zfa=v('fZFa');
-  o.fi=gR('fi'); o.sch=gR('sch'); o.schi=v('fSchI'); o.gau=gR('gau'); o.gat=gG('gat');
+  o.sch=gR('sch'); o.schi=v('fSchI'); o.gau=gR('gau'); o.gat=gG('gat'); // fi entfernt
   o.gaui=v('fGauI'); o.wdf_v=gR('wdf'); o.wdfi=v('fWdfI'); o.pv_v=gR('pv_v'); o.pv_size=v('fPvSize'); o.rm=gR('rm');
-  o.dfz=v('fDfZ'); o.djz=v('fDjZ'); o.fr_v=v('fFr'); o.zd=gR('zd'); o.mo_v=gR('mo'); o.diz=v('fDiZ');
+  o.dfz=v('fDfZ'); o.djz=v('fDjZ'); o.fr_v=v('fFr'); o.diz=v('fDiZ'); // zd, mo entfernt
   o.abd=gG('abd'); o.abd_typ=v('fAbdTyp'); o.ofl=gR('ofl'); o.enw=gG('enw'); o.gul=v('fGul');
   o.dff=v('fDfF'); o.djf=v('fDjF'); o.geff=gR('gefF'); o.lk=gR('lk'); o.lki=v('fLkI'); o.lk_pv=gR('lk_pv'); o.lk_pvg=v('fLkPvG'); o.dra=gR('dra'); o.att_h=v('fAttH'); o.dif=v('fDiF');
   o.bt=gG('bt'); o.bti=v('fBtI');
