@@ -5236,9 +5236,17 @@ function parseAuftragText(text){
     // ── Felder lesen (neues + altes Format) ─────────────────────────────────
     const kostenstelle  = get('Auftrag_Kostenstelle')     || getInline('Kostenstelle');
     const auftragDatum  = get('Auftrag_Datum')            || getFirst('Datum');
-    const strasse       = get('Objekt_Strasse')           || getFirst('Straße') || getFirst('Strasse') || getFirst('Stra?e');
-    const plzOrt        = getFirst('PLZ/Ort')             || getFirst('PLZ / Ort') || '';
-    const ort           = plzOrt ? plzOrt.replace(/^\d{4,6}\s*/,'').trim() : '';
+    // Neues VBS-Format: Objekt_Strasse enthält "Straße Nr, PLZ Ort"
+    // → PLZ/Ort aus Komma-Teil extrahieren, strasse auf Straße+Nr kürzen
+    const _strasseVoll  = get('Objekt_Strasse')           || getFirst('Straße') || getFirst('Strasse') || getFirst('Stra?e') || '';
+    let strasse = _strasseVoll;
+    let plzOrt  = getFirst('PLZ/Ort') || getFirst('PLZ / Ort') || '';
+    if (!plzOrt && _strasseVoll.includes(',')) {
+      plzOrt  = _strasseVoll.split(',').slice(1).join(',').trim();
+      strasse = _strasseVoll.split(',')[0].trim();
+    }
+    if (!plzOrt) plzOrt = get('Objekt_PLZ') || '';
+    const ort = plzOrt ? plzOrt.replace(/^\d{4,6}\s*/,'').trim() : '';
     const mieter        = get('Mieter_Name')              || getFirst('Mieter');
     const eigentuemer   = get('Eigentuemer_Name')         || getFirst('Eigentümer / WEG') || getFirst('Eigentuemer');
     const auftraggeber  = get('Auftraggeber')             || '';
@@ -5276,7 +5284,9 @@ function parseAuftragText(text){
           ? hausverwaltung.trim().split(/\s+/).map(w=>w.charAt(0).toUpperCase()).join('').substring(0,4)
           : '');
     // Schaden_Kurz aus VBS Schritt 4
-    const schadenKurzRaw = get('Schaden_Kurz') || '';
+    // Schaden_Kurz: direkt aus Akte ODER erste Zeile der Schadensbeschreibung als Fallback
+    const schadenKurzRaw = get('Schaden_Kurz')
+      || (schadensbild ? schadensbild.split(/[\n\r]/)[0].trim().substring(0, 40) : '');
     const schadenKurz = (schadenKurzRaw && schadenKurzRaw !== '(noch offen)') ? schadenKurzRaw.trim().replace(/ /g,'_') : '';
     // Straße: bei neuem Format enthält Objekt_Strasse auch PLZ/Ort → nur Teil vor Komma
     const strasseRaw = strasse ? strasse.split(',')[0].trim() : '';
@@ -11740,254 +11750,42 @@ function setModalSideScale(side,pct){
   if(col)col.style.setProperty('--modal-scale',(v/100).toFixed(2));
   const lbl=document.getElementById(side==='left'?'modalValL':'modalValR');
   if(lbl)lbl.textContent=v+'%';
-  const sl=document.getElementById(side==='left'?'modalSliderL':'modalSliderR');
-  if(sl&&String(sl.value)!==String(v))sl.value=String(v);
+  try{localStorage.setItem('ptp_modal_'+side,String(v));}catch(e){console.warn('[PTP]',e);}
 }
-function setModalSize(pct){
-  // Kompatibilität – setzt beide Seiten gleich
-  setModalSideScale('left',pct);
-  setModalSideScale('right',pct);
-}
-function saveModalSize(){
-  const slL=document.getElementById('modalSliderL');
-  const slR=document.getElementById('modalSliderR');
-  const vL=slL?parseInt(slL.value,10):100;
-  const vR=slR?parseInt(slR.value,10):100;
-  try{localStorage.setItem('ptp_modal_size_l',String(vL));localStorage.setItem('ptp_modal_size_r',String(vR));}catch(e){console.warn('[PTP]',e);}
-  const btn=event&&event.target;
-  if(btn){const orig=btn.textContent;btn.textContent='✓';setTimeout(()=>{btn.textContent='💾';},1200);}
-}
+
+// Gespeicherte Modal-Seitengrössen beim Modal-Öffnen wiederherstellen
 function applyStoredModalSize(){
   try{
-    // Migration v1: einmalig zu große gespeicherte Werte auf 100% zurücksetzen
-    const _migKey='ptp_modal_size_migrated_v1';
-    if(!localStorage.getItem(_migKey)){
-      const rawL=localStorage.getItem('ptp_modal_size_l');
-      const rawR=localStorage.getItem('ptp_modal_size_r');
-      if(rawL&&parseInt(rawL,10)>100){localStorage.setItem('ptp_modal_size_l','100');}
-      if(rawR&&parseInt(rawR,10)>100){localStorage.setItem('ptp_modal_size_r','100');}
-      localStorage.setItem(_migKey,'1');
-    }
-    // Migration v2: Standard auf 120% anheben (100%→120%)
-    const _migKey2='ptp_modal_size_migrated_v2';
-    if(!localStorage.getItem(_migKey2)){
-      const rawL=localStorage.getItem('ptp_modal_size_l');
-      const rawR=localStorage.getItem('ptp_modal_size_r');
-      if(rawL&&parseInt(rawL,10)===100){localStorage.setItem('ptp_modal_size_l','120');}
-      if(rawR&&parseInt(rawR,10)===100){localStorage.setItem('ptp_modal_size_r','120');}
-      localStorage.setItem(_migKey2,'1');
-    }
-    const vL=parseInt(localStorage.getItem('ptp_modal_size_l')||localStorage.getItem('ptp_modal_size')||'120',10);
-    const vR=parseInt(localStorage.getItem('ptp_modal_size_r')||localStorage.getItem('ptp_modal_size')||'120',10);
-    setModalSideScale('left',vL);
-    setModalSideScale('right',vR);
+    ['left','right'].forEach(function(side){
+      const s=parseInt(localStorage.getItem('ptp_modal_'+side)||'120',10);
+      const inp=document.getElementById(side==='left'?'modalSliderL':'modalSliderR');
+      if(inp){inp.value=String(s);}
+      setModalSideScale(side,s);
+    });
   }catch(e){console.warn('[PTP]',e);}
-  try{const b=document.getElementById('taskModalBox');if(b)b.style.zoom='';}catch(e){}
 }
-// ResizeObserver: kein Auto-Speichern mehr – Größe nur auf expliziten Klick auf 💾 gespeichert
-(function(){
-  function _initModalRO(){
-    const box=document.getElementById('taskModalBox');
-    if(!box||box._roAttached)return;
-    box._roAttached=true;
-    // Nur Slider-Wert aktuell halten, nicht speichern
-    new ResizeObserver(()=>{
-      const sl=document.getElementById('modalSizeSlider');
-      const lbl=document.getElementById('modalSizeVal');
-      if(sl&&lbl){/* Größe wird nur visuell angepasst, kein localStorage */}
-    }).observe(box);
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',_initModalRO);
-  else _initModalRO();
+
+// Aktuelle Modal-Seitengrössen in localStorage sichern
+function saveModalSize(){
+  try{
+    const l=document.getElementById('modalSliderL');
+    const r=document.getElementById('modalSliderR');
+    if(l)localStorage.setItem('ptp_modal_left',l.value);
+    if(r)localStorage.setItem('ptp_modal_right',r.value);
+    showToast('Modal-Größe gespeichert ✓','ok',2000);
+  }catch(e){console.warn('[PTP]',e);}
+}
+
+(function initModalSize(){
+  try{
+    ['left','right'].forEach(function(side){
+      const s=parseInt(localStorage.getItem('ptp_modal_'+side)||'120',10);
+      const inp=document.getElementById(side==='left'?'modalSliderL':'modalSliderR');
+      if(inp){inp.value=String(s);}
+    });
+  }catch(e){console.warn('[PTP]',e);}
 })();
 
-// ════════════════════════════════════════════════════
-// ── EXIF-ORIENTIERUNGSKORREKTUR FÜR FOTOS ──
-// ════════════════════════════════════════════════════
-function _readJpegOrientation(buf){
-  try{
-    const v=new DataView(buf);
-    if(v.getUint16(0)!==0xFFD8)return 1;
-    let off=2;
-    while(off<v.byteLength-4){
-      const marker=v.getUint16(off);
-      if(marker===0xFFE1){
-        if(v.getUint32(off+4)===0x45786966){
-          const le=v.getUint16(off+10)===0x4949;
-          const ifd=v.getUint32(off+14,le)+off+10;
-          const n=v.getUint16(ifd,le);
-          for(let i=0;i<n;i++){
-            const e=ifd+2+i*12;
-            if(v.getUint16(e,le)===0x0112)return v.getUint16(e+8,le);
-          }
-        }
-      }
-      if(v.getUint16(off+2)===0)break;
-      off+=2+v.getUint16(off+2);
-    }
-  }catch(e){}
-  return 1;
-}
-async function _correctFotoForPdf(blobUrl){
-  try{
-    const r=await fetch(blobUrl);
-    const buf=await r.arrayBuffer();
-    const ori=_readJpegOrientation(buf);
-    return new Promise(res=>{
-      const img=new Image();
-      img.onload=function(){
-        if(ori===1){res(blobUrl);return;}
-        const c=document.createElement('canvas');
-        const ctx=c.getContext('2d');
-        const w=img.naturalWidth,h=img.naturalHeight;
-        if([5,6,7,8].includes(ori)){c.width=h;c.height=w;}
-        else{c.width=w;c.height=h;}
-        ctx.save();
-        switch(ori){
-          case 2:ctx.transform(-1,0,0,1,w,0);break;
-          case 3:ctx.transform(-1,0,0,-1,w,h);break;
-          case 4:ctx.transform(1,0,0,-1,0,h);break;
-          case 5:ctx.transform(0,1,1,0,0,0);break;
-          case 6:ctx.transform(0,1,-1,0,h,0);break;
-          case 7:ctx.transform(0,-1,-1,0,h,w);break;
-          case 8:ctx.transform(0,-1,1,0,0,w);break;
-        }
-        ctx.drawImage(img,0,0);
-        ctx.restore();
-        res(c.toDataURL('image/jpeg',0.92));
-      };
-      img.onerror=()=>res(blobUrl);
-      img.src=blobUrl;
-    });
-  }catch(e){return blobUrl;}
-}
-
-// ════════════════════════════════════════════════════
-// ── TASK-SICHERUNG / ZIP-EXPORT & IMPORT ──
-// ════════════════════════════════════════════════════
-function _collectTaskData(){
-  const v=id=>(document.getElementById(id)||{}).value||'';
-  const existingId=v('taskId');
-  const existingTask=existingId?findTaskById(existingId):null;
-  return {
-    _version:'1.1',
-    _exportDate:new Date().toISOString(),
-    title:v('taskTitleInput'),
-    desc:v('taskDescInput'),
-    owner:v('taskOwnerInput'),
-    due:v('taskDueInput'),
-    status:v('taskStatusInput'),
-    ampel:v('taskAmpelInput')||'grün',
-    ausführungsdatum:v('taskAusfInput'),
-    tags:v('taskTagsInput'),
-    source:v('taskSourceInput'),
-    repNr:v('taskRepNr'),
-    kundenNr:v('taskKundenNr'),
-    hausverwaltung:v('tHV'),
-    adresse:v('tAdr'),
-    sbPdfOrdner:v('tSbPdfOrdner'),
-    schadensbild:v('tSch'),
-    gdriveOrdner:v('tGDOrdner'),
-    gdrive:v('tGD'),
-    nas:v('tNAS'),
-    emailOrdner:v('tEmailOrdner'),
-    kontakte:typeof getKontaktePTP==='function'?getKontaktePTP():[],
-    ausserhausTermine:JSON.parse(JSON.stringify(taskAusserhausTermine||[])),
-    zeitEntries:JSON.parse(JSON.stringify(taskZeitEntries||[])),
-    notizVerlauf:JSON.parse(JSON.stringify(taskNotizVerlauf||[])),
-    checkliste:JSON.parse(JSON.stringify(taskCheckliste||[])),
-    links:JSON.parse(JSON.stringify(taskLinks||[])),
-    gmailLinks:JSON.parse(JSON.stringify(taskGmailLinks||[])),
-    attachments:(taskAttachments||[]).map(a=>({name:a.name,fileId:a.fileId,url:a.url,uploadedAt:a.uploadedAt})),
-    emailOriginals:(taskEmailOriginals||[]).map(e=>({name:e.name,fileId:e.fileId,url:e.url,uploadedAt:e.uploadedAt})),
-    emailPdfs:(taskEmailPdfs||[]).map(p=>({name:p.name,fileId:p.fileId,url:p.url,uploadedAt:p.uploadedAt})),
-    fotos:(taskFotos||[]).map(f=>({name:f.name,driveId:f.driveId,caption:f.caption,url:f.url}))
-  };
-}
-
-function _buildTaskSummaryPdfBytes(data){
-  if(!window.jspdf)return null;
-  const {jsPDF}=window.jspdf;
-  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const M=20,PW=210,CW=PW-2*M;
-  doc.setFillColor(37,99,235);doc.rect(0,0,210,28,'F');
-  doc.setTextColor(255,255,255);doc.setFontSize(16);doc.setFont('helvetica','bold');
-  doc.text('PAM Workboard – Aufgabenarchiv',M,17);
-  doc.setFontSize(9);doc.setFont('helvetica','normal');
-  doc.text(new Date().toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),PW-M,17,{align:'right'});
-  let y=38;
-  doc.setTextColor(0,0,0);doc.setFontSize(14);doc.setFont('helvetica','bold');
-  doc.text(data.title||'(kein Titel)',M,y);y+=6;
-  if(data.status){doc.setFontSize(10);doc.setFont('helvetica','normal');doc.setTextColor(100,100,100);doc.text('Status: '+data.status,M,y);y+=5;}
-  doc.setDrawColor(220,220,220);doc.line(M,y,PW-M,y);y+=6;
-  const rows=[];
-  if(data.hausverwaltung)rows.push(['Auftraggeber / HV',data.hausverwaltung]);
-  if(data.adresse)rows.push(['Adresse',data.adresse]);
-  if(data.schadensbild)rows.push(['Beschreibung',data.schadensbild]);
-  if(data.nas)rows.push(['NAS-Pfad',data.nas]);
-  if(rows.length){
-    doc.autoTable({startY:y,margin:{left:M,right:M},theme:'striped',
-      styles:{fontSize:9,cellPadding:3},
-      columnStyles:{0:{cellWidth:55,fontStyle:'bold'},1:{cellWidth:CW-55}},
-      body:rows});
-    y=doc.lastAutoTable.finalY+6;
-  }
-  if(data.kontakte&&data.kontakte.length){
-    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);doc.text('Kontakte',M,y);y+=4;
-    doc.autoTable({startY:y,margin:{left:M,right:M},theme:'striped',styles:{fontSize:8,cellPadding:2},
-      body:data.kontakte.map(k=>[k.name||'',k.tel||'',k.email||'',k.rolle||''])});
-    y=doc.lastAutoTable.finalY+6;
-  }
-  if(data.links&&data.links.length){
-    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);doc.text('Verknüpfungen ('+data.links.length+')',M,y);y+=4;
-    doc.autoTable({startY:y,margin:{left:M,right:M},theme:'striped',styles:{fontSize:8,cellPadding:2},
-      body:data.links.map(l=>[l.label||'',l.url||''])});
-    y=doc.lastAutoTable.finalY+6;
-  }
-  if(data.checkliste&&data.checkliste.length){
-    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);doc.text('Checkliste ('+data.checkliste.length+')',M,y);y+=4;
-    doc.autoTable({startY:y,margin:{left:M,right:M},theme:'striped',styles:{fontSize:8,cellPadding:2},
-      columnStyles:{0:{cellWidth:10,halign:'center'},1:{cellWidth:CW-10}},
-      body:data.checkliste.map(c=>[(c.done?'\u2713':'\u25cb'),c.text||''])});
-    y=doc.lastAutoTable.finalY+6;
-  }
-  if(data.zeitEntries&&data.zeitEntries.length){
-    const total=(data.zeitEntries||[]).reduce((s,e)=>s+(e.minuten||0),0);
-    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);
-    doc.text('Zeiterfassung – '+Math.floor(total/60)+'h '+(total%60)+'min',M,y);y+=4;
-    doc.autoTable({startY:y,margin:{left:M,right:M},theme:'striped',styles:{fontSize:8,cellPadding:2},
-      head:[['Datum','Von','Bis','Dauer','Beschreibung']],
-      body:data.zeitEntries.map(e=>[e.datum||'',e.von||'',e.bis||'',(e.minuten||0)+'min',e.beschreibung||''])});
-    y=doc.lastAutoTable.finalY+6;
-  }
-  if(data.ausserhausTermine&&data.ausserhausTermine.length){
-    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);doc.text('Ausserhaus-Termine ('+data.ausserhausTermine.length+')',M,y);y+=4;
-    doc.autoTable({startY:y,margin:{left:M,right:M},theme:'striped',styles:{fontSize:8,cellPadding:2},
-      head:[['Datum','Zeit','Beschreibung']],
-      body:data.ausserhausTermine.map(t=>[t.date||'',(t.von||'')+'-'+(t.bis||''),t.beschreibung||''])});
-    y=doc.lastAutoTable.finalY+6;
-  }
-  const allFiles=[
-    ...(data.emailOriginals||[]).map(e=>['E-Mail Original',e.name||'',e.uploadedAt||'']),
-    ...(data.emailPdfs||[]).map(p=>['E-Mail PDF',p.name||'',p.uploadedAt||'']),
-    ...(data.attachments||[]).map(a=>['Anhang',a.name||'',a.uploadedAt||'']),
-    ...(data.fotos||[]).map(f=>['Foto',f.name||'',''])
-  ];
-  if(allFiles.length){
-    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);doc.text('Dateien ('+allFiles.length+')',M,y);y+=4;
-    doc.autoTable({startY:y,margin:{left:M,right:M},theme:'striped',styles:{fontSize:8,cellPadding:2},
-      head:[['Typ','Dateiname','Datum']],body:allFiles});
-  }
-  const pageCount=doc.internal.getNumberOfPages();
-  for(let p=1;p<=pageCount;p++){
-    doc.setPage(p);
-    doc.setDrawColor(200,200,200);doc.setLineWidth(0.2);doc.line(M,288,PW-M,288);
-    doc.setFontSize(7.5);doc.setFont('helvetica','normal');doc.setTextColor(160,163,175);
-    doc.text('PAM Workboard',M,293);
-    doc.text('Seite '+p+' / '+pageCount,PW-M,293,{align:'right'});
-  }
-  return doc.output('arraybuffer');
-}
 </script>
 </body>
 </html>
