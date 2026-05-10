@@ -3294,7 +3294,8 @@ function _showDriveWarnBanner(secondsLeft){
     var _btnLabel=_savedEmail ? '🔑 Als '+_savedEmail+' anmelden' : '🔑 Erneut anmelden';
     banner.innerHTML = '<span id="_driveWarnMsg">⚠ Google Drive Verbindung läuft ab</span>'
       + '<button id="_driveRenewBtn" onclick="_renewDriveTokenSilent()" style="background:#fff;color:#e67e22;border:none;border-radius:6px;padding:5px 14px;font-size:13px;font-weight:700;cursor:pointer;">'+_btnLabel+'</button>'
-      + (_savedEmail ? '<button onclick="_renewDriveOtherAccount()" style="background:rgba(255,255,255,.25);color:#fff;border:1px solid rgba(255,255,255,.5);border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;" title="Anderen Google-Account verwenden">👤 Anderer Account</button>' : '');
+      + (_savedEmail ? '<button onclick="_renewDriveOtherAccount()" style="background:rgba(255,255,255,.25);color:#fff;border:1px solid rgba(255,255,255,.5);border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;" title="Anderen Google-Account verwenden">👤 Anderer Account</button>' : '')
+      + '<button onclick="_dismissDriveWarnBanner()" style="background:none;color:rgba(255,255,255,.8);border:1px solid rgba(255,255,255,.4);border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;margin-left:4px;" title="Banner für 30 Min. ausblenden">✕</button>';
     // Vor der Topbar einfügen, damit er den Inhalt nach unten schiebt statt zu überdecken
     const topbar=document.querySelector('.topbar');
     if(topbar)topbar.parentNode.insertBefore(banner,topbar);
@@ -3315,6 +3316,14 @@ function _hideDriveWarnBanner(){
   const banner = document.getElementById('_driveWarnBanner');
   if(banner) banner.style.display = 'none';
   clearTimeout(_driveWarnBannerTimer);
+  _bannerDismissedUntil = 0; // Erfolgreich verbunden → Unterdrückung zurücksetzen
+}
+// Nutzer schließt Banner manuell → für 30 Min. unterdrücken
+function _dismissDriveWarnBanner(){
+  _bannerDismissedUntil = Date.now() + 30 * 60 * 1000;
+  const banner = document.getElementById('_driveWarnBanner');
+  if(banner) banner.style.display = 'none';
+  showToast('ℹ Banner für 30 Min. ausgeblendet – Drive-Button zum Neu-Verbinden nutzen','info',5000);
 }
 
 // Token-Erneuerung für Banner-Button:
@@ -3325,6 +3334,7 @@ function _renewDriveTokenSilent(){
     setTimeout(()=>{ if(gdriveTokenClient) _renewDriveTokenSilent(); },3000);
     return;
   }
+  _bannerDismissedUntil = 0; // Nutzer klickt explizit → Unterdrückung aufheben
   _silentRefreshInProgress=false;
   gdriveRequestToken('reconnect');
 }
@@ -3346,6 +3356,7 @@ let _autoInitSilentInProgress=false; // Automatischer Init-Versuch läuft
 let _autoReconnectAttempts=0;   // Zählt automatische Verbindungsversuche
 let _silentRefreshGaveUp=false; // Nach immediate_failed: keine weiteren Auto-Versuche
 const _AUTO_RECONNECT_MAX=2;    // Maximal 2 stille Versuche, dann aufhören
+let _bannerDismissedUntil=0;    // Unterdrücke Banner-Auto-Einblendungen bis zu diesem Timestamp
 function _silentTokenRefresh(onSuccess, onFail){
   if(!gdriveTokenClient||!gdriveToken)return;
   // Feststeck-Schutz: nach 20 Sek. Flag zurücksetzen
@@ -3368,13 +3379,15 @@ function _silentTokenRefresh(onSuccess, onFail){
       _hideDriveWarnBanner();
       if(typeof onSuccess==='function')onSuccess();
     } else {
-      // Stille Erneuerung fehlgeschlagen → Banner zeigen
+      // Stille Erneuerung fehlgeschlagen → kein weiterer Auto-Versuch (verhindert Popup-Flash)
+      _silentRefreshGaveUp=true;
       if(typeof onFail==='function') onFail();
     }
   };
   try{gdriveTokenClient.requestAccessToken({prompt:'none'});}catch(e){
     gdriveTokenClient.callback=prev;
     _silentRefreshInProgress=false;
+    _silentRefreshGaveUp=true;
     if(typeof onFail==='function') onFail();
   }
 }
@@ -3399,8 +3412,8 @@ setInterval(()=>{
   }
   const msLeft = gdriveTokenExpires - Date.now();
   if(msLeft <= 0){
-    // Bereits abgelaufen
-    _showDriveWarnBanner(0);
+    // Bereits abgelaufen – nur zeigen wenn nicht vom Nutzer unterdrückt
+    if(Date.now() >= _bannerDismissedUntil) _showDriveWarnBanner(0);
     return;
   }
   if(msLeft > 600000) return; // mehr als 10 Min → nichts tun
@@ -3426,7 +3439,7 @@ document.addEventListener('visibilitychange', () => {
   if (gdriveTokenClient && gdriveToken) {
     const msLeft = gdriveTokenExpires - Date.now();
     if(msLeft <= 0){
-      _showDriveWarnBanner(0);
+      if(Date.now() >= _bannerDismissedUntil) _showDriveWarnBanner(0);
     } else if(msLeft <= 600000){
       _showDriveWarnBanner(msLeft/1000);
       _silentTokenRefresh(
@@ -3449,7 +3462,7 @@ function _handleDrive401(){
   // Maximale Versuche prüfen
   if(_autoReconnectAttempts>=_AUTO_RECONNECT_MAX){
     updateFileStatus('unsaved','⚠ Drive-Verbindung abgelaufen','☁️ Drive-Button drücken zum Neu-Verbinden');
-    _showDriveWarnBanner(0);
+    if(Date.now() >= _bannerDismissedUntil) _showDriveWarnBanner(0);
     return;
   }
   if(gdriveTokenClient){
@@ -3468,18 +3481,20 @@ function _handleDrive401(){
         _hideDriveWarnBanner();
         setTimeout(()=>gdriveSaveData(),600);
       }else{
+        _silentRefreshGaveUp=true; // Popup-Flash verhindern: kein weiterer Auto-Versuch
         updateFileStatus('unsaved','⚠ Drive-Verbindung abgelaufen','☁️ Drive-Button drücken zum Neu-Verbinden');
-        _showDriveWarnBanner(0);
+        if(Date.now() >= _bannerDismissedUntil) _showDriveWarnBanner(0);
       }
     };
     try{gdriveTokenClient.requestAccessToken({prompt:'none'});}catch(e){
       gdriveTokenClient.callback=prev;
+      _silentRefreshGaveUp=true;
       updateFileStatus('unsaved','⚠ Drive-Verbindung abgelaufen','☁️ Drive-Button drücken zum Neu-Verbinden');
-      _showDriveWarnBanner(0);
+      if(Date.now() >= _bannerDismissedUntil) _showDriveWarnBanner(0);
     }
   }else{
     updateFileStatus('unsaved','⚠ Drive-Verbindung abgelaufen','☁️ Drive-Button drücken zum Neu-Verbinden');
-    _showDriveWarnBanner(0);
+    if(Date.now() >= _bannerDismissedUntil) _showDriveWarnBanner(0);
   }
 }
 // Hilfsfunktion: wirft einen sprechenden Fehler bei HTTP-Fehlerstatus, behandelt 401 direkt
