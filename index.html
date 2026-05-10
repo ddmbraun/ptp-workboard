@@ -1268,7 +1268,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .mv2-subsect-divider{border-top:1px solid var(--border);margin:10px 0 8px;padding-top:8px;}
 .mv2-section{margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border);}
 .mv2-section:last-child{border-bottom:none;margin-bottom:0;}
-.mv2-section-label{font-size:calc(11px * var(--modal-scale,1));font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;}
+.mv2-section-label{font-size:calc(11px * var(--modal-scale,1));font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:5px;}
 .mv2-footer{flex-shrink:0;display:flex;gap:5px;justify-content:flex-end;flex-wrap:wrap;padding:10px 16px;background:var(--bg3);border-top:1px solid var(--border);border-radius:0 0 14px 14px;position:relative;}
 .mv2-footer button,.mv2-footer label.topbar-btn{padding:5px 11px!important;border-radius:6px;font-size:calc(12px * var(--modal-scale,1))!important;font-weight:500;}
 .modal-size-preset{padding:2px 9px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:10px;cursor:pointer;transition:background .15s,color .15s;}
@@ -1941,9 +1941,9 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
         <select id="taskAmpelInput" style="display:none"><option value="grün">🟢</option><option value="orange">🟠</option><option value="rot">🔴</option></select>
         <input type="hidden" id="taskSourceInput" value="" autocomplete="off">
 
-        <!-- Beschreibung & Anweisungen (immer offen) -->
-        <div class="mv2-section" id="tNotizenSect">
-          <div class="mv2-section-label">📝 Beschreibung &amp; Anweisungen</div>
+        <!-- Beschreibung & Anweisungen (einklappbar) -->
+        <div class="mv2-section collapsible open" id="tNotizenSect">
+          <div class="mv2-section-label" onclick="_toggleMv2Sect('tNotizenSect',event)">📝 Beschreibung &amp; Anweisungen<span class="mv2-coll-arrow">›</span></div>
           <div class="modal-field" style="margin-bottom:0;">
             <textarea id="taskDescInput" placeholder="Beschreibung &amp; Anweisungen… (Doppelklick zum Öffnen)" rows="2" ondblclick="_openNotizOverlay()" title="Doppelklick zum Öffnen und Bearbeiten" autocomplete="off" style="min-height:0;max-height:calc(46px * var(--modal-scale,1));overflow:hidden;cursor:pointer;resize:none;font-size:calc(11px * var(--modal-scale,1));line-height:1.45;"></textarea>
           </div>
@@ -2058,7 +2058,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       <div class="mv2-right">
 
         <!-- Timer-Stoppuhr -->
-        <div class="mv2-section">
+        <div class="mv2-section" style="position:sticky;top:0;z-index:20;background:var(--bg);padding-top:10px;margin-top:-14px;padding-bottom:8px;border-bottom:1.5px solid var(--border);margin-bottom:10px;">
           <div class="mv2-section-label">⏱ Stoppuhr</div>
           <div class="modal-timer-bar" id="modalTimerBar" style="margin-bottom:0;">
             <div style="display:flex;align-items:center;gap:10px;">
@@ -2883,7 +2883,7 @@ function _updateHdrMeta(){
   set('_hdrRepNr',rep);
   set('_hdrKst',kst);
   set('_hdrOwner',owner);
-  // Icons: Mail / Datei / Fotos
+  // Icons: Mail / Datei / Fotos – farbig
   try{
     const tid=document.getElementById('taskId')?.value;
     const t=tid?findTaskById(tid):null;
@@ -2891,14 +2891,14 @@ function _updateHdrMeta(){
     const fileCnt=(t&&t.attachments||[]).length;
     const fotoCnt=(t&&t.fotos||[]).length;
     const parts=[];
-    if(mailCnt>0)parts.push('📧 '+mailCnt);
-    if(fileCnt>0)parts.push('📎 '+fileCnt);
-    if(fotoCnt>0)parts.push('📷 '+fotoCnt);
+    if(mailCnt>0)parts.push({icon:'📧',cnt:mailCnt,bg:'#E6F1FB',color:'#185FA5',border:'#B5D4F4'});
+    if(fileCnt>0)parts.push({icon:'📎',cnt:fileCnt,bg:'#FAEEDA',color:'#854F0B',border:'#FAC775'});
+    if(fotoCnt>0)parts.push({icon:'📷',cnt:fotoCnt,bg:'#EAF3DE',color:'#3B6D11',border:'#C0DD97'});
     const iconsEl=document.getElementById('_hdrIcons');
     const sepEl=document.getElementById('_hdrIconsSep');
     if(iconsEl){
       if(parts.length>0){
-        iconsEl.innerHTML=parts.map(p=>'<span style="padding:1px 6px;border-radius:4px;background:var(--bg4);border:0.5px solid var(--border);white-space:nowrap;">'+p+'</span>').join('');
+        iconsEl.innerHTML=parts.map(p=>'<span style="padding:2px 8px;border-radius:10px;background:'+p.bg+';border:0.5px solid '+p.border+';color:'+p.color+';font-weight:700;white-space:nowrap;font-size:calc(11px * var(--modal-scale,1));">'+p.icon+' '+p.cnt+'</span>').join('');
         iconsEl.style.display='inline-flex';
         if(sepEl)sepEl.style.display='';
       }else{
@@ -5033,7 +5033,7 @@ function addZeitEntry(date='',von='',bis='',beschreibung=''){
   scheduleTaskFieldSave();
 }
 function removeZeitEntry(i){taskZeitEntries.splice(i,1);renderZeiterfassung();scheduleTaskFieldSave();}
-function syncZeitEntry(i,field,val){if(taskZeitEntries[i]){taskZeitEntries[i][field]=val;renderZeitGesamt();scheduleTaskFieldSave();}}
+function syncZeitEntry(i,field,val){if(taskZeitEntries[i]){taskZeitEntries[i][field]=val;renderZeitGesamt();_updateMapsBtn();scheduleTaskFieldSave();}}
 function parseMinutes(von,bis){
   try{
     if(!von||!bis)return 0;
@@ -5078,9 +5078,9 @@ function renderZeiterfassung(){
       const calBtn=hasTime?`<button class="zr-btn-cal gcal" title="Google Kalender" onclick="_openGcalZeitPC(${i})">📅</button><button class="zr-btn-cal out" title="Outlook" onclick="_openOutlookZeitPC(${i})">📆</button>`:'<span class="zr-no-btn"></span><span class="zr-no-btn"></span>';
       return `<div class="zeit-compact-row" data-idx="${i}">
   <span class="zr-date" title="Datum ändern" style="min-width:72px;min-height:22px;"><input type="date" value="${e.date||''}" onchange="syncZeitEntry(${i},'date',this.value)" autocomplete="off" style="opacity:0;position:absolute;width:100%;height:100%;top:0;left:0;cursor:pointer;border:none;background:none;z-index:2;"><span class="zr-date-lbl">${dFmt}</span></span>
-  <input type="time" value="${e.von||''}" oninput="syncZeitEntry(${i},'von',this.value)" autocomplete="off" class="zr-time-input" placeholder="von">
-  <input type="time" value="${e.bis||''}" oninput="syncZeitEntry(${i},'bis',this.value)" autocomplete="off" class="zr-time-input" placeholder="bis">
-  <input class="zr-desc" type="text" value="${esc(e.beschreibung||'')}" placeholder="Beschreibung" oninput="syncZeitEntry(${i},'beschreibung',this.value)" autocomplete="off">
+  <input type="time" value="${e.von||''}" onchange="syncZeitEntry(${i},'von',this.value)" oninput="syncZeitEntry(${i},'von',this.value)" autocomplete="off" class="zr-time-input" placeholder="von">
+  <input type="time" value="${e.bis||''}" onchange="syncZeitEntry(${i},'bis',this.value)" oninput="syncZeitEntry(${i},'bis',this.value)" autocomplete="off" class="zr-time-input" placeholder="bis">
+  <input class="zr-desc" type="text" value="${esc(e.beschreibung||'')}" placeholder="Beschreibung" oninput="syncZeitEntry(${i},'beschreibung',this.value)" onchange="syncZeitEntry(${i},'beschreibung',this.value)" autocomplete="off">
   <span class="zr-actions">${calBtn}<button class="zr-btn-del" onclick="removeZeitEntry(${i})" title="Löschen">✕</button></span>
 </div>`;
     }).join('');
