@@ -40,7 +40,13 @@ body{font-family:Arial,sans-serif;font-size:13px;background:#f0f2f5;color:#222;}
 #wrap{display:flex;flex:1;overflow:hidden;}
 
 /* SIDEBAR */
-#sb{width:210px;background:#fff;border-right:1px solid #e0e4ea;display:flex;flex-direction:column;flex-shrink:0;}
+#sb{width:260px;background:#fff;border-right:1px solid #e0e4ea;display:flex;flex-direction:column;flex-shrink:0;}
+/* Einklappbare HV-Gruppen */
+.sb-grp-hdr{padding:5px 10px;background:#eef0f6;font-size:11px;font-weight:700;color:#1a2744;cursor:pointer;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #dde1ea;user-select:none;}
+.sb-grp-hdr:hover{background:#e0e4f0;}
+.sb-grp-hdr .sb-garr{font-size:10px;transition:transform .2s;}
+.sb-grp-hdr.koll .sb-garr{transform:rotate(-90deg);}
+.sb-grp-body.koll{display:none;}
 #sb .sbh{padding:10px;border-bottom:1px solid #eee;}
 #sb .sbt{font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
 #sb input{width:100%;padding:5px 8px;border:1px solid #d0d5dd;border-radius:5px;font-size:12px;}
@@ -289,7 +295,7 @@ textarea{min-height:48px;resize:vertical;}
                 </div>
               </div>
             </div>
-            <div class="fr"><div class="fl">Objektadresse<small>Alle Hausnummern</small></div><div class="fc"><input type="text" id="fAdr" placeholder="z. B. Straße des Friedens 13, 15, 17"></div></div>
+            <div class="fr"><div class="fl">Objektadresse<small>Alle Hausnummern</small></div><div class="fc" style="flex-direction:row;gap:6px"><input type="text" id="fAdr" placeholder="z. B. Straße des Friedens 13, 15, 17" style="flex:1"><button type="button" onclick="oeffneGoogleMaps()" title="In Google Maps öffnen" style="padding:5px 9px;background:#1a73e8;color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0">🗺 Maps</button></div></div>
             <div class="fr"><div class="fl">PLZ / Ort</div><div class="fc" style="flex-direction:row;gap:6px"><input type="text" id="fPlz" style="width:80px;flex-shrink:0" placeholder="PLZ"><input type="text" id="fOrt" placeholder="Ort / Ortsteil"></div></div>
             <div class="fr"><div class="fl">Anzahl Eingänge</div><div class="fc"><input type="number" id="fEing" min="1" max="10" style="width:80px"></div></div>
             <div class="fr"><div class="fl">Stockwerke</div><div class="fc"><input type="number" id="fStw" min="1" max="20" style="width:80px"></div></div>
@@ -671,6 +677,13 @@ function startApp(){
 }
 
 // ── OBJEKTE
+// Einklapp-Zustand je Gruppe speichern (Key = Gruppenname)
+var _sbGrpKoll = JSON.parse(localStorage.getItem('sb_grp_koll')||'{}');
+function _sbGrpToggle(grpKey){
+  _sbGrpKoll[grpKey] = !_sbGrpKoll[grpKey];
+  localStorage.setItem('sb_grp_koll', JSON.stringify(_sbGrpKoll));
+  renListe(document.getElementById('sbSuche').value);
+}
 function renListe(fil){
   var list=document.getElementById('sblist');
   var hvSelWert=(document.getElementById('sbHVFilter')||{}).value||'';
@@ -683,11 +696,35 @@ function renListe(fil){
     return true;
   });
   if(!items.length){ list.innerHTML='<div style="padding:14px 10px;color:#aaa;font-size:12px">Keine Objekte.</div>'; return; }
-  list.innerHTML=items.map(function(o){
-    var hvN=_hvNameVon(o);
-    var typLabel=(o.hvtyp||'hv')==='eigen'?'\u{1F464} Eigent.':'\u{1F3E2} HV';
-    return '<div class="sbi'+(o.id===cid?' act':'')+'" onclick="waehleObj(\''+o.id+'\')">'      +'<div class="sa">'+(o.adr||'(ohne Adresse)')+'</div>'      +'<div class="sb2">'        +'<span class="badge '+(o.dachart==='z'?'bz':'bf')+'">'+(o.dachart==='z'?'Ziegel':'Flach')+'</span> '        +(hvN?'<span class="shv">'+hvN+'</span>':'<span style="font-size:10px;color:#aaa">'+typLabel+'</span>')      +'</div>'      +'</div>';
-  }).join('');
+  // Nach Gruppe (HV-Name oder "Eigentümer") sortieren
+  var gruppen = {};
+  items.forEach(function(o){
+    var hvN = _hvNameVon(o);
+    var grpName = hvN || ((o.hvtyp||'hv')==='eigen' ? '👤 Eigentümer' : '🏢 Ohne HV');
+    if(!gruppen[grpName]) gruppen[grpName] = [];
+    gruppen[grpName].push(o);
+  });
+  var html = '';
+  Object.keys(gruppen).sort().forEach(function(grpName){
+    var grpItems = gruppen[grpName];
+    var koll = !!_sbGrpKoll[grpName];
+    var safeKey = grpName.replace(/'/g,"\\'");
+    html += '<div class="sb-grp-hdr'+(koll?' koll':'')+'" onclick="_sbGrpToggle(\''+safeKey+'\')">'
+          + '<span>'+grpName+' <span style="font-size:10px;font-weight:400;color:#666">('+grpItems.length+')</span></span>'
+          + '<span class="sb-garr">▾</span>'
+          + '</div>';
+    html += '<div class="sb-grp-body'+(koll?' koll':'')+'">';
+    grpItems.forEach(function(o){
+      html += '<div class="sbi'+(o.id===cid?' act':'')+'" onclick="waehleObj(\''+o.id+'\')">'
+            + '<div class="sa">'+(o.adr||'(ohne Adresse)')+'</div>'
+            + '<div class="sb2">'
+            + '<span class="badge '+(o.dachart==='z'?'bz':'bf')+'">'+(o.dachart==='z'?'Ziegel':'Flach')+'</span>'
+            + '</div>'
+            + '</div>';
+    });
+    html += '</div>';
+  });
+  list.innerHTML = html;
 }
 function filterListe(v){ renListe(v); }
 
@@ -2379,6 +2416,15 @@ async function pdfNachDrive(){
   }catch(e){ toast('PDF-Fehler: '+e.message,'err'); console.error(e); }
 }
 
+function oeffneGoogleMaps(){
+  var adr  = (document.getElementById('fAdr')||{value:''}).value.trim();
+  var plz  = (document.getElementById('fPlz')||{value:''}).value.trim();
+  var ort  = (document.getElementById('fOrt')||{value:''}).value.trim();
+  var query = [adr, plz, ort].filter(Boolean).join(', ');
+  if(!query){ toast('Bitte zuerst Adresse und PLZ/Ort eintragen','err'); return; }
+  window.open('https://www.google.com/maps/search/'+encodeURIComponent(query),'_blank');
+}
+
 async function shortcutNachDrive(){
   if(!cid){ toast('Kein Objekt gewählt','err'); return; }
   sammelDaten(); var o=holeObj(); if(!o) return;
@@ -2386,28 +2432,54 @@ async function shortcutNachDrive(){
   if(!fid){ toast('Bitte zuerst einen Drive-Ordner für dieses Objekt eintragen','err'); return; }
   if(!gdriveToken||!gdriveFileId){ toast('Bitte zuerst mit Drive verbinden (☁️ Drive-Button)','err'); return; }
   try{
-    // Basis-URL der Stammblatt-Seite (ohne Query/Hash)
     var sbUrl=window.location.href.split('?')[0].split('#')[0];
     var shortcutContent='[InternetShortcut]\r\nURL='+sbUrl+'\r\n';
     var shortcutName='Stammblatt.url';
-    // Multipart-Upload zu Drive
-    var boundary='---SBSCBoundary'+Date.now();
-    var meta=JSON.stringify({name:shortcutName,parents:[fid],'mimeType':'application/octet-stream'});
-    var body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+meta+'\r\n--'+boundary+'\r\nContent-Type: application/octet-stream\r\n\r\n';
-    var bodyEnd='\r\n--'+boundary+'--';
     var enc=new TextEncoder();
-    var bodyBytes=enc.encode(body);
     var contentBytes=enc.encode(shortcutContent);
-    var endBytes=enc.encode(bodyEnd);
-    var full=new Uint8Array(bodyBytes.length+contentBytes.length+endBytes.length);
-    full.set(bodyBytes); full.set(contentBytes,bodyBytes.length); full.set(endBytes,bodyBytes.length+contentBytes.length);
-    var resp=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{
-      method:'POST',
-      headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'multipart/related; boundary='+boundary},
-      body:full
-    });
-    if(!resp.ok){ var e=await resp.json(); toast('Drive-Fehler: '+(e.error&&e.error.message||resp.status),'err'); return; }
-    toast('🔗 Stammblatt.url in Drive-Ordner gespeichert ✓','ok');
+
+    // ── Prüfen ob Stammblatt.url bereits existiert ──
+    var searchUrl='https://www.googleapis.com/drive/v3/files?q='
+      +encodeURIComponent("name='"+shortcutName+"' and '"+fid+"' in parents and trashed=false")
+      +'&fields=files(id,name)&pageSize=1';
+    var sResp=await fetch(searchUrl,{headers:{Authorization:'Bearer '+gdriveToken}});
+    var sData=await sResp.json();
+    var vorhandeneId=(sData.files&&sData.files.length>0)?sData.files[0].id:null;
+
+    var resp;
+    if(vorhandeneId){
+      // Vorhandene Datei aktualisieren (kein Duplikat)
+      var boundary='---SBSCBoundary'+Date.now();
+      var metaStr=JSON.stringify({name:shortcutName});
+      var body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+metaStr+'\r\n--'+boundary+'\r\nContent-Type: application/octet-stream\r\n\r\n';
+      var bodyEnd='\r\n--'+boundary+'--';
+      var bodyBytes=enc.encode(body); var endBytes=enc.encode(bodyEnd);
+      var full=new Uint8Array(bodyBytes.length+contentBytes.length+endBytes.length);
+      full.set(bodyBytes); full.set(contentBytes,bodyBytes.length); full.set(endBytes,bodyBytes.length+contentBytes.length);
+      resp=await fetch('https://www.googleapis.com/upload/drive/v3/files/'+vorhandeneId+'?uploadType=multipart&fields=id',{
+        method:'PATCH',
+        headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'multipart/related; boundary='+boundary},
+        body:full
+      });
+      if(!resp.ok){ var e=await resp.json(); toast('Drive-Fehler: '+(e.error&&e.error.message||resp.status),'err'); return; }
+      toast('🔗 Stammblatt.url aktualisiert (bereits vorhanden) ✓','ok');
+    } else {
+      // Neue Datei anlegen
+      var boundary='---SBSCBoundary'+Date.now();
+      var meta=JSON.stringify({name:shortcutName,parents:[fid],'mimeType':'application/octet-stream'});
+      var body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+meta+'\r\n--'+boundary+'\r\nContent-Type: application/octet-stream\r\n\r\n';
+      var bodyEnd='\r\n--'+boundary+'--';
+      var bodyBytes=enc.encode(body); var endBytes=enc.encode(bodyEnd);
+      var full=new Uint8Array(bodyBytes.length+contentBytes.length+endBytes.length);
+      full.set(bodyBytes); full.set(contentBytes,bodyBytes.length); full.set(endBytes,bodyBytes.length+contentBytes.length);
+      resp=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{
+        method:'POST',
+        headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'multipart/related; boundary='+boundary},
+        body:full
+      });
+      if(!resp.ok){ var e=await resp.json(); toast('Drive-Fehler: '+(e.error&&e.error.message||resp.status),'err'); return; }
+      toast('🔗 Stammblatt.url neu in Drive-Ordner gespeichert ✓','ok');
+    }
   }catch(e){ toast('Shortcut-Fehler: '+e.message,'err'); console.error(e); }
 }
 </script>
