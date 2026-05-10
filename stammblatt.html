@@ -55,6 +55,13 @@ body{font-family:Arial,sans-serif;font-size:13px;background:#f0f2f5;color:#222;}
 .bf{background:#dbeafe;color:#1e40af;}
 #sb .sbf{padding:10px;border-top:1px solid #eee;}
 #sb .sbf button{width:100%;padding:8px;background:#1a2744;color:#fff;border:none;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;}
+/* Filter-Buttons Sidebar */
+.sbfilter{display:flex;gap:4px;margin-top:6px;}
+.sbfilter button{flex:1;padding:3px 0;font-size:10px;font-weight:700;border:1px solid #d0d5dd;border-radius:4px;cursor:pointer;background:#f5f7ff;color:#555;transition:background .12s;}
+.sbfilter button.aktiv{background:#1a2744;color:#fff;border-color:#1a2744;}
+.sbf2{padding:6px 10px 0;border-bottom:1px solid #eee;}
+#sbHVFilter{width:100%;padding:4px 6px;border:1px solid #d0d5dd;border-radius:5px;font-size:11px;margin-top:4px;margin-bottom:4px;display:none;}
+.sbi .shv{font-size:10px;color:#6c63ff;font-weight:600;margin-top:1px;}
 
 /* FORM */
 #fa{flex:1;overflow-y:auto;padding:16px 20px 60px;}
@@ -246,6 +253,16 @@ textarea{min-height:48px;resize:vertical;}
       <div class="sbh">
         <div class="sbt" id="sbTitle">Objekte</div>
         <input type="text" placeholder="Suchen…" oninput="filterListe(this.value)" id="sbSuche">
+      </div>
+      <div class="sbf2">
+        <div class="sbfilter">
+          <button id="sfAlle"  class="aktiv" onclick="setSbFilter('alle')">Alle</button>
+          <button id="sfHV"    onclick="setSbFilter('hv')">HV</button>
+          <button id="sfEigen" onclick="setSbFilter('eigen')">Eigent.</button>
+        </div>
+        <select id="sbHVFilter" onchange="renListe(document.getElementById('sbSuche').value)">
+          <option value="">– Alle HV –</option>
+        </select>
       </div>
       <div id="sblist"></div>
       <div class="sbf"><button onclick="zeigeNeuObj()">✚ Neues Objekt</button></div>
@@ -656,16 +673,66 @@ function startApp(){
 // ── OBJEKTE
 function renListe(fil){
   var list=document.getElementById('sblist');
-  var items=(D.obj||[]).filter(function(o){ return !fil||o.adr.toLowerCase().indexOf(fil.toLowerCase())>=0; });
+  var hvSelWert=(document.getElementById('sbHVFilter')||{}).value||'';
+  var items=(D.obj||[]).filter(function(o){
+    if(fil && o.adr.toLowerCase().indexOf(fil.toLowerCase())<0) return false;
+    var typ=o.hvtyp||'hv';
+    if(_sbFilter==='hv'    && typ!=='hv')    return false;
+    if(_sbFilter==='eigen' && typ!=='eigen') return false;
+    if(_sbFilter==='hv' && hvSelWert && _hvNameVon(o)!==hvSelWert) return false;
+    return true;
+  });
   if(!items.length){ list.innerHTML='<div style="padding:14px 10px;color:#aaa;font-size:12px">Keine Objekte.</div>'; return; }
   list.innerHTML=items.map(function(o){
-    return '<div class="sbi'+(o.id===cid?' act':'')+'" onclick="waehleObj(\''+o.id+'\')">'
-      +'<div class="sa">'+(o.adr||'(ohne Adresse)')+'</div>'
-      +'<div class="sb2"><span class="badge '+(o.dachart==='z'?'bz':'bf')+'">'+(o.dachart==='z'?'Ziegel':'Flach')+'</span></div>'
-      +'</div>';
+    var hvN=_hvNameVon(o);
+    var typLabel=(o.hvtyp||'hv')==='eigen'?'\u{1F464} Eigent.':'\u{1F3E2} HV';
+    return '<div class="sbi'+(o.id===cid?' act':'')+'" onclick="waehleObj(\''+o.id+'\')">'      +'<div class="sa">'+(o.adr||'(ohne Adresse)')+'</div>'      +'<div class="sb2">'        +'<span class="badge '+(o.dachart==='z'?'bz':'bf')+'">'+(o.dachart==='z'?'Ziegel':'Flach')+'</span> '        +(hvN?'<span class="shv">'+hvN+'</span>':'<span style="font-size:10px;color:#aaa">'+typLabel+'</span>')      +'</div>'      +'</div>';
   }).join('');
 }
 function filterListe(v){ renListe(v); }
+
+// ── SIDEBAR-FILTER ──
+var _sbFilter = 'alle';
+
+function setSbFilter(typ){
+  _sbFilter = typ;
+  // Buttons aktualisieren
+  ['alle','hv','eigen'].forEach(function(t){
+    var btn = document.getElementById('sf'+t.charAt(0).toUpperCase()+t.slice(1));
+    if(btn) btn.classList.toggle('aktiv', t===typ);
+  });
+  // HV-Dropdown zeigen/verstecken + befüllen
+  var sel = document.getElementById('sbHVFilter');
+  if(sel){
+    if(typ==='hv'){
+      // Einmalig befüllen
+      var hvNamen = [];
+      (D.obj||[]).forEach(function(o){
+        if((o.hvtyp||'hv')==='hv'){
+          var n = _hvNameVon(o);
+          if(n && hvNamen.indexOf(n)<0) hvNamen.push(n);
+        }
+      });
+      hvNamen.sort();
+      sel.innerHTML = '<option value="">– Alle HV –</option>'
+        + hvNamen.map(function(n){ return '<option value="'+n.replace(/"/g,'&quot;')+'">'+n+'</option>'; }).join('');
+      sel.style.display='block';
+    } else {
+      sel.style.display='none';
+      sel.value='';
+    }
+  }
+  renListe(document.getElementById('sbSuche').value);
+}
+
+function _hvNameVon(o){
+  if(o.hv) return o.hv;
+  if(o.hvref){
+    var k=(D.kontakte||[]).find(function(x){return x.id===o.hvref;});
+    if(k) return k.name||'';
+  }
+  return '';
+}
 
 function zeigeNeuObj(){ document.getElementById('mObjA').value=''; oeffneMo('moObj'); setTimeout(function(){ document.getElementById('mObjA').focus(); },80); }
 
