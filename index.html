@@ -2477,6 +2477,8 @@ let editProjects = [];
 let taskLinks = [];
 let taskAttachments = [];
 let taskFotos = [];
+let _taskModalDirty = false;    // true wenn User im Modal etwas geändert hat
+let _taskModalSnapshot = null;  // Snapshot des Tasks beim Öffnen (für Diff-Merge)
 
 let fileHandle = null;
 const hasFileAPI = 'showOpenFilePicker' in window;
@@ -2761,6 +2763,7 @@ function scheduleSave(){
 function scheduleTaskFieldSave(){
   const id=(document.getElementById('taskId')?.value)||'';
   if(!id) return; // Neuer Task: erst beim Schließen speichern
+  _taskModalDirty = true; // User hat ein Feld geändert
   clearTimeout(autoSaveTimer);
   autoSaveTimer = setTimeout(()=>{saveTaskData();}, 1000);
 }
@@ -3990,8 +3993,20 @@ async function gdriveSaveData() {
                     const idx=merged[rk].findIndex(t=>t&&t.id===modalTaskId);
                     if(idx>=0){remoteTask=merged[rk][idx];remoteBoardKey=rk;remoteIdx=idx;break;}
                   }
-                  // Merge: Lokale Skalar-Felder überschreiben; Listen werden per Inhalt gemerged
-                  const mergedTask={...(remoteTask||{}),...lt};
+                  // Merge: Snapshot-basiert – nur tatsächlich geänderte Felder lokal gewinnen lassen.
+                  // Unveränderte Felder → Remote (Mobile) gewinnt, damit Mobile-Änderungen erhalten bleiben.
+                  const mergedTask={...(remoteTask||{})};
+                  const _snap=_taskModalSnapshot;
+                  for(const k of Object.keys(lt)){
+                    if(k==='id')continue; // ID nie überschreiben
+                    const snap=_snap?_snap[k]:undefined;
+                    const local=lt[k];
+                    // Wenn kein Snapshot vorhanden ODER Wert hat sich gegenüber Snapshot geändert → lokal gewinnt
+                    if(!_snap||JSON.stringify(local)!==JSON.stringify(snap)){
+                      mergedTask[k]=local;
+                    }
+                    // sonst: Remote-Wert bleibt (bereits durch {...remoteTask} gesetzt)
+                  }
                   mergedTask.notizVerlauf=_mergeNotizen(remoteTask&&remoteTask.notizVerlauf,lt.notizVerlauf);
                   mergedTask.zeitEntries=_mergeListByKey(remoteTask&&remoteTask.zeitEntries,lt.zeitEntries,e=>((e.date||'')+'|'+(e.von||'')+'|'+(e.bis||'')+'|'+(e.beschreibung||'')));
                   mergedTask.ausserhausTermine=_mergeListByKey(remoteTask&&remoteTask.ausserhausTermine,lt.ausserhausTermine,e=>((e.date||'')+'|'+(e.von||'')+'|'+(e.bis||'')+'|'+(e.beschreibung||'')));
@@ -10885,7 +10900,15 @@ function openModal(){
   if(typeof _applyStoredModalSize2==='function')_applyStoredModalSize2();
 }
 function closeModal(){
-  saveTaskData(); // Auto-Speichern beim Schließen (kein Effekt wenn kein Titel)
+  const _isNewTask = !(document.getElementById('taskId')?.value);
+  // Nur speichern wenn User etwas geändert hat ODER es ein neuer Task ist.
+  // Ohne Änderung würde saveTaskData() den T0-Stand zurückschreiben und
+  // zwischenzeitliche Mobile-Änderungen überschreiben (Hauptursache Mobile→PC-Bug).
+  if(_isNewTask || _taskModalDirty){
+    saveTaskData();
+  }
+  _taskModalDirty = false;
+  _taskModalSnapshot = null;
   collapseAllTaskSections();
   document.getElementById('taskModal').classList.remove('open');
 }
@@ -11059,6 +11082,9 @@ function openEditTaskModal(id){
   let task=null,taskBoard=null;
   for(const bk of Object.keys(boards)){const f=(boards[bk]||[]).find(t=>t.id===id);if(f){task=f;taskBoard=bk;break;}}
   if(!task){showToast('Task nicht gefunden (ID: '+id+')','error');return;}
+  // Snapshot für Dirty-Tracking und Snapshot-Merge speichern
+  _taskModalSnapshot = JSON.parse(JSON.stringify(task));
+  _taskModalDirty = false;
   // currentBoard auf das Board des Tasks setzen (wichtig für Heute-Ansicht)
   if(taskBoard&&taskBoard!==currentBoard){currentBoard=taskBoard;}
   document.getElementById('taskId').value=task.id;
