@@ -3106,6 +3106,13 @@ function gdriveInit() {
       const _wasAutoInit = _autoInitSilentInProgress; // Auto-Init war am Laufen?
       _silentRefreshInProgress = false;
       _autoInitSilentInProgress = false;
+      // Callback-Chain wiederherstellen: wenn silent refresh lief und error_callback
+      // feuert, wird gdriveTokenClient.callback nie durch den internen Handler restauriert.
+      // Ohne diese Zeile würde der nächste manuelle Login im falschen Callback landen.
+      if(_wasSilent && _silentRefreshPrevCallback){
+        gdriveTokenClient.callback=_silentRefreshPrevCallback;
+        _silentRefreshPrevCallback=null;
+      }
       if(err && (err.type==='popup_failed_to_open'||err.type==='popup_closed'||err.type==='immediate_failed')){
         _showDriveWarnBanner(0);
         if(err.type==='immediate_failed'){
@@ -3353,6 +3360,7 @@ function _renewDriveOtherAccount(){
 
 let _silentRefreshInProgress=false;
 let _silentRefreshStartedAt=0;
+let _silentRefreshPrevCallback=null; // Sichert den Callback vor einem stillen Refresh
 let _autoInitSilentInProgress=false; // Automatischer Init-Versuch läuft
 let _autoReconnectAttempts=0;   // Zählt automatische Verbindungsversuche
 let _silentRefreshGaveUp=false; // Nach immediate_failed: keine weiteren Auto-Versuche
@@ -3400,8 +3408,10 @@ function _silentTokenRefresh(onSuccess, onFail){
   _silentRefreshInProgress=true;
   _silentRefreshStartedAt=Date.now();
   const prev=gdriveTokenClient.callback;
+  _silentRefreshPrevCallback=prev; // Modul-Level Sicherung für error_callback
   gdriveTokenClient.callback=(r)=>{
     gdriveTokenClient.callback=prev;
+    _silentRefreshPrevCallback=null;
     _silentRefreshInProgress=false;
     if(r&&r.access_token){
       gdriveToken=r.access_token;
