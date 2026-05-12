@@ -3,7 +3,7 @@
 // Google-APIs (Drive, Sheets, OAuth) werden NIEMALS gecacht –
 // sie brauchen Auth-Token und müssen immer live abgefragt werden.
 
-const CACHE_NAME = 'pam-desktop-v1';
+const CACHE_NAME = 'pam-desktop-v2';
 const PRECACHE = [
   './',
   './index.html',
@@ -45,6 +45,9 @@ self.addEventListener('activate', e => {
 // – Alles andere: Cache-First, dann Netzwerk (und dynamisch nachcachen)
 self.addEventListener('fetch', e => {
   const url = e.request.url;
+
+  // Blob-URLs und Data-URLs nie durch den SW routen – sie existieren nur im Tab
+  if (url.startsWith('blob:') || url.startsWith('data:')) return;
 
   // Google-Dienste immer live – kein SW-Eingriff
   if (
