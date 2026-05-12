@@ -3409,11 +3409,14 @@ function _scheduleTokenRefresh(){
   const delay=Math.max(15000,gdriveTokenExpires-Date.now()-600000);
   _gdriveRefreshTimer=setTimeout(()=>{
     if(!gdriveToken)return;
-    console.info('[PTP] Proaktiver Token-Refresh gestartet (10 Min vor Ablauf)');
-    _silentTokenRefresh(
-      ()=>{ _scheduleTokenRefresh(); _hideDriveWarnBanner(); console.info('[PTP] Token proaktiv erneuert ✓'); },
-      ()=>{ /* Fehlgeschlagen – Banner bleibt, Minuten-Intervall zeigt ihn bereits */ }
-    );
+    // GitHub Pages COOP-Header → requestAccessToken({prompt:'none'}) immer geblockt
+    // → nur Banner + Toast, kein GIS-Popup-Versuch
+    console.info('[PTP] Token läuft in ~10 Min ab – Banner einblenden');
+    if(Date.now()>=_bannerDismissedUntil) _showDriveWarnBanner(600);
+    if(!_warnToastShown){
+      _warnToastShown=true;
+      showToast('⚠ Drive-Verbindung läuft in 10 Min ab – Drive-Button ☁️ drücken','error',10000);
+    }
   },delay);
   console.info('[PTP] Nächster Token-Refresh in',Math.round(delay/60000),'Min geplant');
 }
@@ -3486,18 +3489,13 @@ setInterval(()=>{
     return;
   }
   if(msLeft > 600000) return; // mehr als 10 Min → nichts tun
-  // Weniger als 10 Min → Banner SOFORT zeigen (nicht erst nach fehlgeschlagenem Silent-Refresh)
+  // Weniger als 10 Min → Banner sofort zeigen
   _showDriveWarnBanner(msLeft/1000);
-  // Einmalig Toast anzeigen damit Nutzer es sicher bemerkt
   if(!_warnToastShown){
     _warnToastShown=true;
-    showToast('⚠ Google Drive Verbindung läuft bald ab – bitte oben auf „Erneut anmelden" klicken','error',10000);
+    showToast('⚠ Drive-Verbindung läuft bald ab – Drive-Button ☁️ oben drücken','error',10000);
   }
-  // Trotzdem stille Erneuerung versuchen – klappt sie, verschwindet der Banner automatisch
-  _silentTokenRefresh(
-    ()=>{ _hideDriveWarnBanner(); _warnToastShown=false; }, // Erfolg → Banner weg
-    ()=>{ /* Banner bleibt – Nutzer muss klicken */ }
-  );
+  // Kein _silentTokenRefresh: GitHub Pages COOP-Header blockiert GIS-Popups zuverlässig.
 },60*1000);
 
 // Fix #4: Konsolidierter visibilitychange-Handler (Token-Check + Sync in einem)
@@ -3511,10 +3509,7 @@ document.addEventListener('visibilitychange', () => {
       if(Date.now() >= _bannerDismissedUntil) _showDriveWarnBanner(0);
     } else if(msLeft <= 600000){
       _showDriveWarnBanner(msLeft/1000);
-      _silentTokenRefresh(
-        ()=>{ _hideDriveWarnBanner(); },
-        ()=>{ /* Banner bleibt */ }
-      );
+      // Kein _silentTokenRefresh (COOP) – Drive-Button für Redirect
     }
   }
   // Sync sofort lesen (ersetzt den separaten Handler in startSyncPolling)
@@ -3534,37 +3529,10 @@ function _handleDrive401(){
     if(Date.now() >= _bannerDismissedUntil) _showDriveWarnBanner(0);
     return;
   }
-  if(gdriveTokenClient){
-    _autoReconnectAttempts++;
-    // Stille Neuanmeldung versuchen (kein Popup) – klappt solange Google-Session aktiv
-    const prev=gdriveTokenClient.callback;
-    gdriveTokenClient.callback=(r)=>{
-      gdriveTokenClient.callback=prev;
-      if(r&&r.access_token){
-        _autoReconnectAttempts=0; // Erfolg → Zähler zurücksetzen
-        gdriveToken=r.access_token;
-        gdriveTokenExpires=Date.now()+(Number(r.expires_in||3600)-60)*1000;
-        try{localStorage.setItem(PC_TOKEN_KEY,JSON.stringify({token:gdriveToken,exp:gdriveTokenExpires}));}catch(e){}
-        showToast('✓ Drive-Verbindung automatisch erneuert – speichere erneut…','ok',3000);
-        updateFileStatus('ok','☁️ '+gdriveFileName,'✓ Verbunden');
-        _hideDriveWarnBanner();
-        setTimeout(()=>gdriveSaveData(),600);
-      }else{
-        _setGaveUp(); // Popup-Flash verhindern: Auto-Retry in 15 Min
-        updateFileStatus('unsaved','⚠ Drive-Verbindung abgelaufen','☁️ Drive-Button drücken zum Neu-Verbinden');
-        if(Date.now() >= _bannerDismissedUntil) _showDriveWarnBanner(0);
-      }
-    };
-    try{gdriveTokenClient.requestAccessToken({prompt:'none'});}catch(e){
-      gdriveTokenClient.callback=prev;
-      _setGaveUp();
-      updateFileStatus('unsaved','⚠ Drive-Verbindung abgelaufen','☁️ Drive-Button drücken zum Neu-Verbinden');
-      if(Date.now() >= _bannerDismissedUntil) _showDriveWarnBanner(0);
-    }
-  }else{
-    updateFileStatus('unsaved','⚠ Drive-Verbindung abgelaufen','☁️ Drive-Button drücken zum Neu-Verbinden');
-    if(Date.now() >= _bannerDismissedUntil) _showDriveWarnBanner(0);
-  }
+  // Kein prompt:none Popup-Versuch – GitHub Pages COOP-Header blockiert window.closed
+  // → Banner + Drive-Button führt zu Redirect-Login mit frischem 60-Min-Token
+  updateFileStatus('unsaved','⚠ Drive-Verbindung abgelaufen','☁️ Drive-Button drücken zum Neu-Verbinden');
+  if(Date.now() >= _bannerDismissedUntil) _showDriveWarnBanner(0);
 }
 // Hilfsfunktion: wirft einen sprechenden Fehler bei HTTP-Fehlerstatus, behandelt 401 direkt
 function _driveCheckResponse(r){
@@ -3637,18 +3605,10 @@ function gdriveConnectFromBar() {
   if (gdriveFileId) {
     if(!window._driveBarClickPending){
       window._driveBarClickPending=true;
-      // Expliziter Nutzerkick → GaveUp-Sperre aufheben, damit Token wirklich erneuert werden kann
-      _silentRefreshGaveUp = false;
-      _silentRefreshInProgress = false;
-      // Erster Klick: stille Erneuerung versuchen; schlägt sie fehl → sofort Redirect-Login
-      _silentTokenRefresh(
-        function(){ showToast('🔄 Drive-Verbindung verlängert ✓ – nochmals klicken für andere Datei','ok',5000); },
-        function(){
-          // Stille Erneuerung nicht möglich (kein Google-Cookie) → Redirect-Login
-          showToast('⏳ Weiterleitung zu Google zum erneuten Anmelden…','info',3000);
-          setTimeout(function(){ gdriveRequestToken('reconnect'); }, 800);
-        }
-      );
+      // DIREKTER REDIRECT: kein GIS-Popup (COOP blockiert es auf GitHub Pages)
+      // → Weiterleitung zu Google → frischer 60-Min-Token garantiert
+      showToast('⏳ Weiterleitung zu Google – Verbindung wird auf 60 Min verlängert…','info',3000);
+      setTimeout(function(){ gdriveRequestToken('reconnect'); }, 500);
       setTimeout(()=>{window._driveBarClickPending=false;},5500);
     } else {
       window._driveBarClickPending=false;
