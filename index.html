@@ -3093,6 +3093,22 @@ function _driveSetStatus(msg, isErr) {
 }
 
 function gdriveInit() {
+  // ── Redirect-Rückkehr: Token aus URL-Hash nach Google-Login lesen ──
+  const _hash = window.location.hash;
+  if (_hash && _hash.includes('access_token')) {
+    const _hp = new URLSearchParams(_hash.substring(1));
+    const _ht = _hp.get('access_token');
+    const _he = _hp.get('expires_in');
+    if (_ht) {
+      window.history.replaceState({}, '', window.location.pathname);
+      gdriveToken = _ht;
+      gdriveTokenExpires = Date.now() + (Number(_he || 3600) - 60) * 1000;
+      try { localStorage.setItem(PC_TOKEN_KEY, JSON.stringify({token: gdriveToken, exp: gdriveTokenExpires})); } catch(e) {}
+      // gdriveTokenCallback mit simuliertem Response aufrufen
+      gdriveTokenCallback({access_token: _ht, expires_in: _he || 3600});
+      return;
+    }
+  }
   console.log('[Drive] gdriveInit aufgerufen, window.google=', !!window.google);
   if (!window.google || !window.google.accounts) {
     _driveSetStatus('⏳ Google-Dienst lädt noch… (bitte 3 Sek. warten)', false);
@@ -3356,12 +3372,11 @@ function _renewDriveTokenSilent(){
 function _renewDriveOtherAccount(){
   if(!gdriveTokenClient){ showToast('⏳ Google-Dienst lädt noch','error',4000); return; }
   _silentRefreshInProgress=false;
-  gdrivePendingAction='reconnect';
-  try{
-    gdriveTokenClient.requestAccessToken({prompt:'select_account'});
-  }catch(e){
-    showToast('⚠ Fehler: '+e.message,'error',5000);
-  }
+  try { localStorage.setItem('gdrive_last_action','reconnect'); } catch(e) {}
+  const _hint2=localStorage.getItem('ptp_user_email_v1')||'';
+  const _p2=new URLSearchParams({client_id:GDRIVE_CLIENT_ID,redirect_uri:window.location.origin+window.location.pathname,response_type:'token',scope:GDRIVE_SCOPE,include_granted_scopes:'true',prompt:'select_account'});
+  if(_hint2)_p2.set('login_hint',_hint2);
+  window.location.href='https://accounts.google.com/o/oauth2/v2/auth?'+_p2;
 }
 
 let _silentRefreshInProgress=false;
@@ -3571,33 +3586,23 @@ function _ensureTokenClient(){
 }
 
 function gdriveRequestToken(action) {
-  _silentRefreshGaveUp = false; // Nutzer klickt explizit
-  gdrivePendingAction = action;
-  console.log('[Drive] gdriveRequestToken:', action, 'tokenClient=', !!gdriveTokenClient);
-  _driveSetStatus('⏳ Google-Anmeldung wird gestartet…', false);
-  if (!gdriveTokenClient) {
-    if(!_ensureTokenClient()){
-      // GSI noch nicht geladen → Status setzen und abbrechen
-      _driveSetStatus('⚠ Google-Dienst nicht geladen – bitte Seite neu laden (F5)', true);
-      gdrivePendingAction = null;
-      return;
-    }
+  _silentRefreshGaveUp = false;
+  _driveSetStatus('⏳ Weiterleitung zu Google…', false);
+  // Aktion in localStorage speichern – wird nach Redirect-Rückkehr in gdriveInit() ausgeführt
+  if (action && action !== 'autoload') {
+    try { localStorage.setItem('gdrive_last_action', action); } catch(e) {}
   }
-  // login_hint beschleunigt den Login (überspringt Konto-Auswahl wenn bekannt)
+  // Redirect-Flow: kein Popup – funktioniert zuverlässig auf PC und Mobil
   const hint = localStorage.getItem('ptp_user_email_v1') || '';
-  try {
-    console.log('[Drive] requestAccessToken aufgerufen, hint=', hint ? 'ja' : 'nein', 'action=', action);
-    _driveSetStatus('⏳ Google-Anmelde-Fenster öffnet sich…', false);
-    // Bei Reconnect: prompt leer lassen damit Google-Popup auf jeden Fall erscheint
-    const opts = {};
-    if(hint) opts.login_hint = hint;
-    gdriveTokenClient.requestAccessToken(opts);
-  } catch(e) {
-    console.error('[Drive] requestAccessToken Fehler:', e);
-    _driveSetStatus('⚠ Fehler: ' + e.message, true);
-    showToast('⚠ Google Drive Anmeldung fehlgeschlagen: ' + e.message,'error',6000);
-    gdrivePendingAction = null;
-  }
+  const params = new URLSearchParams({
+    client_id:              GDRIVE_CLIENT_ID,
+    redirect_uri:           window.location.origin + window.location.pathname,
+    response_type:          'token',
+    scope:                  GDRIVE_SCOPE,
+    include_granted_scopes: 'true',
+  });
+  if (hint) params.set('login_hint', hint);
+  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params;
 }
 
 function gdriveOpenExisting() {
@@ -11812,22 +11817,4 @@ function openSyncPanel(){
     html+='</table></div>';
   }
   if(bauZeiten.length){
-    html+='<h4 style="font-size:11px;text-transform:uppercase;color:var(--text2);margin:0 0 8px">Zeiterfassung ('+bauZeiten.length+')</h4>';
-    html+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
-    html+='<tr style="background:var(--bg2)"><th style="padding:5px 8px;text-align:left;color:var(--text2)">Datum</th><th style="color:var(--text2)">Von</th><th style="color:var(--text2)">Bis</th><th style="color:var(--text2)">Min.</th><th style="color:var(--text2)">Beschreibung</th><th style="color:var(--text2)">Ausf.Datum</th><th style="color:var(--text2)">Auftrag</th></tr>';
-    bauZeiten.forEach(z=>{html+='<tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 8px">'+(z.datum||'–')+'</td><td>'+(z.von||'–')+'</td><td>'+(z.bis||'–')+'</td><td>'+(z.minuten||0)+'</td><td>'+(z.beschreibung||'')+'</td><td style="color:var(--text2);font-size:11px">'+(z.ausführungsdatum||'–')+'</td><td style="color:var(--text2);font-size:11px">'+(z.auftragTitle||'')+'</td></tr>';});
-    html+='</table></div>';
-  }
-  if(!bauTermine.length&&!bauZeiten.length){html+='<p style="color:var(--text2);font-size:13px">Noch keine synchronisierten Einträge von der Bau Doku App.</p>';}
-  html+='<div style="margin-top:16px;text-align:right"><button onclick="this.closest(\'div[style*=position]\').remove()" style="padding:7px 16px;border-radius:6px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:13px;font-weight:500">Schließen</button></div>';
-  html+='</div></div>';
-  const overlay=document.createElement('div');
-  overlay.innerHTML=html;
-  document.body.appendChild(overlay);
-}
-
-// ── KARTENGRÖSSE ──
-function setCardSize(pct){
-  const v=Math.max(60,Math.min(200,parseInt(pct,10)||100));
-  document.documentElement.style.setProperty('--card-scale',(v/100).toFixed(2));
-  const lbl=document.getElementById
+    html+='<h4 style="font-size:11px;text-transform:uppercase;colo
