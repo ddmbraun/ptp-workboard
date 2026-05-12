@@ -3,7 +3,7 @@
 // Google-APIs (Drive, Sheets, OAuth) werden NIEMALS gecacht –
 // sie brauchen Auth-Token und müssen immer live abgefragt werden.
 
-const CACHE_NAME = 'pam-desktop-v3';
+const CACHE_NAME = 'pam-desktop-v4';
 const PRECACHE = [
   './',
   './index.html',
