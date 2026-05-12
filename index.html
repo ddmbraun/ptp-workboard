@@ -2045,7 +2045,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
             ondragenter="event.preventDefault();document.getElementById('fotosDropBody').classList.add('foto-drag-over')"
             ondragover="event.preventDefault();event.dataTransfer.dropEffect='copy'"
             ondragleave="if(!document.getElementById('fotosDropBody').contains(event.relatedTarget))document.getElementById('fotosDropBody').classList.remove('foto-drag-over')"
-            ondrop="event.preventDefault();document.getElementById('fotosDropBody').classList.remove('foto-drag-over');_handleFotoDrop(event.dataTransfer)">
+            ondrop="event.preventDefault();event.stopPropagation();document.getElementById('fotosDropBody').classList.remove('foto-drag-over');_handleFotoDrop(event.dataTransfer)">
             <div class="foto-drop-overlay">
               <div class="foto-drop-overlay-icon">📷</div>
               <div class="foto-drop-overlay-text">Fotos hier ablegen → direkt in Drive hochladen</div>
