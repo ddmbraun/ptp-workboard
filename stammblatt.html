@@ -1700,7 +1700,8 @@ function gdriveRequestToken(action){
   if(!gdriveTokenClient){ toast('⏳ Google lädt noch – bitte 3 Sek. warten','err'); return; }
   try{
     var opts = {};
-    var hint = localStorage.getItem('sd_user_email_v1') || '';
+    // COMPAT-FIX: Auch Desktop-Key lesen – kein Konto-Dialog wenn Desktop bereits angemeldet ist.
+    var hint = localStorage.getItem('sd_user_email_v1') || localStorage.getItem('ptp_user_email_v1') || '';
     if(hint) opts.login_hint = hint;
     // prompt leer lassen: Google wählt Konto automatisch wenn hint bekannt (kein Dialog)
     gdriveTokenClient.requestAccessToken(opts);
