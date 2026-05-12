@@ -2635,7 +2635,12 @@ let _colSort = {}; // { [status]: {field:'title'|'tags', dir:1|-1} }
 let taskAusserhausTermine = [];
 let taskAufgaben = []; // Dynamische Aufgaben mit Typ + Datum
 let _aufgabenIdCnt = 0;
-const AUFGABEN_TYPEN = ['Ortstermin','Anruf','Ausführungstermin','Besichtigung','Auftrag erteilt','Angebot','E-Mail','Rückfragen','Abgeschlossen'];
+const AUFGABEN_TYPEN = ['Ortstermin am','Anruf bis','Ausführungstermin','Besichtigung am','Auftrag erteilt','Angebot','E-Mail bis','Rückfragen bis','Abgeschlossen'];
+// Rückwärtskompatibilität: alte gespeicherte Typnamen → neue Anzeigenamen
+function _aufgLbl(typ){
+  const MAP={'Ortstermin':'Ortstermin am','Anruf':'Anruf bis','Besichtigung':'Besichtigung am','E-Mail':'E-Mail bis','Rückfragen':'Rückfragen bis'};
+  return MAP[typ]||typ;
+}
 const AUFGABEN_TYPEN_NOTIZ = ['Aufgabe','Anruf','E-Mail','Meeting','Recherche','Rückfragen','Abgeschlossen'];
 const AUFGABEN_COLORS = [
   {bg:'#E6F1FB',border:'#185FA5',txt:'#042C53',lbl:'#185FA5'},
@@ -2653,7 +2658,7 @@ function addAufgabe(){
 function removeAufgabe(id){
   const removed=taskAufgaben.find(a=>a.id===id);
   if(removed){
-    const _aufgIcons={'Ortstermin':'📍','Anruf':'📞','Ausführungstermin':'🔨','Besichtigung':'👁','Auftrag erteilt':'📋','Angebot':'📝','E-Mail':'📧','Rückfragen':'❓','Abgeschlossen':'✅'};
+    const _aufgIcons={'Ortstermin':'📍','Ortstermin am':'📍','Anruf':'📞','Anruf bis':'📞','Ausführungstermin':'🔨','Besichtigung':'👁','Besichtigung am':'👁','Auftrag erteilt':'📋','Angebot':'📝','E-Mail':'📧','E-Mail bis':'📧','Rückfragen':'❓','Rückfragen bis':'❓','Abgeschlossen':'✅'};
     const ico=_aufgIcons[removed.typ]||'🗓';
     const datStr=removed.datum?(()=>{const[y,m,d]=(removed.datum).split('-');return d+'.'+m+'.'+y;})():'kein Datum';
     const ts=new Date().toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
@@ -2839,14 +2844,14 @@ function _updateMapsBtn(){
       const _aufgWithDate=(taskAufgaben||[]).filter(a=>a.datum);
       if(_aufgWithDate.length===0){datesEl.style.display='none';}
       else{
-        const _aufgIcons={'Ortstermin':'📍','Anruf':'📞','Ausführungstermin':'🔨','Besichtigung':'👁','Auftrag erteilt':'📋','Angebot':'📝','E-Mail':'📧','Rückfragen':'❓','Abgeschlossen':'✅'};
+        const _aufgIcons={'Ortstermin':'📍','Ortstermin am':'📍','Anruf':'📞','Anruf bis':'📞','Ausführungstermin':'🔨','Besichtigung':'👁','Besichtigung am':'👁','Auftrag erteilt':'📋','Angebot':'📝','E-Mail':'📧','E-Mail bis':'📧','Rückfragen':'❓','Rückfragen bis':'❓','Abgeschlossen':'✅'};
         datesEl.innerHTML=_aufgWithDate.map((a,i)=>{
           const c=_aufgColors[i%_aufgColors.length];
           const ico=_aufgIcons[a.typ]||'🗓';
           return'<div style="border-radius:5px;border:0.5px solid '+c.border+';background:'+c.border+';display:inline-flex;align-items:stretch;overflow:hidden;flex:0 0 calc(33.333% - 6px);box-sizing:border-box;">'
             +'<span style="background:#ffffff;padding:4px 8px;font-size:14px;display:flex;align-items:center;border-right:1px solid rgba(255,255,255,0.35);">'+ico+'</span>'
             +'<span style="padding:4px 10px;display:inline-flex;align-items:center;gap:6px;">'
-            +'<span style="font-size:calc(12px * var(--modal-scale,1));color:#ffffff;font-weight:700;">'+esc(a.typ)+'</span>'
+            +'<span style="font-size:calc(12px * var(--modal-scale,1));color:#ffffff;font-weight:700;">'+esc(_aufgLbl(a.typ))+'</span>'
             +'<span style="font-size:calc(12px * var(--modal-scale,1));color:#ffffff;font-weight:700;">'+formatDate(a.datum)+'</span>'
             +'</span>'
             +'</div>';
@@ -4438,7 +4443,7 @@ function taskCardHTML(task){
     <div class="task-card-title">${esc(displayTitle)}</div>
     ${(task.status||task.anfrageEingangDatum||_zeitMins>0||_terminMins>0||_adr||_tel)?`<div class="task-card-taskrow">
       ${task.status?`<span style="color:var(--text2);">Task:</span><span class="task-card-chip task-card-chip-task">${esc(task.status)}</span>`:''}
-      ${task.anfrageEingangDatum?(()=>{const[y,m,d]=(task.anfrageEingangDatum||'').split('-');return`<span style="color:var(--text2);margin-left:2px;">Anfrageeing.:</span><span class="task-card-chip" style="background:#534AB7;color:#fff;border:none;">📅 ${d||'?'}.${m||'?'}.${y||'?'}</span>`;})():''}
+      ${task.anfrageEingangDatum?(()=>{const[y,m,d]=(task.anfrageEingangDatum||'').split('-');return`<span style="color:var(--text2);margin-left:2px;">Anfr.:</span><span class="task-card-chip" style="background:#534AB7;color:#fff;border:none;">📅 ${d||'?'}.${m||'?'}</span>`;})():''}
       ${isNotizBoard&&task.due?`<span style="color:var(--text2);margin-left:2px;">Fällig:</span><span class="task-card-chip" style="${overdue?'background:#A32D2D;':'background:#854F0B;'}color:#fff;border:none;">${formatDate(task.due)}</span>`:''}
       ${_gesamtMins>0?`<span style="display:inline-flex;align-items:center;gap:2px;padding:2px 6px;border-radius:10px;background:#854F0B;color:#fff;border:none;font-size:10px;font-weight:700;white-space:nowrap;">⏱ ${_fmtBadge(_gesamtMins)}</span>`:''}
       ${_terminMins>0?`<span style="display:inline-flex;align-items:center;gap:2px;padding:2px 6px;border-radius:10px;background:#185FA5;color:#fff;border:none;font-size:10px;font-weight:700;white-space:nowrap;">📅 ${_fmtBadge(_terminMins)}</span>`:''}
@@ -4447,8 +4452,8 @@ function taskCardHTML(task){
     </div>`:''}
     ${(()=>{
       if(!isBaustelle||isNotizBoard)return'';
-      const _cardIcons={'Ortstermin':'📍','Anruf':'📞','Ausführungstermin':'🔨','Besichtigung':'👁','Auftrag erteilt':'📋','Angebot':'📝','E-Mail':'📧','Rückfragen':'❓','Abgeschlossen':'✅'};
-      const _cardTypShort={'Ortstermin':'Ortstermin','Anruf':'Anruf','Ausführungstermin':'Ausführung','Besichtigung':'Besichtigung','Auftrag erteilt':'Erteilt','Angebot':'Angebot','E-Mail':'E-Mail','Rückfragen':'Rückfragen','Abgeschlossen':'Abgeschl.'};
+      const _cardIcons={'Ortstermin':'📍','Ortstermin am':'📍','Anruf':'📞','Anruf bis':'📞','Ausführungstermin':'🔨','Besichtigung':'👁','Besichtigung am':'👁','Auftrag erteilt':'📋','Angebot':'📝','E-Mail':'📧','E-Mail bis':'📧','Rückfragen':'❓','Rückfragen bis':'❓','Abgeschlossen':'✅'};
+      const _cardTypShort={'Ortstermin':'Ortstermin am','Ortstermin am':'Ortstermin am','Anruf':'Anruf bis','Anruf bis':'Anruf bis','Ausführungstermin':'Ausführung','Besichtigung':'Besichtigung am','Besichtigung am':'Besichtigung am','Auftrag erteilt':'Erteilt','Angebot':'Angebot','E-Mail':'E-Mail bis','E-Mail bis':'E-Mail bis','Rückfragen':'Rückfragen bis','Rückfragen bis':'Rückfragen bis','Abgeschlossen':'Abgeschl.'};
       const _cardColors=['#185FA5','#3B6D11','#854F0B','#534AB7','#993C1D'];
       const _cardBgs=['#E6F1FB','#EAF3DE','#FAEEDA','#EEEDFE','#FAECE7'];
       const _cardBorders=['#B5D4F4','#C0DD97','#FAC775','#C4C2F7','#F5C5B8'];
@@ -5160,6 +5165,13 @@ function renderZeitGesamt(){
 function renderZeiterfassung(){
   const el=document.getElementById('zeiterfassungList');
   if(!el)return;
+  // Bei abgeschlossenem Task: nur Gesamtzeit anzeigen (kein Bearbeiten)
+  const _aktVal=(document.getElementById('taskAktivitaetInput')?.value||'');
+  if(_aktVal==='abgeschlossen'){
+    renderZeitGesamt();
+    el.innerHTML='';
+    return;
+  }
   const ks=_modalKostenstelle();
   const bauZeiten=ks?(syncData.zeiterfassung||[]).filter(z=>z.source==='bau'&&(z.kostenstelle||'').trim()===ks):[];
   let html='';
