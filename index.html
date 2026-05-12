@@ -3603,7 +3603,11 @@ function gdriveRequestToken(action) {
     scope:                  GDRIVE_SCOPE,
     include_granted_scopes: 'true',
   });
-  if (hint) params.set('login_hint', hint);
+  // login_hint gesetzt → Google versucht stilles Auth (klappt wenn Session aktiv).
+  // Kein hint → 'select_account' erzwingen: zeigt immer die Kontoauswahl,
+  // verhindert stilles Scheitern wenn Google-Session unklar ist.
+  if (hint) { params.set('login_hint', hint); }
+  else { params.set('prompt', 'select_account'); }
   window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params;
 }
 
@@ -3633,10 +3637,17 @@ function gdriveConnectFromBar() {
   if (gdriveFileId) {
     if(!window._driveBarClickPending){
       window._driveBarClickPending=true;
-      // Erster Klick: Token sofort verlängern + Toast
+      // Expliziter Nutzerkick → GaveUp-Sperre aufheben, damit Token wirklich erneuert werden kann
+      _silentRefreshGaveUp = false;
+      _silentRefreshInProgress = false;
+      // Erster Klick: stille Erneuerung versuchen; schlägt sie fehl → sofort Redirect-Login
       _silentTokenRefresh(
         function(){ showToast('🔄 Drive-Verbindung verlängert ✓ – nochmals klicken für andere Datei','ok',5000); },
-        function(){ showToast('☁️ Verbunden mit: '+gdriveFileName+' – nochmals klicken um andere Datei zu wählen','ok',5000); }
+        function(){
+          // Stille Erneuerung nicht möglich (kein Google-Cookie) → Redirect-Login
+          showToast('⏳ Weiterleitung zu Google zum erneuten Anmelden…','info',3000);
+          setTimeout(function(){ gdriveRequestToken('reconnect'); }, 800);
+        }
       );
       setTimeout(()=>{window._driveBarClickPending=false;},5500);
     } else {
