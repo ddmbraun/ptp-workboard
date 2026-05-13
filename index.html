@@ -4514,9 +4514,8 @@ function taskCardHTML(task){
         return`<div class="task-card-datebox" style="background:${tc};border-color:${bc};display:inline-flex;align-items:stretch;overflow:hidden;padding:0;gap:0;"><span style="background:#ffffff;padding:3px 6px;font-size:11px;display:flex;align-items:center;border-right:1px solid rgba(255,255,255,0.35);">${ico}</span><span style="padding:3px 8px;display:inline-flex;align-items:center;gap:5px;"><span style="font-size:10px;color:#ffffff;font-weight:700;">${esc(shortTyp)}</span><span style="font-size:10px;color:#ffffff;font-weight:700;">${formatDate(a.datum)}</span></span></div>`;
       }).join('');
       const freieBoxes=(task.freieTermine||[]).filter(f=>f.datum).map(f=>{
-        const[fy,fm,fd]=(f.datum||''). split('-');
         const lbl=f.text?esc(f.text).substring(0,14):'Termin';
-        return`<div class="task-card-datebox" style="background:#854F0B;color:#fff;">📌 ${lbl}<br><span style="font-size:9px;">${fd||'?'}.${fm||'?'}</span></div>`;
+        return`<div class="task-card-datebox" style="background:#854F0B;border-color:#6B3A08;display:inline-flex;align-items:stretch;overflow:hidden;padding:0;gap:0;"><span style="background:#ffffff;padding:3px 6px;font-size:11px;display:flex;align-items:center;border-right:1px solid rgba(255,255,255,0.35);">📌</span><span style="padding:3px 8px;display:inline-flex;align-items:center;gap:4px;"><span style="font-size:10px;color:#ffffff;font-weight:700;">${lbl}</span><span style="font-size:10px;color:#ffffff;font-weight:700;">${formatDate(f.datum)}</span></span></div>`;
       }).join('');
       const allBoxes=aufgabenBoxes+freieBoxes;
       return allBoxes?`<div class="task-card-datebox-row">${allBoxes}</div>`:'';
