@@ -10852,19 +10852,62 @@ async function _uploadEmailOriginal(file){
   if(msgEl)msgEl.textContent='⏳ Lade hoch: '+file.name+'…';
   try{
     const buf=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsArrayBuffer(file);});
-    const mimeType=file.name.toLowerCase().endsWith('.eml')?'message/rfc822':'application/octet-stream';
+    const isEml=file.name.toLowerCase().endsWith('.eml');
+    const mimeType=isEml?'message/rfc822':'application/octet-stream';
     const result=await _driveUploadGeneric(buf,file.name,mimeType,fid);
-    taskEmailOriginals.push({name:file.name,fileId:result.id,url:'https://drive.google.com/file/d/'+result.id+'/view',uploadedAt:new Date().toLocaleDateString('de-DE')});
+    // EML-Metadaten extrahieren (Absender, Betreff, Message-ID)
+    let emailMeta={subject:'',sender:'',date:new Date().toISOString(),messageId:''};
+    if(isEml){
+      try{
+        const txt=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsText(file,'utf-8');});
+        const parsed=_parseEmlText(txt);
+        emailMeta={
+          subject:parsed.subject||'',
+          sender:parsed.sender||'',
+          date:(parsed.date instanceof Date?parsed.date:new Date()).toISOString(),
+          messageId:parsed.messageId||''
+        };
+      }catch(e){console.warn('[PTP] EML parse:',e);}
+    }
+    taskEmailOriginals.push({
+      name:file.name,
+      subject:emailMeta.subject,
+      sender:emailMeta.sender,
+      date:emailMeta.date,
+      fileId:result.id,
+      url:'https://drive.google.com/file/d/'+result.id+'/view',
+      uploadedAt:new Date().toLocaleDateString('de-DE')
+    });
+    // Metadaten in Task-Objekt und Formularfelder übertragen
+    const taskId=(document.getElementById('taskId')||{}).value||'';
+    const t=findTaskById(taskId);
+    if(t){
+      // msMessageId nur setzen wenn noch nicht vorhanden
+      if(emailMeta.messageId&&!t.msMessageId){
+        t.msMessageId=emailMeta.messageId;
+        if(!t.msConversationId)t.msConversationId='';
+        if(!t.msThreadMessages)t.msThreadMessages=[];
+      }
+      // Absender: ersten Absender übernehmen
+      if(emailMeta.sender&&!t.emailSender){
+        t.emailSender=emailMeta.sender;
+        const sndInp=document.getElementById('taskEmailSenderInput');
+        if(sndInp&&!sndInp.value.trim())sndInp.value=emailMeta.sender;
+        const sndRow=document.getElementById('taskEmailSenderRow');
+        if(sndRow)sndRow.style.display='flex';
+      }
+    }
+    renderEmailSection(); // aktualisiert auch msThreadBar
     renderEmailOriginals();
     scheduleTaskFieldSave();
     if(msgEl)msgEl.textContent='✅ Abgelegt: '+file.name;
-    setTimeout(()=>{if(msgEl)msgEl.textContent='📨 .msg / .eml hier hineinziehen';},3500);
+    setTimeout(()=>{if(msgEl)msgEl.textContent='📧 .eml / .msg hier hineinziehen';},3500);
     // Sektion öffnen
     const sect=document.getElementById('tEmailOrigSect');
     if(sect&&!sect.classList.contains('open'))sect.classList.add('open');
   }catch(err){
     showToast('⚠ Fehler: '+err.message,'error');
-    if(msgEl)msgEl.textContent='📨 .msg / .eml hier hineinziehen';
+    if(msgEl)msgEl.textContent='📧 .eml / .msg hier hineinziehen';
   }
 }
 // ── E-Mail Druckfenster – pixelgenaues Abbild via Browser-Druckdialog ──
