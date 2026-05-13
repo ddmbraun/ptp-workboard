@@ -1750,10 +1750,9 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <span class="file-msg" id="fileMsg"></span>
   </div>
   <div class="filebar-right">
-    <button id="syncBtn" onclick="openSyncPanel()" style="padding:3px 10px;border-radius:4px;font-size:11px;background:transparent;color:var(--green);border:1px solid var(--green);cursor:pointer;font-weight:500">📡 Sync</button>
+    <button id="msBtnBar" onclick="msConnect()" title="Mit Outlook / Microsoft 365 verbinden" style="padding:3px 10px;border-radius:4px;font-size:11px;background:transparent;color:#1D4ED8;border:1px solid #93C5FD;cursor:pointer;font-weight:500;">📨 Outlook</button>
     <div class="drive-timer-wrap" title="Google Drive Verbindungsstatus">
       <button class="drive-timer-btn" id="driveBtnBar" onclick="gdriveConnectFromBar()">☁️ Google Drive</button>
-      <button class="drive-timer-btn" id="msBtnBar" onclick="msConnect()" title="Mit Outlook / Microsoft 365 verbinden" style="margin-left:4px;">📨 Outlook</button>
       <div class="drive-timer-bar-wrap"><div class="drive-timer-bar" id="driveTimerBar"></div></div>
     </div>
     <button class="file-btn" onclick="openExistingFile()">&#128194; Öffnen</button>
@@ -2126,7 +2125,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
             <input type="hidden" id="taskAktivitaetInput" value="">
           </div>
           <div id="taskEmailSenderRow" style="display:none;align-items:center;gap:6px;background:#E6F1FB;border:0.5px solid #B5D4F4;border-radius:6px;padding:5px 10px;margin-top:4px;">
-            <span style="font-size:14px;color:#185FA5;flex-shrink:0;">✉</span>
+            <span style="flex-shrink:0;display:inline-flex;align-items:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#185FA5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg></span>
             <div style="flex:1;min-width:0;">
               <div style="font-size:9px;color:#0C447C;margin-bottom:1px;">Absender</div>
               <input type="text" id="taskEmailSenderInput" placeholder="Absender der E-Mail" style="width:100%;box-sizing:border-box;padding:3px 6px;font-size:calc(12px * var(--modal-scale,1));background:var(--bg2);border:0.5px solid #B5D4F4;border-radius:4px;color:var(--text);" oninput="scheduleTaskFieldSave();" autocomplete="off">
@@ -2892,9 +2891,8 @@ function _updateMapsBtn(){
   const _hdrSndEl=document.getElementById('_hdrEmailSender');
   if(_hdrSndEl){
     const _sndVal=(document.getElementById('taskEmailSenderInput')?document.getElementById('taskEmailSenderInput').value.trim():'');
-    const _hasEm=(document.getElementById('taskEmailSenderRow')&&document.getElementById('taskEmailSenderRow').style.display!=='none');
-    if(_sndVal&&_hasEm){
-      _hdrSndEl.innerHTML='<span style="display:inline-flex;align-items:center;gap:3px;font-size:calc(11px * var(--modal-scale,1));padding:2px 8px;border-radius:8px;background:#E6F1FB;color:#0C447C;border:0.5px solid #B5D4F4;font-weight:600;white-space:nowrap;">✉ '+_sndVal.replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</span>';
+    if(_sndVal){
+      _hdrSndEl.innerHTML='<span style="display:inline-flex;align-items:center;gap:4px;font-size:calc(11px * var(--modal-scale,1));padding:2px 8px;border-radius:8px;background:#E6F1FB;color:#0C447C;border:0.5px solid #B5D4F4;font-weight:600;white-space:nowrap;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0C447C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>'+_sndVal.replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</span>';
       _hdrSndEl.style.display='inline-flex';
       _hdrSndEl.style.alignItems='center';
     }else{
@@ -4528,7 +4526,7 @@ function taskCardHTML(task){
     ondragstart="onDragStart(event)" ondragend="onDragEnd(event)" onclick="openEditTaskModal('${esc(task.id)}')">
     <div class="task-card-toprow">
       <span style="display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;flex-shrink:0;${isNotizBoard?'background:#E6F1FB;color:#185FA5;border:0.5px solid #B5D4F4;':'background:#EAF3DE;color:#3B6D11;border:0.5px solid #C0DD97;'}">${isNotizBoard?'<span style="font-size:11px;">✅</span> Aufgabe':'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="22" x2="9" y2="7"/><line x1="1" y1="7" x2="21" y2="7"/><line x1="9" y1="4" x2="21" y2="7"/><line x1="1" y1="7" x2="9" y2="4"/><line x1="17" y1="7" x2="17" y2="16"/><path d="M15 16 q2 2 4 0"/><line x1="6" y1="22" x2="12" y2="22"/></svg> Auftrag'}</span>
-      ${(()=>{const _hasEM=(task.emailOriginals&&task.emailOriginals.length)||(task.emailPdfs&&task.emailPdfs.length);const _es=task.emailSender||((task.kontakte||[]).find(k=>k.rolle==='ag')||{}).name||((task.kontakte||[]).find(k=>k.rolle==='ag')||{}).email||'';return(_hasEM&&_es)?`<span style="display:inline-flex;align-items:center;gap:2px;font-size:9px;padding:1px 6px;border-radius:8px;background:#E6F1FB;color:#0C447C;border:0.5px solid #B5D4F4;font-weight:700;white-space:nowrap;">✉ ${esc(_es)}</span>`:'';})()}
+      ${(()=>{const _es=task.emailSender||((task.kontakte||[]).find(k=>k.rolle==='ag')||{}).name||((task.kontakte||[]).find(k=>k.rolle==='ag')||{}).email||'';return _es?`<span style="display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:1px 6px;border-radius:8px;background:#E6F1FB;color:#0C447C;border:0.5px solid #B5D4F4;font-weight:700;white-space:nowrap;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#0C447C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>${esc(_es)}</span>`:'';})()}
       <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2);">${[repNrTxt,ksTxt].filter(Boolean).join(' · ')}</span>
       ${[hasAttach?`<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;background:#fff;color:#854F0B;border:1px solid #FAC775;white-space:nowrap;">📎 ${(task.attachments||[]).length}</span>`:'',hasFotos?`<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;background:#fff;color:#3B6D11;border:1px solid #C0DD97;white-space:nowrap;">📷 ${(task.fotos||[]).length}</span>`:'',hasLinks?`<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;background:#fff;color:#185FA5;border:1px solid #B5D4F4;white-space:nowrap;">🔗 ${(task.links||[]).length}</span>`:''].filter(Boolean).join('')}
       <span class="task-card-owner-chip">${esc(task.owner)}</span>
@@ -4539,7 +4537,7 @@ function taskCardHTML(task){
       ${task.anfrageEingangDatum?(()=>{const[y,m,d]=(task.anfrageEingangDatum||'').split('-');return`<span style="color:var(--text2);margin-left:2px;">Anfr.vom:</span><span class="task-card-chip" style="background:#534AB7;color:#fff;border:none;">📅 ${d||'?'}.${m||'?'}</span>`;})():''}
       ${isNotizBoard&&task.due?`<span style="color:var(--text2);margin-left:2px;">Fällig:</span><span class="task-card-chip" style="${overdue?'background:#A32D2D;':'background:#854F0B;'}color:#fff;border:none;">${formatDate(task.due)}</span>`:''}
       ${_gesamtMins>0?`<span style="display:inline-flex;align-items:center;gap:2px;padding:2px 6px;border-radius:10px;background:#854F0B;color:#fff;border:none;font-size:10px;font-weight:700;white-space:nowrap;">⏱ ${_fmtBadge(_gesamtMins)}</span>`:''}
-      ${(()=>{const _oCnt=(task.emailOriginals||[]).length;const _pCnt=(task.emailPdfs||[]).length;const _tot=_oCnt+_pCnt;return _tot>0?`<span style="display:inline-flex;align-items:center;gap:2px;padding:2px 6px;border-radius:10px;background:#075985;color:#fff;border:none;font-size:10px;font-weight:700;white-space:nowrap;">📧 ${_tot}</span>`:'';})()}
+      ${(()=>{const _oCnt=(task.emailOriginals||[]).length;const _pCnt=(task.emailPdfs||[]).length;const _tot=_oCnt+_pCnt;return _tot>0?`<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:10px;background:#075985;color:#fff;border:none;font-size:10px;font-weight:700;white-space:nowrap;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>${_tot}</span>`:'';})()}
 
       ${(_adr||_tel)?`<span style="margin-left:auto;display:inline-flex;align-items:center;gap:3px;">${_adr?`<a href="https://maps.google.com/?q=${encodeURIComponent(_adr)}" target="_blank" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:7px;background:#fff;color:#0F6E56;border:1.5px solid #0F6E56;text-decoration:none;" title="${esc(_adr)}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>Maps</a>`:''}${_tel?`<a href="tel:${_tel.replace(/[^0-9+]/g,'')}" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;justify-content:center;font-size:11px;padding:2px 6px;border-radius:7px;background:#fff;color:#0F6E56;border:1.5px solid #0F6E56;text-decoration:none;" title="${esc(_tel)}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.56 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg></a>`:''}
       </span>`:''}
@@ -11420,7 +11418,7 @@ function openEditTaskModal(id){
   const _aeEl=document.getElementById('taskAnfrageEingangDatum');if(_aeEl)_aeEl.value=task.anfrageEingangDatum||'';
   const _esInp=document.getElementById('taskEmailSenderInput');if(_esInp)_esInp.value=task.emailSender||'';
   const _esRow=document.getElementById('taskEmailSenderRow');
-  if(_esRow)_esRow.style.display=(task.emailSender||(task.emailOriginals||[]).length||(task.emailPdfs||[]).length)?'flex':'none';
+  if(_esRow)_esRow.style.display='flex';
   const _avEl=document.getElementById('taskAuftragVomDatum');if(_avEl)_avEl.value=task.auftragVomDatum||'';
   const _ortEditEl=document.getElementById('taskOrtsterminInput');if(_ortEditEl)_ortEditEl.value=task.ortstermin||'';
   document.getElementById('taskTagsInput').value=(task.tags||[]).join(', ');
