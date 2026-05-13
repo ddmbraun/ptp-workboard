@@ -212,20 +212,20 @@ async function _ezBuildPdfFromHtml(info){
   wrap.innerHTML=hdr+'<div style="padding:16px 20px;line-height:1.55;color:#1e2337;word-break:break-word;">'+resolvedHtml+'</div>';
   document.body.appendChild(wrap);
 
-  // Externe Bilder direkt laden lassen (src bleibt erhalten) – html2canvas zeichnet sie mit allowTaint:true
+  // Externe Bilder mit crossOrigin='anonymous' vorladen damit kein Canvas-Taint entsteht
   await (async function _preloadImages(){
     let imgs=Array.from(wrap.querySelectorAll('img'));
     let TIMEOUT=5000;
     await Promise.all(imgs.map(function(img){
       return new Promise(function(resolve){
-        // Leere src oder nicht ladbar → ausblenden
         if(!img.src||img.src===window.location.href){img.style.display='none';return resolve();}
         if(img.src.startsWith('data:')){
-          // Data-URI: sofort prüfen ob gültig
           if(img.complete&&img.naturalWidth>0)return resolve();
           img.onload=resolve;img.onerror=function(){img.style.display='none';resolve();};
           return;
         }
+        // Externe Bilder: crossOrigin setzen → kein Taint, kein SecurityError
+        img.crossOrigin='anonymous';
         if(img.complete&&img.naturalWidth>0)return resolve();
         let done=false;
         let timer=setTimeout(function(){
@@ -238,7 +238,9 @@ async function _ezBuildPdfFromHtml(info){
   })();
 
   try{
-    let canvas=await window.html2canvas(wrap,{scale:1.5,useCORS:false,allowTaint:true,backgroundColor:'#ffffff',logging:false,width:780,imageTimeout:0});
+    // useCORS:true, allowTaint:false → externe Bilder ohne CORS werden weggelassen
+    // statt den Canvas zu taiten und toDataURL() zum Absturz zu bringen
+    let canvas=await window.html2canvas(wrap,{scale:1.5,useCORS:true,allowTaint:false,backgroundColor:'#ffffff',logging:false,width:780,imageTimeout:0});
     document.body.removeChild(wrap);
 
     let doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
@@ -8732,7 +8734,7 @@ async function _msSaveThreadPdfs(task,threadMsgs){
         cidMap:{}
       };
       const pdfBuf=await _ezBuildPdfFromHtml(info);
-      const stamp=date.getFullYear()+'.'+_ez2(date.getMonth()+1)+'.'+_ez2(date.getDate());
+      const stamp=date.getFullYear()+'.'+_ez2(date.getMonth()+1)+'.'+_ez2(date.getDate())+'_'+_ez2(date.getHours())+_ez2(date.getMinutes());
       const dirLabel=m.direction==='gesendet'?'Gesendet':'Eingang';
       const fname=stamp+'_'+dirLabel+'_'+_ezClean(m.fromName||m.from)+'.pdf';
       const result=await _ezUpload(pdfBuf,fname,fid);
@@ -11202,6 +11204,21 @@ async function _openEmailOrigInlinePreview(item){
     if(!document.getElementById(GID))return; // overlay was closed
     const info=_parseEmlText(text);
     if(info.subject)titleEl.textContent='📨 '+(info.subject||item.name||'E-Mail');
+    // Reply-Button in Header einfügen
+    if(info.sender){
+      const addrMatch=info.sender.match(/<([^>]+)>/);
+      const replyAddr=addrMatch?addrMatch[1]:(info.sender.includes('@')?info.sender:'');
+      if(replyAddr){
+        const replyBtn=document.createElement('a');
+        const reSubject='Re: '+(info.subject||'');
+        replyBtn.href='mailto:'+encodeURIComponent(replyAddr)+'?subject='+encodeURIComponent(reSubject);
+        replyBtn.style.cssText='display:inline-flex;align-items:center;gap:4px;background:#185FA5;color:#fff;font-size:11px;padding:3px 10px;border-radius:5px;text-decoration:none;flex-shrink:0;';
+        replyBtn.textContent='↩ Antworten';
+        replyBtn.title='In Outlook antworten';
+        // Vor dem Drive-Button einfügen
+        head.insertBefore(replyBtn,driveBtn);
+      }
+    }
     // Build preview HTML (reuse _openEmailPrintWindow logic, but as blob)
     const e2=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     const d=info.date instanceof Date&&!isNaN(info.date)?info.date:new Date();
