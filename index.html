@@ -2272,13 +2272,14 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <button type="button" class="sect-popup-close" onclick="_closeSectPopup('tEmailOrigSect')" title="Schließen">✕</button>
   </div>
   <div class="sect-popup-body">
-    <div id="msThreadBar" style="display:none;margin-bottom:8px;padding:6px 10px;background:#EFF6FF;border:0.5px solid #BFDBFE;border-radius:8px;">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-        <span style="font-size:12px;font-weight:600;color:#1E40AF;">📨 Outlook-Verlauf</span>
-        <button onclick="_msLoadEmailThread()" style="font-size:11px;padding:3px 10px;border-radius:6px;background:#1D4ED8;color:#fff;border:none;cursor:pointer;font-weight:500;">⟳ Verlauf laden</button>
-        <span id="msThreadStatus" style="font-size:11px;color:#3B82F6;"></span>
+    <div id="msThreadBar" style="display:none;margin-bottom:8px;background:var(--bg3);border:0.5px solid var(--border);border-radius:8px;overflow:hidden;">
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;user-select:none;" onclick="_msToggleThreadList()">
+        <span style="font-size:12px;font-weight:600;color:var(--text1);">📨 Outlook-Verlauf</span>
+        <button onclick="_msLoadEmailThread();event.stopPropagation();" style="font-size:11px;padding:3px 10px;border-radius:6px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-weight:500;">⟳ Verlauf laden</button>
+        <span id="msThreadStatus" style="font-size:11px;color:var(--text2);flex:1;"></span>
+        <span id="msThreadToggleArrow" style="font-size:13px;color:var(--text2);transition:transform .2s;display:inline-block;">▾</span>
       </div>
-      <div id="msThreadList" style="margin-top:6px;"></div>
+      <div id="msThreadList" style="padding:0 10px 6px;"></div>
     </div>
     <button id="emailGalBtn" onclick="_openEmailThumbnailGrid()" title="Alle E-Mails ansehen" style="padding:3px 10px;border-radius:6px;border:1px solid var(--accent);background:rgba(108,99,255,0.1);color:var(--accent);font-size:11px;cursor:pointer;font-weight:600;margin-bottom:8px;display:none;">📷 Alle ansehen</button>
     <div id="emailIconGrid" style="display:none;"></div>
@@ -8758,30 +8759,38 @@ async function _msSaveThreadPdfs(task,threadMsgs){
   return saved;
 }
 
+function _msToggleThreadList(){
+  const list=document.getElementById('msThreadList');
+  const arrow=document.getElementById('msThreadToggleArrow');
+  if(!list)return;
+  const isOpen=list.style.display!=='none';
+  list.style.display=isOpen?'none':'block';
+  if(arrow)arrow.style.transform=isOpen?'rotate(-90deg)':'rotate(0deg)';
+}
 function _msRenderThread(task){
   const listEl=document.getElementById('msThreadList');
   if(!listEl)return;
   const msgs=task.msThreadMessages||[];
   if(!msgs.length){listEl.innerHTML='';return;}
+  const taskId=(document.getElementById('taskId')||{}).value||'';
   listEl.innerHTML=msgs.map((m,i)=>{
     const isOut=m.direction==='gesendet';
-    const dotColor=isOut?'#16A34A':'#1D4ED8';
+    const dotColor=isOut?'var(--green,#16A34A)':'var(--accent,#1D4ED8)';
     const dirLabel=isOut?'Gesendet':'Eingang';
-    const dirBg=isOut?'#DCFCE7':'#DBEAFE';
-    const dirTxt=isOut?'#15803D':'#1E40AF';
+    const dirBg=isOut?'rgba(22,163,74,.12)':'rgba(29,78,216,.10)';
+    const dirTxt=isOut?'var(--green,#15803D)':'var(--accent,#1E40AF)';
     const d=m.date?new Date(m.date):null;
     const dateStr=d?`${_ez2(d.getDate())}.${_ez2(d.getMonth()+1)}.${String(d.getFullYear()).slice(2)} ${_ez2(d.getHours())}:${_ez2(d.getMinutes())}`:'';
     const from=m.fromName||m.from||'';
-    const taskId=(document.getElementById('taskId')||{}).value||'';
-    return`<div style="display:flex;gap:8px;align-items:flex-start;padding:5px 0;border-bottom:0.5px solid #E5E7EB;cursor:pointer;" onclick="_msOpenMailOverlay('${taskId}',${i})">
-      <div style="width:8px;height:8px;border-radius:50%;background:${dotColor};flex-shrink:0;margin-top:5px;"></div>
+    return`<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:0.5px solid var(--border);cursor:pointer;" onclick="_msOpenMailOverlay('${taskId}',${i})">
+      <div style="width:7px;height:7px;border-radius:50%;background:${dotColor};flex-shrink:0;margin-top:4px;"></div>
       <div style="flex:1;min-width:0;">
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
           <span style="font-size:10px;padding:1px 6px;border-radius:8px;background:${dirBg};color:${dirTxt};font-weight:600;">${dirLabel}</span>
-          <span style="font-size:10px;color:#6B7280;">${dateStr}</span>
+          <span style="font-size:10px;color:var(--text2);">${dateStr}</span>
         </div>
-        <div style="font-size:11px;font-weight:500;color:#111827;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(from)}</div>
-        <div style="font-size:11px;color:#6B7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(m.preview)}</div>
+        <div style="font-size:11px;font-weight:600;color:var(--text1);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(from)}</div>
+        <div style="font-size:11px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(m.preview)}</div>
       </div>
     </div>`;
   }).join('');
