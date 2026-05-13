@@ -8541,7 +8541,7 @@ function msInit(){
   try{
     msalInstance=new msal.PublicClientApplication({
       auth:{clientId:MS_CLIENT_ID,authority:'https://login.microsoftonline.com/'+MS_TENANT_ID,redirectUri:MS_REDIRECT},
-      cache:{cacheLocation:'sessionStorage',storeAuthStateInCookie:false}
+      cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
     });
     msalInstance.handleRedirectPromise().then(r=>{
       if(r)_msHandleToken(r);
@@ -8639,11 +8639,12 @@ async function _msLoadEmailThread(){
     }
     // Schritt 2: Alle Mails im Thread laden (Posteingang + Gesendete)
     const _f2=encodeURIComponent(`conversationId eq '${convId}'`);
-    const r2=await fetch(`https://graph.microsoft.com/v1.0/me/messages?$filter=${_f2}&$orderby=receivedDateTime asc&$select=id,subject,from,receivedDateTime,internetMessageId,bodyPreview,isDraft&$top=50`,
-      {headers:{Authorization:'Bearer '+msToken,'ConsistencyLevel':'eventual'}});
-    if(!r2.ok)throw new Error('Thread laden fehlgeschlagen ('+r2.status+')');
+    const _q2=new URLSearchParams({'$filter':decodeURIComponent(_f2),'$select':'id,subject,from,receivedDateTime,internetMessageId,bodyPreview,isDraft','$top':'50'});
+    const r2=await fetch(`https://graph.microsoft.com/v1.0/me/messages?${_q2}`,
+      {headers:{Authorization:'Bearer '+msToken}});
+    if(!r2.ok){const _e2=await r2.json().catch(()=>({}));throw new Error('Thread laden fehlgeschlagen ('+r2.status+'): '+(_e2.error?.message||''));}
     const d2=await r2.json();
-    const msgs=(d2.value||[]).filter(m=>!m.isDraft);
+    const msgs=(d2.value||[]).filter(m=>!m.isDraft).sort((a,b)=>new Date(a.receivedDateTime)-new Date(b.receivedDateTime));
     // Richtung bestimmen anhand eigener Adressen
     const myAddrs=[(msUserEmail||'').toLowerCase(),'info@ddmbraun.de','frank.braun@sv-fb.de'];
     const threadMsgs=msgs.map(m=>({
