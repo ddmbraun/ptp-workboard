@@ -2112,10 +2112,11 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
           <div class="mv2-section-label">👤 Bearbeitung</div>
           <!-- versteckter Maps-Button für JS-Kompatibilität -->
           <button type="button" id="taskMapsBtn" onclick="_openTaskMaps()" style="display:none;" disabled></button>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-bottom:6px;">
             <div class="modal-field" style="margin:0;font-size:calc(11px * var(--modal-scale,1))"><label style="font-size:calc(10px * var(--modal-scale,1))">Bearbeiter</label><input type="text" id="taskOwnerInput" placeholder="Name" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px" oninput="scheduleTaskFieldSave();_updateStammSummary();_updateHdrMeta()" autocomplete="off"></div>
             <div class="modal-field" style="margin:0;font-size:calc(11px * var(--modal-scale,1))"><label style="font-size:calc(10px * var(--modal-scale,1))">Task</label><select id="taskStatusInput" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px" onchange="updateGcalModalBtn();scheduleTaskFieldSave();_updateStammSummary();_updateMapsBtn()"></select></div>
-            <div class="modal-field" style="margin:0;font-size:calc(11px * var(--modal-scale,1))"><label style="font-size:calc(10px * var(--modal-scale,1))">Anfrageeingang</label><input type="date" id="taskAnfrageEingangDatum" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%" onchange="scheduleTaskFieldSave();_updateMapsBtn();" autocomplete="off"></div>
+            <div class="modal-field" style="margin:0;font-size:calc(11px * var(--modal-scale,1))"><label style="font-size:calc(10px * var(--modal-scale,1))">Anfrage vom</label><input type="date" id="taskAnfrageEingangDatum" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%" onchange="scheduleTaskFieldSave();_updateMapsBtn();" autocomplete="off"></div>
+            <div class="modal-field" style="margin:0;font-size:calc(11px * var(--modal-scale,1))"><label style="font-size:calc(10px * var(--modal-scale,1))">Auftrag vom</label><input type="date" id="taskAuftragVomDatum" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%" onchange="scheduleTaskFieldSave();" autocomplete="off"></div>
             <input type="hidden" id="taskAktivitaetInput" value="">
           </div>
           <div class="baustelle-only" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:end;">
@@ -2820,7 +2821,7 @@ function _updateMapsBtn(){
     if(eingangDat){
       const [y,m,d]=eingangDat.split('-');
       const datFmt=(d||'?')+'.'+(m||'?')+'.'+(y||'?');
-      aktEl.innerHTML='<span style="color:var(--text2);font-size:calc(12px * var(--modal-scale,1));font-weight:500;margin-right:3px;">Anfrageeing.:</span>'
+      aktEl.innerHTML='<span style="color:var(--text2);font-size:calc(12px * var(--modal-scale,1));font-weight:500;margin-right:3px;">Anfrage vom:</span>'
         +'<span style="font-size:calc(12px * var(--modal-scale,1));font-weight:700;color:var(--accent);padding:3px 10px;border-radius:10px;background:rgba(108,99,255,0.1);border:1px solid rgba(108,99,255,0.3);white-space:nowrap;">📅 '+datFmt+'</span>';
       aktEl.style.display='inline-flex';
       aktEl.style.alignItems='center';
@@ -2959,6 +2960,7 @@ function saveTaskData(){
     ausfuehrungstermin:(document.getElementById('taskAusfTerminInput')?document.getElementById('taskAusfTerminInput').value:''),
     aktivitaet:document.getElementById('taskAktivitaetInput')?document.getElementById('taskAktivitaetInput').value:'',
     anfrageEingangDatum:(document.getElementById('taskAnfrageEingangDatum')?document.getElementById('taskAnfrageEingangDatum').value:''),
+    auftragVomDatum:(document.getElementById('taskAuftragVomDatum')?document.getElementById('taskAuftragVomDatum').value:''),
     ortstermin:(document.getElementById('taskOrtsterminInput')?document.getElementById('taskOrtsterminInput').value:''),
     tags:document.getElementById('taskTagsInput').value.split(',').map(s=>s.trim()).filter(Boolean),
     source:document.getElementById('taskSourceInput').value.trim(),
@@ -4443,7 +4445,7 @@ function taskCardHTML(task){
     <div class="task-card-title">${esc(displayTitle)}</div>
     ${(task.status||task.anfrageEingangDatum||_zeitMins>0||_terminMins>0||_adr||_tel)?`<div class="task-card-taskrow">
       ${task.status?`<span style="color:var(--text2);">Task:</span><span class="task-card-chip task-card-chip-task">${esc(task.status)}</span>`:''}
-      ${task.anfrageEingangDatum?(()=>{const[y,m,d]=(task.anfrageEingangDatum||'').split('-');return`<span style="color:var(--text2);margin-left:2px;">Anfr.:</span><span class="task-card-chip" style="background:#534AB7;color:#fff;border:none;">📅 ${d||'?'}.${m||'?'}</span>`;})():''}
+      ${task.anfrageEingangDatum?(()=>{const[y,m,d]=(task.anfrageEingangDatum||'').split('-');return`<span style="color:var(--text2);margin-left:2px;">Anfr.vom:</span><span class="task-card-chip" style="background:#534AB7;color:#fff;border:none;">📅 ${d||'?'}.${m||'?'}</span>`;})():''}
       ${isNotizBoard&&task.due?`<span style="color:var(--text2);margin-left:2px;">Fällig:</span><span class="task-card-chip" style="${overdue?'background:#A32D2D;':'background:#854F0B;'}color:#fff;border:none;">${formatDate(task.due)}</span>`:''}
       ${_gesamtMins>0?`<span style="display:inline-flex;align-items:center;gap:2px;padding:2px 6px;border-radius:10px;background:#854F0B;color:#fff;border:none;font-size:10px;font-weight:700;white-space:nowrap;">⏱ ${_fmtBadge(_gesamtMins)}</span>`:''}
       ${_terminMins>0?`<span style="display:inline-flex;align-items:center;gap:2px;padding:2px 6px;border-radius:10px;background:#185FA5;color:#fff;border:none;font-size:10px;font-weight:700;white-space:nowrap;">📅 ${_fmtBadge(_terminMins)}</span>`:''}
@@ -5165,13 +5167,14 @@ function renderZeitGesamt(){
 function renderZeiterfassung(){
   const el=document.getElementById('zeiterfassungList');
   if(!el)return;
-  // Bei abgeschlossenem Task: nur Gesamtzeit anzeigen (kein Bearbeiten)
+  // Bei abgeschlossenem Task: Sektion ausblenden (Header-Badge zeigt bereits Gesamtzeit)
   const _aktVal=(document.getElementById('taskAktivitaetInput')?.value||'');
+  const _zeitSect=document.getElementById('tZeitSect');
   if(_aktVal==='abgeschlossen'){
-    renderZeitGesamt();
-    el.innerHTML='';
+    if(_zeitSect)_zeitSect.style.display='none';
     return;
   }
+  if(_zeitSect)_zeitSect.style.display='';
   const ks=_modalKostenstelle();
   const bauZeiten=ks?(syncData.zeiterfassung||[]).filter(z=>z.source==='bau'&&(z.kostenstelle||'').trim()===ks):[];
   let html='';
@@ -10939,6 +10942,7 @@ function openNewTaskModal(){
   document.getElementById('taskAmpelInput').value='grün';
   document.getElementById('taskAusfInput').value='';
   const _aktEl=document.getElementById('taskAktivitaetInput');if(_aktEl)_aktEl.value='';
+  const _avNEl=document.getElementById('taskAuftragVomDatum');if(_avNEl)_avNEl.value='';
   const _ortEl=document.getElementById('taskOrtsterminInput');if(_ortEl)_ortEl.value='';
   document.getElementById('taskTagsInput').value='';
   document.getElementById('taskSourceInput').value='';
@@ -11111,6 +11115,7 @@ function openEditTaskModal(id){
   const _atEl=document.getElementById('taskAusfTerminInput');if(_atEl)_atEl.value=task.ausfuehrungstermin||'';
   const _aktEditEl=document.getElementById('taskAktivitaetInput');if(_aktEditEl)_aktEditEl.value=task.aktivitaet||'';
   const _aeEl=document.getElementById('taskAnfrageEingangDatum');if(_aeEl)_aeEl.value=task.anfrageEingangDatum||'';
+  const _avEl=document.getElementById('taskAuftragVomDatum');if(_avEl)_avEl.value=task.auftragVomDatum||'';
   const _ortEditEl=document.getElementById('taskOrtsterminInput');if(_ortEditEl)_ortEditEl.value=task.ortstermin||'';
   document.getElementById('taskTagsInput').value=(task.tags||[]).join(', ');
   document.getElementById('taskSourceInput').value=task.source||'';
