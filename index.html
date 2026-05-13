@@ -2003,7 +2003,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
         </div>
 
         <!-- Ansprechpartner -->
-        <div class="mv2-section baustelle-only collapsible" id="tAnsprchSect">
+        <div class="mv2-section collapsible" id="tAnsprchSect">
           <div class="mv2-section-label" onclick="_toggleMv2Sect('tAnsprchSect',event)">👥 <span id="tAnsprchTitle">Ansprechpartner</span><span class="mv2-coll-arrow">›</span></div>
           <div id="tKontakteContainer"></div>
           <button class="add-row-btn" onclick="addKontaktPTP('sonstiges','','','')">+ Kontakt hinzufügen</button>
@@ -4493,6 +4493,7 @@ function taskCardHTML(task){
       ${task.anfrageEingangDatum?(()=>{const[y,m,d]=(task.anfrageEingangDatum||'').split('-');return`<span style="color:var(--text2);margin-left:2px;">Anfr.vom:</span><span class="task-card-chip" style="background:#534AB7;color:#fff;border:none;">📅 ${d||'?'}.${m||'?'}</span>`;})():''}
       ${isNotizBoard&&task.due?`<span style="color:var(--text2);margin-left:2px;">Fällig:</span><span class="task-card-chip" style="${overdue?'background:#A32D2D;':'background:#854F0B;'}color:#fff;border:none;">${formatDate(task.due)}</span>`:''}
       ${_gesamtMins>0?`<span style="display:inline-flex;align-items:center;gap:2px;padding:2px 6px;border-radius:10px;background:#854F0B;color:#fff;border:none;font-size:10px;font-weight:700;white-space:nowrap;">⏱ ${_fmtBadge(_gesamtMins)}</span>`:''}
+      ${(()=>{const _hasEmail=(task.emailOriginals&&task.emailOriginals.length)||(task.emailPdfs&&task.emailPdfs.length);if(!_hasEmail)return'';const _agK=(task.kontakte||[]).find(k=>k.rolle==='ag');const _sLabel=(_agK&&(_agK.name||_agK.email))?esc(_agK.name||_agK.email):'';return _sLabel?`<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:10px;background:#075985;color:#fff;border:none;font-size:10px;font-weight:700;white-space:nowrap;">📧 ${_sLabel}</span>`:'';})()}
 
       ${(_adr||_tel)?`<span style="margin-left:auto;display:inline-flex;align-items:center;gap:3px;">${_adr?`<a href="https://maps.google.com/?q=${encodeURIComponent(_adr)}" target="_blank" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:7px;background:#fff;color:#0F6E56;border:1.5px solid #0F6E56;text-decoration:none;" title="${esc(_adr)}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>Maps</a>`:''}${_tel?`<a href="tel:${_tel.replace(/[^0-9+]/g,'')}" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;justify-content:center;font-size:11px;padding:2px 6px;border-radius:7px;background:#fff;color:#0F6E56;border:1.5px solid #0F6E56;text-decoration:none;" title="${esc(_tel)}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.56 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg></a>`:''}
       </span>`:''}
