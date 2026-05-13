@@ -8669,7 +8669,7 @@ async function _msLoadEmailThread(){
     // PDFs automatisch speichern
     if(stEl)stEl.textContent=threadMsgs.length+' Mails – speichere PDFs…';
     const _pdfSaved=await _msSaveThreadPdfs(task,threadMsgs);
-    if(stEl)stEl.textContent=threadMsgs.length+' Mails'+(_pdfSaved>0?', '+_pdfSaved+' PDF'+(\_pdfSaved>1?'s':'')+' gespeichert':'');
+    if(stEl)stEl.textContent=threadMsgs.length+' Mails'+(_pdfSaved>0?', '+_pdfSaved+' PDF'+(_pdfSaved>1?'s':'')+' gespeichert':'');
     await autoSave();
     showToast('✅ '+threadMsgs.length+' Mails geladen'+(_pdfSaved>0?', '+_pdfSaved+' PDFs gespeichert':''),'success',4000);
   }catch(e){
