@@ -2282,9 +2282,19 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
         <span style="font-size:12px;font-weight:600;color:var(--text1);">📩 Gmail-Verlauf</span>
         <button onclick="_gmLoadEmailThread();event.stopPropagation();" style="font-size:11px;padding:3px 10px;border-radius:6px;background:#1B5E20;color:#fff;border:none;cursor:pointer;font-weight:500;">⟳ Verlauf laden</button>
         <span id="gmThreadStatus" style="font-size:11px;color:var(--text2);flex:1;"></span>
+        <button id="gmUnlinkBtn" onclick="_gmUnlinkThread();event.stopPropagation();" title="Gmail-Verknüpfung entfernen" style="display:none;font-size:10px;padding:2px 7px;border-radius:5px;background:transparent;color:#c62828;border:1px solid #ef9a9a;cursor:pointer;">✕ Trennen</button>
         <span id="gmThreadToggleArrow" style="font-size:13px;color:var(--text2);transition:transform .2s;display:inline-block;">▾</span>
       </div>
       <div id="gmThreadList" style="padding:0 10px 6px;"></div>
+      <div id="gmLinkRow" style="display:none;padding:4px 10px 8px;border-top:1px solid var(--border);">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">Gmail-Nachricht verknüpfen — URL aus Browser einfügen:</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input type="text" id="gmLinkInput" placeholder="https://mail.google.com/mail/u/0/#inbox/..." autocomplete="off"
+            style="flex:1;padding:4px 8px;font-size:11px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text1);"
+            onkeydown="if(event.key==='Enter'){_gmLinkFromInput();event.preventDefault();}">
+          <button onclick="_gmLinkFromInput();" style="padding:4px 12px;border-radius:6px;background:#1B5E20;color:#fff;border:none;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap;">🔗 Verknüpfen</button>
+        </div>
+      </div>
     </div>
     <div id="msThreadBar" style="display:none;margin-bottom:8px;background:var(--bg3);border:0.5px solid var(--border);border-radius:8px;overflow:hidden;">
       <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;user-select:none;" onclick="_msToggleThreadList()">
@@ -4564,7 +4574,7 @@ function taskCardHTML(task){
     ondragstart="onDragStart(event)" ondragend="onDragEnd(event)" onclick="openEditTaskModal('${esc(task.id)}')">
     <div class="task-card-toprow">
       <span style="display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;flex-shrink:0;${isNotizBoard?'background:#E6F1FB;color:#185FA5;border:0.5px solid #B5D4F4;':'background:#EAF3DE;color:#3B6D11;border:0.5px solid #C0DD97;'}">${isNotizBoard?'<span style="font-size:11px;">✅</span> Aufgabe':'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="22" x2="9" y2="7"/><line x1="1" y1="7" x2="21" y2="7"/><line x1="9" y1="4" x2="21" y2="7"/><line x1="1" y1="7" x2="9" y2="4"/><line x1="17" y1="7" x2="17" y2="16"/><path d="M15 16 q2 2 4 0"/><line x1="6" y1="22" x2="12" y2="22"/></svg> Auftrag'}</span>
-      ${(()=>{const _es=task.emailSender||((task.kontakte||[]).find(k=>k.rolle==='ag')||{}).name||((task.kontakte||[]).find(k=>k.rolle==='ag')||{}).email||'';return _es?`<span style="display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:1px 6px;border-radius:8px;background:#E6F1FB;color:#0C447C;border:0.5px solid #B5D4F4;font-weight:700;white-space:nowrap;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#0C447C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>${esc(_es)}</span>`:'';})()}
+      ${(()=>{const _es=task.emailSender||((task.kontakte||[]).find(k=>k.rolle==='ag')||{}).name||((task.kontakte||[]).find(k=>k.rolle==='ag')||{}).email||'';if(!_es)return'';const _nm=_es.match(/^"?([^"<]+?)"?\s*<[^>]+>/);const _short=(_nm?_nm[1].trim():_es.replace(/^"([^"]+)"$/,'$1').trim());const _disp=_short.length>22?_short.substring(0,21)+'…':_short;return`<span style="display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:1px 6px;border-radius:8px;background:#E6F1FB;color:#0C447C;border:0.5px solid #B5D4F4;font-weight:700;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#0C447C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>${esc(_disp)}</span>`;})()}
       <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2);">${[repNrTxt,ksTxt].filter(Boolean).join(' · ')}</span>
       ${[hasAttach?`<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;background:#fff;color:#854F0B;border:1px solid #FAC775;white-space:nowrap;">📎 ${(task.attachments||[]).length}</span>`:'',hasFotos?`<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;background:#fff;color:#3B6D11;border:1px solid #C0DD97;white-space:nowrap;">📷 ${(task.fotos||[]).length}</span>`:'',hasLinks?`<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;background:#fff;color:#185FA5;border:1px solid #B5D4F4;white-space:nowrap;">🔗 ${(task.links||[]).length}</span>`:''].filter(Boolean).join('')}
       <span class="task-card-owner-chip">${esc(task.owner)}</span>
@@ -8606,6 +8616,46 @@ function _gmToggleThreadList(){
   if(!list)return;const isOpen=list.style.display!=='none';
   list.style.display=isOpen?'none':'block';if(arrow)arrow.style.transform=isOpen?'rotate(-90deg)':'rotate(0deg)';
 }
+// Gmail-URL verknüpfen: Message-ID aus URL extrahieren und am Task speichern
+function _gmLinkFromInput(){
+  const inp=document.getElementById('gmLinkInput');
+  if(!inp)return;
+  const raw=(inp.value||'').trim();
+  if(!raw){showToast('⚠ Bitte Gmail-URL einfügen','error');return;}
+  // Gmail URL Formate:
+  // https://mail.google.com/mail/u/0/#inbox/FMfcgzGxRz...
+  // https://mail.google.com/mail/u/0/#all/FMfcgzGxRz...
+  // https://mail.google.com/mail/u/0/#label/xxx/FMfcgzGxRz...
+  let msgId='';
+  const hashMatch=raw.match(/#[^/]+\/([A-Za-z0-9_-]{8,})/);
+  if(hashMatch)msgId=hashMatch[1];
+  if(!msgId){showToast('⚠ Keine gültige Gmail-Nachricht-ID gefunden','error');return;}
+  const taskId=(document.getElementById('taskId')||{}).value||'';
+  const task=findTaskById(taskId);
+  if(!task){showToast('⚠ Task nicht gefunden','error');return;}
+  task.gmailMessageId=msgId;
+  if(!task.gmailMessageIds)task.gmailMessageIds=[];
+  if(!task.gmailMessageIds.includes(msgId))task.gmailMessageIds.push(msgId);
+  inp.value='';
+  scheduleTaskFieldSave();
+  renderEmailSection();
+  // Direkt laden
+  setTimeout(()=>_gmLoadEmailThread(),200);
+  showToast('✓ Gmail-Nachricht verknüpft','success',2500);
+}
+// Gmail-Verknüpfung vom Task entfernen
+function _gmUnlinkThread(){
+  if(!confirm('Gmail-Verknüpfung entfernen?'))return;
+  const taskId=(document.getElementById('taskId')||{}).value||'';
+  const task=findTaskById(taskId);
+  if(!task)return;
+  task.gmailMessageId='';task.gmailMessageIds=[];task.gmailThreadId='';task.gmailThreadMessages=[];
+  const list=document.getElementById('gmThreadList');if(list)list.innerHTML='';
+  const st=document.getElementById('gmThreadStatus');if(st)st.textContent='';
+  scheduleTaskFieldSave();
+  renderEmailSection();
+  showToast('Gmail-Verknüpfung entfernt','success',2000);
+}
 // Gmail Base64url → String (UTF-8 sicher)
 function _gmDecode(data){
   try{const bin=atob(data.replace(/-/g,'+').replace(/_/g,'/'));const bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);return new TextDecoder('utf-8').decode(bytes);}catch(e){return '';}
@@ -8617,6 +8667,44 @@ function _gmExtractBody(part,res){
   if(mime==='text/plain'&&!res.plain&&data)res.plain=_gmDecode(data);
   (part.parts||[]).forEach(p=>_gmExtractBody(p,res));
 }
+// Gmail-Thread automatisch anhand von msMessageId (RFC-822) suchen
+// Wird aufgerufen wenn Task eine Outlook-Mail hat aber noch kein gmailMessageId
+let _gmFindInProgress = false;
+async function _gmFindByMsgId(task){
+  if(_gmFindInProgress)return;
+  if(!gmailToken||!task)return;
+  const msgIds=[...new Set([...(task.msMessageIds||[]),(task.msMessageId||'')].filter(Boolean))];
+  if(!msgIds.length)return;
+  _gmFindInProgress=true;
+  const stEl=document.getElementById('gmThreadStatus');
+  if(stEl)stEl.textContent='🔍 Suche in Gmail…';
+  try{
+    const threadIds=new Set();
+    for(const mid of msgIds){
+      // RFC-822 Message-ID kann < > haben oder nicht – beide probieren
+      const clean=mid.replace(/^<|>$/g,'');
+      for(const q of ['rfc822msgid:<'+clean+'>','rfc822msgid:'+clean]){
+        try{
+          const r=await fetch('https://www.googleapis.com/gmail/v1/users/me/messages?q='+encodeURIComponent(q)+'&maxResults=1',
+            {headers:{Authorization:'Bearer '+gmailToken}});
+          if(r.ok){const d=await r.json();if(d.messages?.length){threadIds.add(d.messages[0].threadId);break;}}
+        }catch(e){}
+      }
+      if(threadIds.size)break; // erste Treffer reicht
+    }
+    if(!threadIds.size){if(stEl)stEl.textContent='';_gmFindInProgress=false;return;}
+    // Gmail-IDs am Task speichern
+    task.gmailThreadId=[...threadIds][0];
+    if(!task.gmailMessageIds)task.gmailMessageIds=[];
+    // Thread-Nachrichten sofort laden
+    if(stEl)stEl.textContent='✓ Gefunden – lade Thread…';
+    scheduleTaskFieldSave();
+    // Thread nachladen (nutzt gmailThreadId)
+    await _gmLoadEmailThread();
+  }catch(e){console.warn('[GM] _gmFindByMsgId:',e);if(stEl)stEl.textContent='';}
+  finally{_gmFindInProgress=false;}
+}
+
 async function _gmLoadEmailThread(){
   const taskId=(document.getElementById('taskId')||{}).value||'';
   const task=findTaskById(taskId);
@@ -10508,14 +10596,24 @@ function _eicHtml(item){
   </div>`;
 }
 function renderEmailSection(){
-  // Gmail-Thread-Bereich: anzeigen wenn gmailMessageId/gmailThreadId vorhanden
+  // Gmail-Thread-Bereich: anzeigen wenn Gmail verbunden (mit oder ohne Link)
   const gmBar=document.getElementById('gmThreadBar');
   if(gmBar){
     const _gmTaskId=(document.getElementById('taskId')||{}).value||'';
     const _gmt=findTaskById(_gmTaskId);
     const hasGmLink=_gmt&&(_gmt.gmailMessageId||_gmt.gmailThreadId);
-    gmBar.style.display=hasGmLink?'block':'none';
+    const hasMsLink=_gmt&&(_gmt.msMessageId||_gmt.msConversationId);
+    const gmConnected=!!gmailToken;
+    gmBar.style.display=(gmConnected||hasGmLink)?'block':'none';
+    // Link-Eingabefeld: nur zeigen wenn verbunden aber noch kein Link
+    const gmLinkRow=document.getElementById('gmLinkRow');
+    if(gmLinkRow)gmLinkRow.style.display=(gmConnected&&!hasGmLink)?'flex':'none';
+    // Trennen-Button: nur zeigen wenn Link vorhanden
+    const gmUnlinkBtn=document.getElementById('gmUnlinkBtn');
+    if(gmUnlinkBtn)gmUnlinkBtn.style.display=hasGmLink?'inline-block':'none';
     if(hasGmLink){_gmRenderThread(_gmt);}
+    // Auto-Suche: Gmail-Thread via msMessageId finden wenn Gmail verbunden aber kein gmailId
+    else if(gmConnected&&hasMsLink&&!hasGmLink){setTimeout(()=>_gmFindByMsgId(_gmt),400);}
   }
   // MS-Thread-Bereich: anzeigen wenn msMessageId vorhanden
   const msBar=document.getElementById('msThreadBar');
