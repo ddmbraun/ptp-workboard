@@ -3,7 +3,7 @@
 // Google-APIs (Drive, Sheets, OAuth) werden NIEMALS gecacht –
 // sie brauchen Auth-Token und müssen immer live abgefragt werden.
 
-const CACHE_NAME = 'pam-desktop-v31';
+const CACHE_NAME = 'pam-desktop-v32';
 const PRECACHE = [
   './',
   './index.html',
@@ -40,36 +40,50 @@ self.addEventListener('activate', e => {
 });
 
 // Fetch-Strategie:
-// – Google APIs (Drive, Sheets, OAuth, GSI): immer direkt ans Netzwerk
-//   → Datensynchronisation über Drive API läuft immer live, wird nie gecacht
-// – Alles andere: Cache-First, dann Netzwerk (und dynamisch nachcachen)
+// – Google APIs (Drive, Sheets, OAuth, GSI, CSP): immer direkt ans Netzwerk
+// – Microsoft / MSAL: immer direkt ans Netzwerk
+// – Alles andere: Cache-First, dann Netzwerk (mit Fehlerbehandlung)
 self.addEventListener('fetch', e => {
   const url = e.request.url;
 
-  // Blob-URLs und Data-URLs nie durch den SW routen – sie existieren nur im Tab
+  // Blob-URLs und Data-URLs nie durch den SW routen
   if (url.startsWith('blob:') || url.startsWith('data:')) return;
 
-  // Google-Dienste immer live – kein SW-Eingriff
+  // Alle externen Dienste immer live – kein SW-Eingriff
   if (
     url.includes('googleapis.com') ||
     url.includes('accounts.google.com') ||
     url.includes('drive.google.com') ||
     url.includes('oauth2.google') ||
-    url.includes('lh3.googleusercontent.com')
+    url.includes('lh3.googleusercontent.com') ||
+    url.includes('withgoogle.com') ||        // Google CSP-Checker
+    url.includes('microsoft.com') ||          // MSAL / Microsoft Login
+    url.includes('microsoftonline.com') ||
+    url.includes('microsoftauthenticator') ||
+    url.includes('graph.microsoft.com') ||
+    url.includes('login.live.com') ||
+    url.includes('cdn.jsdelivr.net/npm/@azure') // MSAL-CDN
   ) {
     return; // Browser-Standard-Fetch ohne SW-Cache
   }
+
+  // Requests mit redirect-Modus != 'follow' nicht durch SW routen
+  // (verhindert "no-cors + redirect mismatch" Fehler)
+  if (e.request.redirect && e.request.redirect !== 'follow') return;
 
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
       return fetch(e.request).then(resp => {
         // Nur erfolgreiche GET-Antworten dynamisch nachlegen
-        if (e.request.method === 'GET' && resp.status === 200) {
+        if (e.request.method === 'GET' && resp.status === 200 && resp.type !== 'opaque') {
           const clone = resp.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
         }
         return resp;
+      }).catch(() => {
+        // Netzwerkfehler – Cache-Fallback oder leere Antwort
+        return caches.match(e.request) || new Response('', {status: 408});
       });
     })
   );

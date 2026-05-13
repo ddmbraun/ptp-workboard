@@ -8708,7 +8708,10 @@ async function _msSaveThreadPdfs(task,threadMsgs){
   const fid=_ezFolderId(folderUrl);
   if(!fid){showToast('⚠ Kein E-Mail-Ordner verknüpft – PDFs nicht gespeichert','warning',3000);return 0;}
   // Bereits gespeicherte MessageIds → keine Duplikate
-  const savedIds=new Set((taskEmailPdfs||[]).map(p=>p.msMessageId||'').filter(Boolean));
+  // Prüft: taskEmailPdfs (vom Verlauf laden) + msMessageIds (manuell abgelegte EMLs)
+  const _knownFromPdfs=(taskEmailPdfs||[]).map(p=>p.msMessageId||'').filter(Boolean);
+  const _knownFromDrop=[...(task.msMessageIds||[]),(task.msMessageId||'')].filter(Boolean);
+  const savedIds=new Set([..._knownFromPdfs,..._knownFromDrop]);
   const toSave=threadMsgs.filter(m=>m.internetMessageId&&!savedIds.has(m.internetMessageId));
   if(!toSave.length)return 0;
   let saved=0;
