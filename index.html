@@ -1260,7 +1260,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .mv2-size-ctrl{display:flex;align-items:center;gap:5px;flex-shrink:0;}
 .mv2-body{flex:1;overflow:hidden;display:flex;gap:0;min-height:0;}
 .mv2-left{flex:0 0 var(--mv2-left-w,62%);min-width:200px;overflow-y:auto;padding:14px 16px 14px 20px;border-right:1px solid var(--border);}
-.mv2-right{flex:1 1 0;min-width:240px;overflow-y:auto;padding:14px 20px 14px 14px;}
+.mv2-right{flex:1 1 0;min-width:240px;overflow-y:auto;padding:14px 20px 14px 14px;scroll-padding-top:130px;}
 .mv2-resizer{width:5px;flex-shrink:0;cursor:col-resize;background:var(--border);transition:background .15s;position:relative;z-index:2;}
 .mv2-resizer:hover,.mv2-resizer.dragging{background:var(--accent);}
 .mv2-termine-card{border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding-left:12px;margin-left:-12px;}
@@ -2067,7 +2067,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       <div class="mv2-right">
 
         <!-- Timer-Stoppuhr + Drop-Zonen (sticky an Trennlinie) -->
-        <div class="mv2-section" style="position:sticky;top:0;z-index:20;background:var(--bg);padding-top:4px;margin-top:-14px;padding-bottom:8px;border-bottom:1.5px solid var(--border);margin-bottom:10px;">
+        <div class="mv2-section" style="position:sticky;top:0;z-index:20;background:var(--bg);padding-top:0;margin-top:-14px;padding-bottom:8px;border-bottom:1.5px solid var(--border);margin-bottom:14px;">
           <div class="mv2-section-label">⏱ Stoppuhr</div>
           <div class="modal-timer-bar" id="modalTimerBar" style="margin-bottom:6px;">
             <div style="display:flex;align-items:center;gap:10px;">
@@ -2139,7 +2139,11 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
             <div style="margin-top:6px;border-top:0.5px solid var(--border);padding-top:6px;">
               <label style="font-size:calc(10px * var(--modal-scale,1));font-weight:600;color:var(--accent);display:block;margin-bottom:4px;">🗓 Aufgaben mit Termin</label>
               <div id="aufgabenList" style="display:flex;flex-direction:column;gap:4px;"></div>
-              <button type="button" onclick="addAufgabe()" style="margin-top:4px;width:100%;background:none;border:0.5px dashed var(--border);border-radius:5px;padding:4px 8px;font-size:calc(11px * var(--modal-scale,1));color:var(--text2);cursor:pointer;">＋ Aufgabe hinzufügen</button>
+              <div id="freieTermineList" style="display:flex;flex-direction:column;gap:4px;margin-top:2px;"></div>
+              <div style="display:flex;gap:4px;margin-top:4px;">
+                <button type="button" onclick="addAufgabe()" style="flex:1;background:none;border:0.5px dashed var(--border);border-radius:5px;padding:4px 8px;font-size:calc(11px * var(--modal-scale,1));color:var(--text2);cursor:pointer;">＋ Aufgabe</button>
+                <button type="button" onclick="addFreierTermin()" style="flex:1;background:none;border:0.5px dashed #854F0B;border-radius:5px;padding:4px 8px;font-size:calc(11px * var(--modal-scale,1));color:#854F0B;cursor:pointer;">＋ Freier Termin</button>
+              </div>
             </div>
             <!-- Versteckte Felder für Rückwärtskompatibilität -->
             <input type="date" id="taskAusfTerminInput" style="display:none;" onchange="scheduleTaskFieldSave();" autocomplete="off">
@@ -2673,6 +2677,36 @@ function changeAufgabeDatum(id,val){
   const a=taskAufgaben.find(a=>a.id===id);if(a){a.datum=val;}
   _updateMapsBtn();scheduleTaskFieldSave();
 }
+// ── FREIE TERMINE ──
+let _freiTermIdCnt=1;
+function addFreierTermin(){
+  taskFreieTermine.push({id:_freiTermIdCnt++,text:'',datum:''});
+  renderFreieTermine();scheduleTaskFieldSave();
+}
+function removeFreierTermin(id){
+  taskFreieTermine=taskFreieTermine.filter(f=>f.id!==id);
+  renderFreieTermine();_updateMapsBtn();scheduleTaskFieldSave();
+}
+function changeFreierTerminText(id,val){
+  const f=taskFreieTermine.find(f=>f.id===id);if(f){f.text=val;}
+  scheduleTaskFieldSave();
+}
+function changeFreierTerminDatum(id,val){
+  const f=taskFreieTermine.find(f=>f.id===id);if(f){f.datum=val;}
+  _updateMapsBtn();scheduleTaskFieldSave();
+}
+function renderFreieTermine(){
+  const el=document.getElementById('freieTermineList');if(!el)return;
+  const sc=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--modal-scale')||1)||1;
+  const fs=Math.round(11*sc)+'px';
+  el.innerHTML=(taskFreieTermine||[]).map(f=>
+    '<div style="display:flex;align-items:center;gap:4px;">'
+    +'<input type="text" value="'+esc(f.text||'')+'" placeholder="Bezeichnung…" onchange="changeFreierTerminText('+f.id+',this.value)" oninput="changeFreierTerminText('+f.id+',this.value)" style="flex:1;font-size:'+fs+';padding:3px 5px;border:0.5px solid var(--border);border-radius:4px;background:var(--bg1);color:var(--text1);">'
+    +'<input type="date" value="'+f.datum+'" onchange="changeFreierTerminDatum('+f.id+',this.value)" style="font-size:'+fs+';padding:3px 5px;border:0.5px solid var(--border);border-radius:4px;background:var(--bg1);color:var(--text1);">'
+    +'<button type="button" onclick="removeFreierTermin('+f.id+')" style="background:none;border:0.5px solid var(--border);border-radius:4px;padding:2px 6px;font-size:'+fs+';color:var(--text2);cursor:pointer;">✕</button>'
+    +'</div>'
+  ).join('');
+}
 function renderAufgabenList(){
   const el=document.getElementById('aufgabenList');if(!el)return;
   const _isNotiz=(boardTypes[currentBoard]||'baustelle')==='notiz';
@@ -2693,6 +2727,7 @@ function renderAufgabenList(){
   }).join('');
 }
 let taskZeitEntries = [];
+let taskFreieTermine = [];
 let taskNotizVerlauf = [];
 let taskCheckliste = [];
 let taskEmailOriginals = [];
@@ -2853,6 +2888,20 @@ function _updateMapsBtn(){
             +'</span>'
             +'</div>';
         }).join('');
+        // Freie Termine mit Datum anhängen
+        const _freiWithDate=(taskFreieTermine||[]).filter(f=>f.datum&&f.text);
+        if(_freiWithDate.length){
+          const _freiC={bg:'#FFF8E1',border:'#E65100',txt:'#4A1B0C',lbl:'#E65100'};
+          datesEl.innerHTML+=_freiWithDate.map(f=>{
+            return'<div style="border-radius:5px;border:0.5px solid '+_freiC.border+';background:'+_freiC.border+';display:inline-flex;align-items:stretch;overflow:hidden;flex:0 0 calc(33.333% - 6px);box-sizing:border-box;">'
+              +'<span style="background:#ffffff;padding:4px 8px;font-size:14px;display:flex;align-items:center;border-right:1px solid rgba(255,255,255,0.35);">📌</span>'
+              +'<span style="padding:4px 10px;display:inline-flex;align-items:center;gap:6px;">'
+              +'<span style="font-size:calc(12px * var(--modal-scale,1));color:#ffffff;font-weight:700;">'+esc(f.text)+'</span>'
+              +'<span style="font-size:calc(12px * var(--modal-scale,1));color:#ffffff;font-weight:700;">'+formatDate(f.datum)+'</span>'
+              +'</span>'
+              +'</div>';
+          }).join('');
+        }
         datesEl.style.display='flex';
         datesEl.style.flexWrap='wrap';
         datesEl.style.gap='8px';
@@ -2976,6 +3025,7 @@ function saveTaskData(){
     timeEntries:existingTask?.timeEntries||[],
     aufgaben:JSON.parse(JSON.stringify(taskAufgaben||[])),
     ausserhausTermine:JSON.parse(JSON.stringify(taskAusserhausTermine||[])),
+    freieTermine:JSON.parse(JSON.stringify(taskFreieTermine||[])),
     zeitEntries:JSON.parse(JSON.stringify(taskZeitEntries||[])),
     notizVerlauf:JSON.parse(JSON.stringify(taskNotizVerlauf||[])),
     fotos:JSON.parse(JSON.stringify(taskFotos||[])),
@@ -5142,23 +5192,16 @@ function parseMinutes(von,bis){
   }catch(e){return 0;}
 }
 function renderZeitGesamt(){
-  const ks=_modalKostenstelle();
-  const bauZeiten=ks?(syncData.zeiterfassung||[]).filter(z=>z.source==='bau'&&(z.kostenstelle||'').trim()===ks):[];
-  const totalPTP=taskZeitEntries.reduce((s,e)=>s+parseMinutes(e.von,e.bis),0);
-  const hP=Math.floor(totalPTP/60),mP=totalPTP%60;
   const el=document.getElementById('zeitGesamtRow');
   if(!el)return;
-  if(bauZeiten.length){
-    const totalBau=bauZeiten.reduce((s,z)=>s+parseMinutes(z.von,z.bis),0);
-    const hB=Math.floor(totalBau/60),mB=totalBau%60;
-    const totalAll=totalPTP+totalBau;
-    const hA=Math.floor(totalAll/60),mA=totalAll%60;
-    el.innerHTML='PTP: '+(hP>0?hP+'h ':'')+mP+' min'
-      +' &nbsp;|&nbsp; <span class="zeit-gesamt-bau">Bau: '+(hB>0?hB+'h ':'')+mB+' min</span>'
-      +' &nbsp;|&nbsp; <strong>Gesamt: '+(hA>0?hA+'h ':'')+mA+' min</strong>';
-  }else{
-    el.textContent='Gesamt: '+(hP>0?hP+'h ':'')+mP+' min';
-  }
+  const ks=_modalKostenstelle();
+  const bauZeiten=ks?(syncData.zeiterfassung||[]).filter(z=>z.source==='bau'&&(z.kostenstelle||'').trim()===ks):[];
+  const totalManuell=(taskZeitEntries||[]).reduce((s,e)=>s+parseMinutes(e.von,e.bis),0);
+  const totalAusserhaus=(taskAusserhausTermine||[]).reduce((s,e)=>s+parseMinutes(e.von,e.bis),0);
+  const totalBau=bauZeiten.reduce((s,z)=>s+parseMinutes(z.von,z.bis),0);
+  const totalAll=totalManuell+totalAusserhaus+totalBau;
+  const h=Math.floor(totalAll/60),m=totalAll%60;
+  el.textContent='Zeiterfassung gesamt: '+(h>0?h+'h ':'')+m+' min';
 }
 function renderZeiterfassung(){
   const el=document.getElementById('zeiterfassungList');
@@ -10953,11 +10996,11 @@ function openNewTaskModal(){
   document.getElementById('deleteTaskBtn').style.display='none';
   document.getElementById('abschlussBtn').style.display='none';
   const _abHb=document.getElementById('abschlussHtmlBtn');if(_abHb)_abHb.style.display='none';
-  taskLinks=[];taskAttachments=[];taskAufgaben=[];taskAusserhausTermine=[];taskZeitEntries=[];taskNotizVerlauf=[];taskFotos=[];taskCheckliste=[];taskEmailOriginals=[];taskEmailPdfs=[];taskGmailLinks=[];
+  taskLinks=[];taskAttachments=[];taskAufgaben=[];taskAusserhausTermine=[];taskZeitEntries=[];taskFreieTermine=[];taskNotizVerlauf=[];taskFotos=[];taskCheckliste=[];taskEmailOriginals=[];taskEmailPdfs=[];taskGmailLinks=[];
   _attachImgsOpen=false;
   renderLinksList();renderAttachList();renderFotoListDesktop();renderPruefberichteDesktop();
   renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();renderCheckliste();renderEmailOriginals();renderEmailPdfs();renderGmailLinks();
-  renderAufgabenList();
+  renderAufgabenList();renderFreieTermine();
   const _ni=document.getElementById('newTaskNotizInput');if(_ni)_ni.value='';
   const _ci=document.getElementById('newChecklistInput');if(_ci)_ci.value='';
   const _gu=document.getElementById('newGmailLinkUrl');if(_gu)_gu.value='';
@@ -11154,6 +11197,8 @@ function openEditTaskModal(id){
   }
   taskAusserhausTermine=JSON.parse(JSON.stringify(task.ausserhausTermine||[]));
   taskZeitEntries=JSON.parse(JSON.stringify(task.zeitEntries||[]));
+  taskFreieTermine=JSON.parse(JSON.stringify(task.freieTermine||[]));
+  _freiTermIdCnt=Math.max(1,...(task.freieTermine||[]).map(f=>f.id+1||1));
   taskNotizVerlauf=JSON.parse(JSON.stringify(task.notizVerlauf||[]));
   taskFotos=JSON.parse(JSON.stringify(task.fotos||[]));
   taskCheckliste=JSON.parse(JSON.stringify(task.checkliste||[]));
@@ -11163,7 +11208,7 @@ function openEditTaskModal(id){
   _attachImgsOpen=false;
   renderLinksList();renderAttachList();renderFotoListDesktop();renderPruefberichteDesktop();
   renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();renderCheckliste();renderEmailOriginals();renderEmailPdfs();renderGmailLinks();
-  renderAufgabenList();
+  renderAufgabenList();renderFreieTermine();
   const _ni=document.getElementById('newTaskNotizInput');if(_ni)_ni.value='';
   const _ci=document.getElementById('newChecklistInput');if(_ci)_ci.value='';
   const _gu=document.getElementById('newGmailLinkUrl');if(_gu)_gu.value='';
