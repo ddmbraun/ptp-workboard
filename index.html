@@ -457,6 +457,8 @@ function _parseEmlText(rawText){
     plain=tenc==='quoted-printable'?_decodeQP(bdy,charset):tenc==='base64'?_decodeB64Body(bdy,charset):bdy;
   }
   plain=plain.replace(/\r\n/g,'\n').replace(/\r/g,'\n').trim();
+  // Fallback: plain enthält HTML-Quelle → als bodyHtml behandeln
+  if(!htmlBody&&plain&&(plain.trimStart().toLowerCase().startsWith('<!doctype')||plain.trimStart().toLowerCase().startsWith('<html'))){htmlBody=plain;plain='';}
   return{subject:subject,sender:sender,date:date,bodyText:plain.substring(0,8000),bodyHtml:htmlBody||'',cidMap:cidMap||{}};
 }
 
@@ -2107,9 +2109,9 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
           <!-- versteckter Maps-Button für JS-Kompatibilität -->
           <button type="button" id="taskMapsBtn" onclick="_openTaskMaps()" style="display:none;" disabled></button>
           <div style="display:grid;grid-template-columns:100px 1fr 140px;gap:6px;margin-bottom:6px;">
-            <div class="modal-field" style="margin:0;font-size:calc(11px * var(--modal-scale,1))"><label style="font-size:calc(10px * var(--modal-scale,1))">Bearbeiter</label><input type="text" id="taskOwnerInput" placeholder="Name" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px" oninput="scheduleTaskFieldSave();_updateStammSummary();_updateHdrMeta()" autocomplete="off"></div>
-            <div class="modal-field" style="margin:0;font-size:calc(11px * var(--modal-scale,1))"><label style="font-size:calc(10px * var(--modal-scale,1))">Task</label><select id="taskStatusInput" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px" onchange="updateGcalModalBtn();scheduleTaskFieldSave();_updateStammSummary();_updateMapsBtn()"></select></div>
-            <div class="modal-field" style="margin:0;font-size:calc(11px * var(--modal-scale,1))"><label style="font-size:calc(10px * var(--modal-scale,1))">Anfrage vom</label><input type="date" id="taskAnfrageEingangDatum" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%" onchange="scheduleTaskFieldSave();_updateMapsBtn();" autocomplete="off"></div>
+            <div class="modal-field" style="margin:0"><label style="font-size:9px;color:var(--text2);display:block;margin-bottom:1px;">Bearbeiter</label><input type="text" id="taskOwnerInput" placeholder="Name" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%;box-sizing:border-box;" oninput="scheduleTaskFieldSave();_updateStammSummary();_updateHdrMeta()" autocomplete="off"></div>
+            <div class="modal-field" style="margin:0"><label style="font-size:9px;color:var(--text2);display:block;margin-bottom:1px;">Task</label><select id="taskStatusInput" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%;box-sizing:border-box;" onchange="updateGcalModalBtn();scheduleTaskFieldSave();_updateStammSummary();_updateMapsBtn()"></select></div>
+            <div class="modal-field" style="margin:0"><label style="font-size:9px;color:var(--text2);display:block;margin-bottom:1px;">Anfrage vom</label><input type="date" id="taskAnfrageEingangDatum" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%;box-sizing:border-box;" onchange="scheduleTaskFieldSave();_updateMapsBtn();" autocomplete="off"></div>
             <input type="hidden" id="taskAktivitaetInput" value="">
           </div>
           <div class="baustelle-only" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:end;">
@@ -5229,6 +5231,16 @@ function renderZeiterfassung(){
     return;
   }
   if(_zeitSect)_zeitSect.style.display='';
+  // Reset: Elemente die im abgeschlossen-Modus versteckt/umbenannt wurden zurücksetzen
+  const _ztreset=document.getElementById('tZeitTitle');
+  const _zhdreset=_zeitSect?_zeitSect.querySelector('.termin-head'):null;
+  const _zadreset=_zeitSect?_zeitSect.querySelector('.add-row-btn'):null;
+  const _zdvreset=_zeitSect?_zeitSect.querySelector('.timer-divider'):null;
+  if(_ztreset&&_ztreset.textContent!=='Manuelle Zeiterfassung')_ztreset.textContent='Manuelle Zeiterfassung';
+  if(el)el.style.display='';
+  if(_zhdreset)_zhdreset.style.display='';
+  if(_zadreset)_zadreset.style.display='';
+  if(_zdvreset)_zdvreset.style.display='';
   const ks=_modalKostenstelle();
   const bauZeiten=ks?(syncData.zeiterfassung||[]).filter(z=>z.source==='bau'&&(z.kostenstelle||'').trim()===ks):[];
   let html='';
@@ -10085,7 +10097,9 @@ function _openEmailThumbnailGrid(){
             subj.title=info.subject||name;
             fromEl.textContent=info.sender||'';
             dateEl.textContent=info.date?info.date.toLocaleDateString('de-DE'):(item.uploadedAt||'');
-            bodyPrev.textContent=(info.bodyText||'').replace(/\s+/g,' ').trim().substring(0,120);
+            const _btprev=(info.bodyText||'').replace(/\s+/g,' ').trim();
+            const _htmlSrc=_btprev.toLowerCase().startsWith('<!doctype')||_btprev.toLowerCase().startsWith('<html');
+            bodyPrev.textContent=_htmlSrc?'':_btprev.substring(0,120);
           })
           .catch(()=>{bodyPrev.textContent='';});
       }
