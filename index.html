@@ -8551,7 +8551,13 @@ function msInit(){
       auth:{clientId:MS_CLIENT_ID,authority:'https://login.microsoftonline.com/'+MS_TENANT_ID,redirectUri:MS_REDIRECT},
       cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}
     });
-    msalInstance.handleRedirectPromise().then(r=>{
+    // initialize() abwarten bevor handleRedirectPromise – nötig ab MSAL v2.x
+    const _initPromise=typeof msalInstance.initialize==='function'
+      ?msalInstance.initialize()
+      :Promise.resolve();
+    _initPromise.then(()=>{
+      return msalInstance.handleRedirectPromise();
+    }).then(r=>{
       if(r)_msHandleToken(r);
       else{
         const accs=msalInstance.getAllAccounts();
@@ -8574,10 +8580,15 @@ async function msConnect(){
     _msUpdateBtn();showToast('Outlook abgemeldet','info',2000);return;
   }
   try{
+    // Sicherstellen dass MSAL vollständig initialisiert ist
+    if(typeof msalInstance.initialize==='function'&&!msalInstance.initialized){
+      await msalInstance.initialize();
+    }
     await msalInstance.loginRedirect({scopes:MS_SCOPES});
     // Seite wird weitergeleitet → handleRedirectPromise() bei Rückkehr zuständig
   }catch(e){
-    if(e.errorCode!=='user_cancelled')showToast('⚠ Outlook-Login fehlgeschlagen: '+e.message,'error',5000);
+    console.warn('[MS] loginRedirect Fehler:',e);
+    if(e.errorCode!=='user_cancelled')showToast('⚠ Outlook-Login: '+( e.errorCode||e.message),'error',5000);
   }
 }
 
