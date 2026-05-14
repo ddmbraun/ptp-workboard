@@ -3,7 +3,7 @@
 // Google-APIs (Drive, OAuth) werden NIEMALS gecacht –
 // sie brauchen Auth-Token und müssen immer live abgefragt werden.
 
-const CACHE_NAME = 'pam-desktop-v61';
+const CACHE_NAME = 'pam-desktop-v62';
 const PRECACHE = [
   // CDN – Workboard
   'https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css',

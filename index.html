@@ -2368,7 +2368,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
             <div class="mv2-popup-btn-row" onclick="_openSectPopup('tAnhangSect')"
               ondragover="event.preventDefault();event.stopPropagation();this.classList.add('dragover');event.dataTransfer.dropEffect='copy'"
               ondragleave="event.stopPropagation();this.classList.remove('dragover')"
-              ondrop="event.preventDefault();event.stopPropagation();this.classList.remove('dragover');handleFileAttach({target:{files:[...event.dataTransfer.files]},preventDefault:()=>{}})">
+              ondrop="event.preventDefault();event.stopPropagation();this.classList.remove('dragover');_openSectPopup('tAnhangSect');handleFileAttach({target:{files:[...event.dataTransfer.files]},preventDefault:()=>{}})">
               <span style="display:inline-flex;align-items:center;gap:7px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7F77DD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg><span id="tAnhangTitle">Dateianhänge</span></span>
               <button type="button" class="mv2-popup-open-btn">Öffnen →</button>
             </div>
@@ -2704,7 +2704,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 
 <script>
 // ── VERSION ── (bei jeder Änderung: PAM_BUILD erhöhen + sw.js CACHE_NAME synchron hochzählen)
-const PAM_BUILD = 'v2026-05-14 · #61';
+const PAM_BUILD = 'v2026-05-14 · #62';
 
 // ── STATE ──
 let boards = {};
@@ -12129,9 +12129,9 @@ async function _uploadEmailOriginal(file){
     scheduleTaskFieldSave();
     if(msgEl)msgEl.textContent='✅ Abgelegt: '+file.name;
     setTimeout(()=>{if(msgEl)msgEl.textContent='📧 .eml / .msg hier hineinziehen';},3500);
-    // Sektion öffnen
-    const sect=document.getElementById('tEmailOrigSect');
-    if(sect&&!sect.classList.contains('open'))sect.classList.add('open');
+    // Sektion öffnen + sofort Thumbnail-Galerie anzeigen
+    _openSectPopup('tEmailOrigSect');
+    setTimeout(()=>{if(typeof _openEmailThumbnailGrid==='function')_openEmailThumbnailGrid();},400);
   }catch(err){
     showToast('⚠ Fehler: '+err.message,'error');
     if(msgEl)msgEl.textContent='📧 .eml / .msg hier hineinziehen';
