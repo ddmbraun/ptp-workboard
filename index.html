@@ -6,8 +6,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PAM Workboard</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiMyNTYzZWIiLz48dGV4dCB4PSIzMiIgeT0iNDMiIGZvbnQtZmFtaWx5PSJBcmlhbCxzYW5zLXNlcmlmIiBmb250LXNpemU9IjMwIiBmb250LXdlaWdodD0iYm9sZCIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+UDwvdGV4dD48L3N2Zz4=">
-<script src="https://accounts.google.com/gsi/client" defer onload="gdriveInit()" onerror="gdriveInit()"></script>
-<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.4/lib/msal-browser.min.js" defer onload="msInit()" onerror="console.warn('[MS] MSAL nicht geladen')"></script>
+<script src="https://accounts.google.com/gsi/client" defer onload="typeof gdriveInit==='function'?gdriveInit():(window._gsiPending=true)" onerror="typeof gdriveInit==='function'?gdriveInit():(window._gsiPending=true)"></script>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.4/lib/msal-browser.min.js" defer onload="typeof msInit==='function'?msInit():(window._msalPending=true)" onerror="console.warn('[MS] MSAL nicht geladen')"></script>
 <script>
 // ── EMAIL DROP-ZONE – Inline-Handler am Element, kein addEventListener nötig ──
 
@@ -13082,6 +13082,9 @@ document.addEventListener('click',function(e){if(!e.target.closest('.filter-wrap
 
 // ── INIT ──
 boards={};render();
+// Fallback: GSI/MSAL haben vor Funktionsdefinition geladen (Race-Condition)
+if(window._gsiPending && typeof gdriveInit==='function'){gdriveInit();window._gsiPending=false;}
+if(window._msalPending && typeof msInit==='function'){msInit();window._msalPending=false;}
 
 // ══════════════════════════════════════════════
 // ── BAUDOKU-ÜBERGABE ──
