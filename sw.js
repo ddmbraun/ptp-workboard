@@ -3,7 +3,7 @@
 // Google-APIs (Drive, Sheets, OAuth) werden NIEMALS gecacht –
 // sie brauchen Auth-Token und müssen immer live abgefragt werden.
 
-const CACHE_NAME = 'pam-desktop-v54';
+const CACHE_NAME = 'pam-desktop-v55';
 const PRECACHE = [
   'https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css',
   'https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js',
@@ -86,33 +86,4 @@ self.addEventListener('fetch', e => {
           // Erfolgreiche Antwort: frisch im Cache ablegen und zurückgeben
           if (resp.status === 200) {
             const clone = resp.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
-          }
-          return resp;
-        })
-        .catch(() => {
-          // Offline-Fallback: gecachte Version nehmen
-          return caches.match(e.request) || new Response('<h1>Offline</h1>', {
-            headers: {'Content-Type': 'text/html'}
-          });
-        })
-    );
-    return;
-  }
-
-  // ── Cache-First für CDN-Ressourcen und alles andere ───────────────────
-  e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(resp => {
-        if (e.request.method === 'GET' && resp.status === 200 && resp.type !== 'opaque') {
-          const clone = resp.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
-        }
-        return resp;
-      }).catch(() => {
-        return caches.match(e.request) || new Response('', {status: 408});
-      });
-    })
-  );
-});
+            cache
