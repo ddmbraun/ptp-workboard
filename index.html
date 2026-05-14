@@ -1550,18 +1550,17 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 #pamAbsenderName{display:none!important;}
 /* === Build #53: Linke Spalte – Card-Sektionen (Variant B-Kombi) === */
 .mv2-left .mv2-section{border:0.5px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:5px;padding:0;border-bottom:none!important;}
-.mv2-left .mv2-section>.mv2-section-label{background:var(--bg);padding:10px 12px;font-size:calc(14px*var(--modal-scale,1));font-weight:600;text-transform:none;letter-spacing:0;color:var(--text);margin-bottom:0;display:flex;align-items:center;gap:8px;}
-.mv2-left .mv2-section>.mv2-section-label .mv2-coll-arrow{margin-left:auto;font-size:calc(14px*var(--modal-scale,1));}
+/* ── Linke Spalte: 4-Spalten-Tabellenlayout ── */
+.mv2-left .mv2-section>.mv2-section-label{display:grid;grid-template-columns:26px 34px 1fr auto 22px;align-items:center;gap:0;padding:0;background:var(--bg2);font-size:calc(13px*var(--modal-scale,1));font-weight:600;text-transform:none;letter-spacing:0;color:var(--text);margin-bottom:0;min-height:38px;cursor:pointer;user-select:none;-webkit-user-select:none;}
+.mvl-dot{display:flex;align-items:center;justify-content:center;background:var(--bg);align-self:stretch;border-radius:6px 0 0 6px;border-right:1px solid var(--border);}
+.mvl-dot i{display:block;width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.mvl-icon{display:flex;align-items:center;justify-content:center;background:var(--bg);align-self:stretch;font-size:15px;border-right:1px solid var(--border);}
+.mvl-text{padding:9px 10px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.mvl-badge{padding:0 5px;display:flex;align-items:center;gap:4px;flex-shrink:0;}
+.mv2-left .mv2-section>.mv2-section-label .mv2-coll-arrow{margin-left:0;padding-right:8px;font-size:calc(14px*var(--modal-scale,1));color:var(--text2);}
 .mv2-left .mv2-section.open>.mv2-section-label{border-bottom:0.5px solid var(--border);}
 .mv2-left .mv2-section>*:not(.mv2-section-label){padding:8px 10px 6px;}
-#tNotizenSect>.mv2-section-label::before,#tNotizVerlaufSect>.mv2-section-label::before,#tChecklisteSect>.mv2-section-label::before,#tObjektSect>.mv2-section-label::before,#tAnsprchSect>.mv2-section-label::before,#tTermineSect>.mv2-section-label::before,#tZeitSect>.mv2-section-label::before{content:'';width:8px;height:8px;border-radius:50%;flex-shrink:0;display:block;}
-#tNotizenSect>.mv2-section-label::before{background:#378ADD;}
-#tNotizVerlaufSect>.mv2-section-label::before{background:#1D9E75;}
-#tChecklisteSect>.mv2-section-label::before{background:#7F77DD;}
-#tObjektSect>.mv2-section-label::before{background:#D85A30;}
-#tAnsprchSect>.mv2-section-label::before{background:#888780;}
-#tTermineSect>.mv2-section-label::before{background:#BA7517;}
-#tZeitSect>.mv2-section-label::before{background:#888780;}
+#tFotoSect.foto-sect-drag-over>.mv2-section-label .mvl-dot,#tFotoSect.foto-sect-drag-over>.mv2-section-label .mvl-icon{background:rgba(52,168,83,.12);}
 .modal-timer-bar .timer-toggle-btn:hover{filter:brightness(1.15);}
 @keyframes timerPulse{0%,100%{opacity:1;}50%{opacity:.75;}}
 .timer-start-btn{width:100%;padding:10px 0;border-radius:8px;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .15s;background:rgba(46,204,113,.15);color:var(--green);border:1.5px solid var(--green);}
@@ -2099,7 +2098,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 
         <!-- Beschreibung & Anweisungen (einklappbar) -->
         <div class="mv2-section collapsible open" id="tNotizenSect">
-          <div class="mv2-section-label" onclick="_toggleMv2Sect('tNotizenSect',event)">📝 Beschreibung &amp; Anweisungen<span class="mv2-coll-arrow">›</span></div>
+          <div class="mv2-section-label" onclick="_toggleMv2Sect('tNotizenSect',event)"><span class="mvl-dot"><i style="background:#378ADD"></i></span><span class="mvl-icon">📝</span><span class="mvl-text">Beschreibung &amp; Anweisungen</span><span class="mvl-badge"></span><span class="mv2-coll-arrow">›</span></div>
           <div class="modal-field" style="margin-bottom:0;">
             <textarea id="taskDescInput" placeholder="Beschreibung &amp; Anweisungen… (Doppelklick zum Öffnen)" rows="2" ondblclick="_openNotizOverlay()" title="Doppelklick zum Öffnen und Bearbeiten" autocomplete="off" style="min-height:0;max-height:calc(46px * var(--modal-scale,1));overflow:hidden;cursor:pointer;resize:none;font-size:calc(11px * var(--modal-scale,1));line-height:1.45;"></textarea>
           </div>
@@ -2107,7 +2106,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 
         <!-- Chronologische Einträge -->
         <div class="mv2-section collapsible" id="tNotizVerlaufSect">
-          <div class="mv2-section-label" onclick="_toggleMv2Sect('tNotizVerlaufSect',event)">⏱ Chronologische Einträge<span class="mv2-coll-arrow">›</span></div>
+          <div class="mv2-section-label" onclick="_toggleMv2Sect('tNotizVerlaufSect',event)"><span class="mvl-dot"><i style="background:#1D9E75"></i></span><span class="mvl-icon">⏱</span><span class="mvl-text">Chronologische Einträge</span><span class="mvl-badge"></span><span class="mv2-coll-arrow">›</span></div>
           <div id="taskNotizList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px;"></div>
           <div style="display:flex;gap:6px;">
             <input type="text" id="newTaskNotizInput" placeholder="Kurze Notiz mit Zeitstempel…" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();addTaskNotiz();}" autocomplete="off">
@@ -2117,7 +2116,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 
         <!-- Checkliste -->
         <div class="mv2-section collapsible" id="tChecklisteSect">
-          <div class="mv2-section-label" onclick="_toggleMv2Sect('tChecklisteSect',event)"><span id="tChecklisteTitle">✅ Checkliste</span><span class="mv2-coll-arrow">›</span></div>
+          <div class="mv2-section-label" onclick="_toggleMv2Sect('tChecklisteSect',event)"><span class="mvl-dot"><i style="background:#7F77DD"></i></span><span class="mvl-icon">✅</span><span class="mvl-text">Checkliste</span><span class="mvl-badge" id="tChecklisteTitle"></span><span class="mv2-coll-arrow">›</span></div>
           <div id="checklisteList"></div>
           <div style="display:flex;gap:6px;margin-top:4px;">
             <input type="text" id="newChecklistInput" placeholder="Neue Aufgabe…" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();addChecklistItem();}" autocomplete="off">
@@ -2127,7 +2126,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 
         <!-- Objekt -->
         <div class="mv2-section baustelle-only collapsible" id="tObjektSect">
-          <div class="mv2-section-label" onclick="_toggleMv2Sect('tObjektSect',event)">📍 Objekt<span class="mv2-coll-arrow">›</span></div>
+          <div class="mv2-section-label" onclick="_toggleMv2Sect('tObjektSect',event)"><span class="mvl-dot"><i style="background:#D85A30"></i></span><span class="mvl-icon">📍</span><span class="mvl-text">Objekt</span><span class="mvl-badge"></span><span class="mv2-coll-arrow">›</span></div>
           <div class="modal-grid">
             <div class="modal-field full"><label>Auftraggeber / Hausverwaltung</label><input type="text" id="tHV" placeholder="z.B. AHV, Muster Verwaltung" oninput="scheduleTaskFieldSave();_updateMapsBtn()" autocomplete="off"></div>
             <div class="modal-field full">
@@ -2152,14 +2151,14 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 
         <!-- Ansprechpartner -->
         <div class="mv2-section collapsible" id="tAnsprchSect">
-          <div class="mv2-section-label" onclick="_toggleMv2Sect('tAnsprchSect',event)">👥 <span id="tAnsprchTitle">Ansprechpartner</span><span class="mv2-coll-arrow">›</span></div>
+          <div class="mv2-section-label" onclick="_toggleMv2Sect('tAnsprchSect',event)"><span class="mvl-dot"><i style="background:#888780"></i></span><span class="mvl-icon">👥</span><span class="mvl-text">Ansprechpartner</span><span class="mvl-badge" id="tAnsprchTitle"></span><span class="mv2-coll-arrow">›</span></div>
           <div id="tKontakteContainer"></div>
           <button class="add-row-btn" onclick="addKontaktPTP('sonstiges','','','')">+ Kontakt hinzufügen</button>
         </div>
 
         <!-- Außerhaus-Termine (aus rechter Spalte) -->
         <div class="mv2-section baustelle-only collapsible" id="tTermineSect">
-          <div class="mv2-section-label" onclick="_toggleMv2Sect('tTermineSect',event)">📅 <span id="tTermineTitle">Außerhaus-Termine</span><span class="mv2-coll-arrow">›</span></div>
+          <div class="mv2-section-label" onclick="_toggleMv2Sect('tTermineSect',event)"><span class="mvl-dot"><i style="background:#BA7517"></i></span><span class="mvl-icon">📅</span><span class="mvl-text">Außerhaus-Termine</span><span class="mvl-badge" id="tTermineBadge"></span><span class="mv2-coll-arrow">›</span></div>
           <div class="termin-head"><span>Datum</span><span>Von</span><span>Bis</span><span>Beschreibung</span><span></span><span></span><span></span></div>
           <div id="ausserhausTermineList"></div>
           <button class="add-row-btn" onclick="addAusserhausTermin()">+ Termin hinzufügen</button>
@@ -2168,7 +2167,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 
         <!-- Manuelle Zeiterfassung (aus rechter Spalte) -->
         <div class="mv2-section collapsible" id="tZeitSect">
-          <div class="mv2-section-label" onclick="_toggleMv2Sect('tZeitSect',event)">⏱ <span id="tZeitTitle">Manuelle Zeiterfassung</span><span class="mv2-coll-arrow">›</span></div>
+          <div class="mv2-section-label" onclick="_toggleMv2Sect('tZeitSect',event)"><span class="mvl-dot"><i style="background:#888780"></i></span><span class="mvl-icon">⏱</span><span class="mvl-text" id="tZeitTitle">Manuelle Zeiterfassung</span><span class="mvl-badge" id="tZeitBadge"></span><span class="mv2-coll-arrow">›</span></div>
           <div class="timer-divider" style="margin-top:0;">manuell erfassen</div>
           <div class="termin-head"><span>Datum</span><span>Von</span><span>Bis</span><span>Beschreibung</span><span></span><span></span><span></span></div>
           <div id="zeiterfassungList"></div>
@@ -2182,11 +2181,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
           ondragover="event.preventDefault();event.dataTransfer.dropEffect='copy'"
           ondragleave="if(!document.getElementById('tFotoSect').contains(event.relatedTarget)){document.getElementById('tFotoSect').classList.remove('foto-sect-drag-over');}"
           ondrop="event.preventDefault();document.getElementById('tFotoSect').classList.remove('foto-sect-drag-over');document.getElementById('tFotoSect').classList.add('open');document.getElementById('fotosDropBody').classList.remove('foto-drag-over');_handleFotoDrop(event.dataTransfer);">
-          <div class="mv2-section-label" onclick="_toggleMv2Sect('tFotoSect',event)">
-            📷 Fotos (Drive)<span id="tFotoCountBadge" style="margin-left:5px;font-size:calc(11px * var(--modal-scale,1));background:var(--accent);color:#fff;border-radius:10px;padding:1px 7px;display:none;font-weight:700;"></span>
-            <button onclick="event.stopPropagation();openFotoGallery()" title="Alle Fotos groß anzeigen" style="margin-left:8px;padding:3px 10px;border-radius:6px;border:1px solid var(--accent);background:rgba(108,99,255,0.1);color:var(--accent);font-size:calc(11px * var(--modal-scale,1));cursor:pointer;font-weight:600;">⛶ Große Ansicht</button>
-            <span class="mv2-coll-arrow" style="margin-left:auto;">›</span>
-          </div>
+          <div class="mv2-section-label" onclick="_toggleMv2Sect('tFotoSect',event)"><span class="mvl-dot"><i style="background:#888780"></i></span><span class="mvl-icon">📷</span><span class="mvl-text">Fotos (Drive)</span><span class="mvl-badge"><span id="tFotoCountBadge" style="display:none;background:var(--accent);color:#fff;border-radius:10px;padding:1px 7px;font-size:calc(11px*var(--modal-scale,1));font-weight:700;"></span><button onclick="event.stopPropagation();openFotoGallery()" title="Alle Fotos groß anzeigen" style="padding:2px 8px;border-radius:6px;border:1px solid var(--accent);background:rgba(108,99,255,0.1);color:var(--accent);font-size:calc(10px*var(--modal-scale,1));cursor:pointer;font-weight:600;white-space:nowrap;">⛶ Groß</button></span><span class="mv2-coll-arrow">›</span></div>
           <div id="fotosDropBody"
             ondragenter="event.preventDefault();document.getElementById('fotosDropBody').classList.add('foto-drag-over')"
             ondragover="event.preventDefault();event.dataTransfer.dropEffect='copy'"
@@ -2707,7 +2702,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 
 <script>
 // ── VERSION ── (bei jeder Änderung: PAM_BUILD erhöhen + sw.js CACHE_NAME synchron hochzählen)
-const PAM_BUILD = 'v2026-05-14 · #64';
+const PAM_BUILD = 'v2026-05-14 · #65';
 
 // ── STATE ──
 let boards = {};
@@ -5543,6 +5538,9 @@ function renderAusserhausTermine(){
     </div>`).join('');
   }
   el.innerHTML=html;
+  // Badge in Spalte 4 aktualisieren
+  const _tb=document.getElementById('tTermineBadge');
+  if(_tb){const _tc=taskAusserhausTermine?taskAusserhausTermine.length:0;_tb.innerHTML=_tc?'<span style="background:var(--accent);color:#fff;border-radius:10px;padding:1px 7px;font-size:calc(11px*var(--modal-scale,1));font-weight:700;">'+_tc+'</span>':'';}
   renderTermineGesamt();
 }
 function renderTermineGesamt(){
@@ -5671,6 +5669,9 @@ function renderZeiterfassung(){
 </div>`).join('');
   }
   el.innerHTML=html;
+  // Badge in Spalte 4 aktualisieren
+  const _zb=document.getElementById('tZeitBadge');
+  if(_zb){const _zc=taskZeitEntries?taskZeitEntries.length:0;_zb.innerHTML=_zc?'<span style="background:var(--accent);color:#fff;border-radius:10px;padding:1px 7px;font-size:calc(11px*var(--modal-scale,1));font-weight:700;">'+_zc+'</span>':'';}
   renderZeitGesamt();
 }
 
@@ -10689,7 +10690,7 @@ function updateKontaktePTPTitle(){
      e.querySelector('.k-email')?.value.trim())
   ).length:0;
   const el=document.getElementById('tAnsprchTitle');
-  if(el)el.innerHTML='👥 Ansprechpartner'+(count?' <span style="background:var(--accent);color:#fff;border-radius:10px;padding:1px 7px;font-size:calc(11px*var(--modal-scale,1));font-weight:700;text-transform:none;letter-spacing:0;margin-left:2px;">'+count+'</span>':'');
+  if(el)el.innerHTML=count?'<span style="background:var(--accent);color:#fff;border-radius:10px;padding:1px 7px;font-size:calc(11px*var(--modal-scale,1));font-weight:700;">'+count+'</span>':'';
 }
 // ── FORM COLLAPSE ──
 // Debounce gegen Doppelklick — sonst öffnet und schließt sich die Sektion sofort wieder.
@@ -12364,7 +12365,7 @@ function _updateChecklisteTitle(){
   if(!el)return;
   const done=taskCheckliste.filter(x=>x.done).length;
   const total=taskCheckliste.length;
-  el.innerHTML=total?`✅ Checkliste <span style="background:var(--accent);color:#fff;border-radius:10px;padding:1px 7px;font-size:calc(11px*var(--modal-scale,1));font-weight:700;text-transform:none;letter-spacing:0;margin-left:2px;">${done}/${total}</span>`:'✅ Checkliste';
+  el.innerHTML=total?`<span style="background:var(--accent);color:#fff;border-radius:10px;padding:1px 7px;font-size:calc(11px*var(--modal-scale,1));font-weight:700;">${done}/${total}</span>`:'';
 }
 
 // ── BOARD-TYP: blendet Baustelle-spezifische Felder ein/aus ──
