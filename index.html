@@ -1755,6 +1755,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <span class="file-dot none" id="fileDot"></span>
     <span class="file-name" id="fileName">Keine Datei geöffnet</span>
     <span class="file-msg" id="fileMsg"></span>
+    <span id="pamVersionBadge" style="font-size:10px;color:var(--text2);opacity:.65;padding:1px 7px;border:0.5px solid var(--border);border-radius:4px;margin-left:8px;font-family:monospace;white-space:nowrap;flex-shrink:0;">v2026-05-14</span>
   </div>
   <div class="filebar-right">
     <button id="gmailBtnBar" onclick="gmailConnect()" title="Mit Gmail / Google Workspace verbinden" style="padding:3px 10px;border-radius:4px;font-size:11px;background:transparent;color:#1B5E20;border:1px solid #A5D6A7;cursor:pointer;font-weight:500;">📩 Gmail</button>
@@ -2132,31 +2133,16 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
           <div class="mv2-section-label">👤 Bearbeitung</div>
           <!-- versteckter Maps-Button für JS-Kompatibilität -->
           <button type="button" id="taskMapsBtn" onclick="_openTaskMaps()" style="display:none;" disabled></button>
-          <div style="display:grid;grid-template-columns:100px 1fr 140px;gap:6px;margin-bottom:6px;">
+          <div style="display:grid;grid-template-columns:80px 1fr 140px;gap:6px;margin-bottom:6px;">
             <div class="modal-field" style="margin:0"><label style="font-size:9px;color:var(--text2);display:block;margin-bottom:1px;">Bearbeiter</label><input type="text" id="taskOwnerInput" placeholder="Name" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%;box-sizing:border-box;" oninput="scheduleTaskFieldSave();_updateStammSummary();_updateHdrMeta()" autocomplete="off"></div>
             <div class="modal-field" style="margin:0"><label style="font-size:9px;color:var(--text2);display:block;margin-bottom:1px;">Task</label><select id="taskStatusInput" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%;box-sizing:border-box;" onchange="updateGcalModalBtn();scheduleTaskFieldSave();_updateStammSummary();_updateMapsBtn()"></select></div>
             <div class="modal-field" style="margin:0"><label style="font-size:9px;color:var(--text2);display:block;margin-bottom:1px;">Anfrage vom</label><input type="date" id="taskAnfrageEingangDatum" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%;box-sizing:border-box;" onchange="scheduleTaskFieldSave();_updateMapsBtn();" autocomplete="off"></div>
             <input type="hidden" id="taskAktivitaetInput" value="">
           </div>
-          <div id="taskEmailSenderRow" style="display:none;align-items:center;gap:8px;background:var(--bg3);border:0.5px solid var(--border);border-radius:6px;padding:6px 10px;margin-top:4px;">
-            <span style="flex-shrink:0;display:inline-flex;align-items:center;opacity:.7;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg></span>
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:9px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px;">Absender</div>
-              <div id="taskEmailSenderDisplay" style="display:none;cursor:text;" onclick="this.style.display='none';document.getElementById('taskEmailSenderInput').style.display='';document.getElementById('taskEmailSenderInput').focus();"></div>
-              <input type="text" id="taskEmailSenderInput" placeholder="Name &lt;adresse@example.com&gt;" style="width:100%;box-sizing:border-box;padding:3px 6px;font-size:calc(12px * var(--modal-scale,1));background:var(--bg2);border:0.5px solid var(--border);border-radius:4px;color:var(--text1);" oninput="scheduleTaskFieldSave();" onblur="_renderSenderDisplay();" autocomplete="off">
-            </div>
-            <button type="button" onclick="(function(){const v=document.getElementById('taskEmailSenderInput').value;const m=v.match(/<([^>]+)>/);const addr=m?m[1]:v.includes('@')?v:'';if(addr)window.open('mailto:'+addr,'_blank');else showToast('Keine E-Mail-Adresse','warning',2500);})()" style="font-size:11px;padding:4px 10px;border-radius:6px;background:var(--accent);color:#fff;border:none;cursor:pointer;white-space:nowrap;font-weight:500;">✉ Antworten</button>
-          </div>
-          <!-- E-Mail-Verlauf Kompakt-Timeline -->
-          <div id="msTimelineBar" style="display:none;margin-top:6px;background:var(--bg3);border:0.5px solid var(--border);border-radius:6px;overflow:hidden;">
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;cursor:pointer;user-select:none;" onclick="_toggleTimelineDots()">
-              <span style="font-size:9px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;">📨 E-Mail-Verlauf</span>
-              <div style="display:flex;align-items:center;gap:8px;">
-                <button type="button" onclick="_openSectPopup('tEmailOrigSect');event.stopPropagation();" style="font-size:9px;color:var(--accent);background:none;border:none;cursor:pointer;padding:0;">alle ansehen ›</button>
-                <span id="msTimelineArrow" style="font-size:11px;color:var(--text2);transition:transform .2s;display:inline-block;">▾</span>
-              </div>
-            </div>
-            <div id="msTimelineDots" style="display:flex;align-items:center;flex-wrap:wrap;gap:3px;padding:0 10px 7px;"></div>
+          <!-- Sender-Input versteckt (wird für Datenspeicherung und _pamEmailRefresh genutzt) -->
+          <div id="taskEmailSenderRow" style="display:none;">
+            <div id="taskEmailSenderDisplay" style="display:none;"></div>
+            <input type="text" id="taskEmailSenderInput" placeholder="Name &lt;adresse@example.com&gt;" style="display:none;" oninput="scheduleTaskFieldSave();_pamEmailRefresh();" onblur="_renderSenderDisplay();" autocomplete="off">
           </div>
           <div class="baustelle-only" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:end;">
             <div class="modal-field" style="margin:0"><label>Kostenstelle</label><input type="text" id="taskTagsInput" placeholder="z.B. 260036" oninput="scheduleTaskFieldSave();_updateStammSummary();_updateHdrMeta()" autocomplete="off"></div>
@@ -2165,6 +2151,67 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
             <button type="button" onclick="document.getElementById('akteNachtragenInput').click()" title="Fehlende Daten aus Auftragsakte.txt in diesen Task laden" style="flex-shrink:0;padding:5px 9px;border-radius:6px;font-size:calc(12px * var(--modal-scale,1));font-weight:600;background:var(--bg3);border:1px solid var(--border);color:var(--text1);cursor:pointer;">📂 Akte</button>
             <input type="file" id="akteNachtragenInput" accept=".txt" style="display:none" onchange="loadAkteNachtragen(event)">
           </div>
+        </div>
+
+        <!-- ══ E-Mail-Block ══ -->
+        <div class="mv2-section" id="pamEmailBlock">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <div class="mv2-section-label" style="margin-bottom:0;">📧 E-Mail</div>
+            <span id="pamEmailMsgBadge" style="display:none;font-size:calc(11px*var(--modal-scale,1));color:var(--text2);background:var(--bg3);border:0.5px solid var(--border);border-radius:10px;padding:2px 9px;white-space:nowrap;font-weight:600;"></span>
+          </div>
+
+          <!-- Absender-Card -->
+          <div id="pamAbsenderCard" style="display:none;background:var(--bg3);border:0.5px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:7px;">
+            <div style="display:flex;align-items:center;gap:9px;">
+              <div id="pamAbsenderAvatar" style="flex-shrink:0;width:calc(36px*var(--modal-scale,1));height:calc(36px*var(--modal-scale,1));border-radius:50%;background:#2d6a4f;color:#fff;display:flex;align-items:center;justify-content:center;font-size:calc(13px*var(--modal-scale,1));font-weight:700;text-transform:uppercase;letter-spacing:-.5px;">?</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:calc(9px*var(--modal-scale,1));color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;">Absender</div>
+                <div id="pamAbsenderName" style="font-size:calc(13px*var(--modal-scale,1));font-weight:700;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;"></div>
+                <div id="pamAbsenderAddr" style="font-size:calc(11px*var(--modal-scale,1));color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+              </div>
+              <button type="button" onclick="_pamEmailAntworten()" style="flex-shrink:0;font-size:calc(11px*var(--modal-scale,1));padding:5px 10px;border-radius:6px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-weight:600;white-space:nowrap;">✉ Antworten</button>
+            </div>
+          </div>
+
+          <!-- Gmail-Zeile -->
+          <div style="background:var(--bg3);border:0.5px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:5px;">
+            <div style="display:flex;align-items:center;gap:7px;padding:8px 10px;cursor:pointer;user-select:none;" onclick="_pamEmailToggle('gmail')">
+              <span style="font-size:calc(14px*var(--modal-scale,1));font-weight:800;color:#1a73e8;line-height:1;">G</span>
+              <span style="font-size:calc(13px*var(--modal-scale,1));font-weight:600;flex:1;color:var(--text1);">Gmail</span>
+              <span id="pamGmailCount" style="display:none;font-size:calc(10px*var(--modal-scale,1));font-weight:700;color:#fff;background:#1B5E20;border-radius:10px;padding:1px 7px;"></span>
+              <button type="button" onclick="_gmLoadEmailThread();event.stopPropagation();" style="font-size:calc(11px*var(--modal-scale,1));padding:3px 10px;border-radius:5px;background:#1B5E20;color:#fff;border:none;cursor:pointer;font-weight:600;">Laden</button>
+              <span id="pamGmailChevron" style="font-size:calc(14px*var(--modal-scale,1));color:var(--text2);transition:transform .25s;display:inline-block;margin-left:1px;">›</span>
+            </div>
+            <div id="pamGmailBody" style="display:none;border-top:0.5px solid var(--border);padding:4px 10px 6px;">
+              <div id="pamGmailInlineList"></div>
+            </div>
+          </div>
+
+          <!-- Outlook-Zeile -->
+          <div style="background:var(--bg3);border:0.5px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:5px;">
+            <div style="display:flex;align-items:center;gap:7px;padding:8px 10px;cursor:pointer;user-select:none;" onclick="_pamEmailToggle('outlook')">
+              <span style="font-size:calc(13px*var(--modal-scale,1));line-height:1;">📨</span>
+              <span style="font-size:calc(13px*var(--modal-scale,1));font-weight:600;flex:1;color:var(--text1);">Outlook</span>
+              <span id="pamOutlookCount" style="display:none;font-size:calc(10px*var(--modal-scale,1));font-weight:700;color:#fff;background:#0078d4;border-radius:10px;padding:1px 7px;"></span>
+              <button type="button" onclick="_msLoadEmailThread();event.stopPropagation();" style="font-size:calc(11px*var(--modal-scale,1));padding:3px 10px;border-radius:5px;background:#0078d4;color:#fff;border:none;cursor:pointer;font-weight:600;">Laden</button>
+              <span id="pamOutlookChevron" style="font-size:calc(14px*var(--modal-scale,1));color:var(--text2);transition:transform .25s;display:inline-block;margin-left:1px;">›</span>
+            </div>
+            <div id="pamOutlookBody" style="display:none;border-top:0.5px solid var(--border);padding:4px 10px 6px;">
+              <div id="pamMsInlineList"></div>
+            </div>
+          </div>
+
+          <!-- Originale & PDFs -->
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--bg3);border:0.5px solid var(--border);border-radius:8px;margin-bottom:5px;cursor:pointer;" onclick="_openEmailThumbnailGrid()">
+            <span style="font-size:calc(12px*var(--modal-scale,1));color:var(--text1);">📎 Originale &amp; PDFs</span>
+            <span style="display:inline-flex;align-items:center;gap:5px;">
+              <span id="pamOrigCount" style="display:none;font-size:calc(11px*var(--modal-scale,1));font-weight:700;color:var(--accent);"></span>
+              <span style="font-size:calc(11px*var(--modal-scale,1));color:var(--accent);font-weight:600;">Alle ansehen ›</span>
+            </span>
+          </div>
+
+          <!-- Drop-Hinweis -->
+          <div style="text-align:center;padding:3px 4px 0;font-size:calc(11px*var(--modal-scale,1));color:var(--text2);">⬇ .eml / .msg ablegen → wird automatisch verknüpft</div>
         </div>
 
         <!-- Termine (Card mit Akzentrand) -->
@@ -2204,13 +2251,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
             <span>📎 <span id="tAnhangTitle">Dateianhänge</span></span>
             <button type="button" class="mv2-popup-open-btn">Öffnen ›</button>
           </div>
-          <div class="mv2-popup-btn-row" onclick="_openSectPopup('tEmailOrigSect')"
-            ondragover="event.preventDefault();event.stopPropagation();this.classList.add('dragover');event.dataTransfer.dropEffect='copy'"
-            ondragleave="event.stopPropagation();this.classList.remove('dragover')"
-            ondrop="event.preventDefault();event.stopPropagation();this.classList.remove('dragover');_handleEmailOrigDrop(event.dataTransfer)">
-            <span>📧 <span id="tEmailOrigTitle">E-Mail Originale</span></span>
-            <button type="button" class="mv2-popup-open-btn">Öffnen ›</button>
-          </div>
+
           <div class="mv2-popup-btn-row baustelle-only" onclick="_openSectPopup('tPruefSect')">
             <span>📋 <span id="tPruefTitle">Formulare</span></span>
             <button type="button" class="mv2-popup-open-btn">Öffnen ›</button>
@@ -8822,6 +8863,10 @@ function _gmRenderThread(task){
         <div style="font-size:11px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(m.preview)}</div>
       </div></div>`;
   }).join('');
+  // Inline-Panel im rechten Block mitbefüllen
+  const inlineEl=document.getElementById('pamGmailInlineList');
+  if(inlineEl)inlineEl.innerHTML=listEl.innerHTML;
+  _pamEmailRefresh(task);
 }
 async function _gmOpenMailOverlay(taskId,msgIdx){
   const task=findTaskById(taskId);if(!task)return;
@@ -9156,6 +9201,70 @@ function _renderSenderDisplay(){
   disp.style.display='block';
   inp.style.display='none';
 }
+// ── PAM E-Mail-Block ──────────────────────────────────────────────
+function _pamEmailToggle(which){
+  const gmBody=document.getElementById('pamGmailBody');
+  const msBody=document.getElementById('pamOutlookBody');
+  const gmChev=document.getElementById('pamGmailChevron');
+  const msChev=document.getElementById('pamOutlookChevron');
+  if(which==='gmail'){
+    const open=gmBody&&gmBody.style.display!=='none';
+    if(gmBody)gmBody.style.display=open?'none':'block';
+    if(gmChev)gmChev.style.transform=open?'':'rotate(90deg)';
+    if(msBody)msBody.style.display='none';
+    if(msChev)msChev.style.transform='';
+  }else{
+    const open=msBody&&msBody.style.display!=='none';
+    if(msBody)msBody.style.display=open?'none':'block';
+    if(msChev)msChev.style.transform=open?'':'rotate(90deg)';
+    if(gmBody)gmBody.style.display='none';
+    if(gmChev)gmChev.style.transform='';
+  }
+}
+function _pamEmailAntworten(){
+  const v=(document.getElementById('taskEmailSenderInput')||{}).value||'';
+  const m=v.match(/<([^>]+)>/);
+  const addr=m?m[1]:v.includes('@')?v:'';
+  if(addr)window.open('mailto:'+addr,'_blank');
+  else showToast('Keine E-Mail-Adresse gespeichert','warning',2500);
+}
+function _pamEmailRefresh(task){
+  const t=task||(()=>{const id=(document.getElementById('taskId')||{}).value;return id?findTaskById(id):null;})();
+  const gmMsgs=((t&&t.gmailThreadMessages)||[]).length;
+  const msMsgs=((t&&t.msThreadMessages)||[]).length;
+  const origCount=(typeof taskEmailOriginals!=='undefined'?taskEmailOriginals.length:0)
+                 +(typeof taskEmailPdfs!=='undefined'?taskEmailPdfs.length:0);
+  const total=gmMsgs+msMsgs;
+  // Nachrichten-Badge
+  const badge=document.getElementById('pamEmailMsgBadge');
+  if(badge){badge.textContent=total+' Nachrichten';badge.style.display=total?'':'none';}
+  // Counts
+  const gc=document.getElementById('pamGmailCount');
+  if(gc){gc.textContent=gmMsgs;gc.style.display=gmMsgs?'inline':'none';}
+  const mc=document.getElementById('pamOutlookCount');
+  if(mc){mc.textContent=msMsgs;mc.style.display=msMsgs?'inline':'none';}
+  const oc=document.getElementById('pamOrigCount');
+  if(oc){oc.textContent=origCount?origCount:'';oc.style.display=origCount?'inline':'none';}
+  // Absender-Card
+  const senderVal=(document.getElementById('taskEmailSenderInput')||{}).value||(t&&t.emailSender)||'';
+  const absCard=document.getElementById('pamAbsenderCard');
+  if(absCard){
+    if(senderVal){
+      absCard.style.display='block';
+      const nm=senderVal.match(/^"?([^"<]+?)"?\s*<([^>]+)>/);
+      const name=nm?nm[1].trim():'';
+      const addr=nm?nm[2].trim():(senderVal.includes('@')?senderVal:'');
+      const initials=((name||addr||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('')).toUpperCase()||'?';
+      const av=document.getElementById('pamAbsenderAvatar');
+      const an=document.getElementById('pamAbsenderName');
+      const aa=document.getElementById('pamAbsenderAddr');
+      if(av)av.textContent=initials;
+      if(an)an.textContent=name||addr;
+      if(aa)aa.textContent=addr;
+    }else{absCard.style.display='none';}
+  }
+}
+// ─────────────────────────────────────────────────────────────────
 function _msRenderThread(task){
   const listEl=document.getElementById('msThreadList');
   if(!listEl)return;
@@ -9183,6 +9292,10 @@ function _msRenderThread(task){
       </div>
     </div>`;
   }).join('');
+  // Inline-Panel im rechten Block mitbefüllen
+  const msInlineEl=document.getElementById('pamMsInlineList');
+  if(msInlineEl)msInlineEl.innerHTML=listEl.innerHTML;
+  _pamEmailRefresh(task);
   _msRenderTimeline(task);
 }
 
@@ -11930,6 +12043,9 @@ function closeModal(){
   _taskModalDirty = false;
   _taskModalSnapshot = null;
   collapseAllTaskSections();
+  // E-Mail-Block einklappen
+  ['pamGmailBody','pamOutlookBody'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  ['pamGmailChevron','pamOutlookChevron'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.transform='';});
   document.getElementById('taskModal').classList.remove('open');
 }
 function saveTaskAndBack(){
@@ -12119,9 +12235,9 @@ function openEditTaskModal(id){
   const _aktEditEl=document.getElementById('taskAktivitaetInput');if(_aktEditEl)_aktEditEl.value=task.aktivitaet||'';
   const _aeEl=document.getElementById('taskAnfrageEingangDatum');if(_aeEl)_aeEl.value=task.anfrageEingangDatum||'';
   const _esInp=document.getElementById('taskEmailSenderInput');if(_esInp)_esInp.value=task.emailSender||'';
-  const _esRow=document.getElementById('taskEmailSenderRow');
-  if(_esRow)_esRow.style.display='flex';
+  // taskEmailSenderRow bleibt immer versteckt (Anzeige erfolgt über pamAbsenderCard)
   _renderSenderDisplay();
+  _pamEmailRefresh(task);
   const _avEl=document.getElementById('taskAuftragVomDatum');if(_avEl)_avEl.value=task.auftragVomDatum||'';
   const _ortEditEl=document.getElementById('taskOrtsterminInput');if(_ortEditEl)_ortEditEl.value=task.ortstermin||'';
   document.getElementById('taskTagsInput').value=(task.tags||[]).join(', ');
