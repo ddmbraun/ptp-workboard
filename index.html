@@ -1755,7 +1755,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <span class="file-dot none" id="fileDot"></span>
     <span class="file-name" id="fileName">Keine Datei geöffnet</span>
     <span class="file-msg" id="fileMsg"></span>
-    <span id="pamVersionBadge" style="font-size:10px;color:var(--text2);opacity:.65;padding:1px 7px;border:0.5px solid var(--border);border-radius:4px;margin-left:8px;font-family:monospace;white-space:nowrap;flex-shrink:0;">v2026-05-14 · #39</span>
+    <span id="pamVersionBadge" style="font-size:10px;color:var(--text2);opacity:.65;padding:1px 7px;border:0.5px solid var(--border);border-radius:4px;margin-left:8px;font-family:monospace;white-space:nowrap;flex-shrink:0;">v2026-05-14 · #41</span>
   </div>
   <div class="filebar-right">
     <button id="gmailBtnBar" onclick="gmailConnect()" title="Mit Gmail / Google Workspace verbinden" style="padding:3px 10px;border-radius:4px;font-size:11px;background:transparent;color:#1B5E20;border:1px solid #A5D6A7;cursor:pointer;font-weight:500;">📩 Gmail</button>
@@ -2323,6 +2323,15 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <button type="button" class="sect-popup-close" onclick="_closeSectPopup('tEmailOrigSect')" title="Schließen">✕</button>
   </div>
   <div class="sect-popup-body">
+    <!-- Absender-Zeile mit Antworten-Button (oben im Popup) -->
+    <div id="popAbsenderRow" style="display:none;align-items:center;gap:8px;background:var(--bg3);border:0.5px solid var(--border);border-radius:8px;padding:7px 10px;margin-bottom:8px;">
+      <div id="popAbsenderAvatar" style="flex-shrink:0;width:30px;height:30px;border-radius:50%;background:#2d6a4f;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;text-transform:uppercase;">?</div>
+      <div style="flex:1;min-width:0;">
+        <div id="popAbsenderName" style="font-size:12px;font-weight:700;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+        <div id="popAbsenderAddr" style="font-size:10px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+      </div>
+      <button type="button" onclick="_pamEmailAntworten()" style="flex-shrink:0;font-size:11px;padding:5px 12px;border-radius:6px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-weight:600;white-space:nowrap;">✉ Antworten</button>
+    </div>
     <div id="gmThreadBar" style="display:none;margin-bottom:8px;background:var(--bg3);border:0.5px solid var(--border);border-radius:8px;overflow:hidden;">
       <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;user-select:none;" onclick="_gmToggleThreadList()">
         <span style="font-size:12px;font-weight:600;color:var(--text1);">📩 Gmail-Verlauf</span>
@@ -2573,7 +2582,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 
 <script>
 // ── VERSION ── (bei jeder Änderung: PAM_BUILD erhöhen + sw.js CACHE_NAME synchron hochzählen)
-const PAM_BUILD = 'v2026-05-14 · #39';
+const PAM_BUILD = 'v2026-05-14 · #41';
 
 // ── STATE ──
 let boards = {};
@@ -9079,21 +9088,18 @@ async function _msLoadEmailThread(){
     if(convIds.size===0)throw new Error('E-Mails nicht in Outlook gefunden – ggf. noch nicht synchronisiert');
     // Ersten convId für Rückwärtskompatibilität speichern
     task.msConversationId=[...convIds][0];
-    // Schritt 2: Alle Mails aus allen Conversations laden – Eingang + Gesendet
+    // Schritt 2: Alle Mails aus allen Conversations laden – globale Suche (alle Ordner inkl. Unterordner, Gelöschte, Archiv)
     const allMsgsMap=new Map(); // id → message (Deduplizierung)
-    // Alle relevanten Ordner durchsuchen (Eingang + Gesendet Elemente)
-    const _msFolders=['inbox','sentitems'];
     for(const convId of convIds){
-      for(const folder of _msFolders){
-        try{
-          const _f2=encodeURIComponent(`conversationId eq '${convId}'`);
-          const r2=await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${folder}/messages?$filter=${_f2}&$select=id,subject,from,receivedDateTime,internetMessageId,bodyPreview,isDraft&$top=50&$orderby=receivedDateTime asc`,
-            {headers:{Authorization:'Bearer '+msToken}});
-          if(!r2.ok){const _e2=await r2.json().catch(()=>({}));console.warn('[MS] Thread',convId,folder,':',_e2.error?.message);continue;}
-          const d2=await r2.json();
-          (d2.value||[]).filter(m=>!m.isDraft).forEach(m=>allMsgsMap.set(m.id,m));
-        }catch(e){console.warn('[MS] Folder',folder,'Fehler:',e);}
-      }
+      try{
+        // me/messages ohne Ordner-Einschränkung → sucht in Posteingang, Gesendet, Unterordner, Gelöscht, Archiv
+        const _f2=encodeURIComponent(`conversationId eq '${convId}' and isDraft eq false`);
+        const r2=await fetch(`https://graph.microsoft.com/v1.0/me/messages?$filter=${_f2}&$select=id,subject,from,receivedDateTime,internetMessageId,bodyPreview,isDraft&$top=50&$orderby=receivedDateTime asc`,
+          {headers:{Authorization:'Bearer '+msToken}});
+        if(!r2.ok){const _e2=await r2.json().catch(()=>({}));console.warn('[MS] Thread',convId,':',_e2.error?.message);continue;}
+        const d2=await r2.json();
+        (d2.value||[]).forEach(m=>allMsgsMap.set(m.id,m));
+      }catch(e){console.warn('[MS] ConvId',convId,'Fehler:',e);}
     }
     const msgs=[...allMsgsMap.values()].sort((a,b)=>new Date(a.receivedDateTime)-new Date(b.receivedDateTime));
     // Richtung bestimmen anhand eigener Adressen
@@ -9256,14 +9262,16 @@ function _pamEmailRefresh(task){
   if(mc){mc.textContent=msMsgs;mc.style.display=msMsgs?'inline':'none';}
   const oc=document.getElementById('pamOrigCount');
   if(oc){oc.textContent=origCount?origCount:'';oc.style.display=origCount?'inline':'none';}
-  // Absender: gespeicherter Wert, sonst ersten Absender aus Gmail/Outlook übernehmen
+  // Absender: gespeicherter Wert, sonst ersten Absender aus Gmail/Outlook/EML-Originale übernehmen
   let senderVal=(document.getElementById('taskEmailSenderInput')||{}).value||(t&&t.emailSender)||'';
   if(!senderVal){
     const gmFirst=(t&&t.gmailThreadMessages||[])[0];
     const msFirst=(t&&t.msThreadMessages||[])[0];
-    const src=gmFirst||msFirst;
+    // Fallback: ersten Absender aus abgelegten EML-Dateien
+    const emlFirst=(typeof taskEmailOriginals!=='undefined'&&taskEmailOriginals.length>0)?taskEmailOriginals[0]:null;
+    const src=gmFirst||msFirst||(emlFirst&&emlFirst.sender?{fromName:'',from:emlFirst.sender,_rawSender:emlFirst.sender}:null);
     if(src){
-      senderVal=src.fromName?'"'+src.fromName+'" <'+(src.from||'')+'>':(src.from||'');
+      senderVal=src._rawSender||( src.fromName?'"'+src.fromName+'" <'+(src.from||'')+'>':(src.from||'') );
       // in taskEmailSenderInput + task speichern
       const inp=document.getElementById('taskEmailSenderInput');
       if(inp&&senderVal){inp.value=senderVal;}
@@ -9290,6 +9298,23 @@ function _pamEmailRefresh(task){
       if(an){an.textContent='Kein Absender';an.style.color='var(--text2)';}
       if(aa)aa.textContent='.eml einziehen oder Verlauf laden';
     }
+  }
+  // Popup-Absender-Zeile (tEmailOrigSect) synchron befüllen
+  const popRow=document.getElementById('popAbsenderRow');
+  if(popRow){
+    if(senderVal){
+      popRow.style.display='flex';
+      const nm2=senderVal.match(/^"?([^"<]+?)"?\s*<([^>]+)>/);
+      const pName=nm2?nm2[1].trim():'';
+      const pAddr=nm2?nm2[2].trim():(senderVal.includes('@')?senderVal:'');
+      const pInit=((pName||pAddr||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('')).toUpperCase()||'?';
+      const pAv=document.getElementById('popAbsenderAvatar');
+      const pAn=document.getElementById('popAbsenderName');
+      const pAa=document.getElementById('popAbsenderAddr');
+      if(pAv)pAv.textContent=pInit;
+      if(pAn)pAn.textContent=pName||pAddr;
+      if(pAa)pAa.textContent=pAddr;
+    }else{popRow.style.display='none';}
   }
 }
 // ─────────────────────────────────────────────────────────────────
@@ -10786,13 +10811,14 @@ function renderEmailSection(){
     // Auto-Suche: Gmail-Thread via msMessageId finden wenn Gmail verbunden aber kein gmailId
     else if(gmConnected&&hasMsLink&&!hasGmLink){setTimeout(()=>_gmFindByMsgId(_gmt),400);}
   }
-  // MS-Thread-Bereich: anzeigen wenn msMessageId vorhanden
+  // MS-Thread-Bereich: anzeigen wenn Outlook verbunden ODER msMessageId vorhanden (analog Gmail)
   const msBar=document.getElementById('msThreadBar');
   if(msBar){
     const taskId=(document.getElementById('taskId')||{}).value||'';
     const t=findTaskById(taskId);
     const hasMsLink=t&&(t.msMessageId||t.msConversationId);
-    msBar.style.display=hasMsLink?'block':'none';
+    const msConnected=typeof msToken!=='undefined'&&!!msToken;
+    msBar.style.display=(msConnected||hasMsLink)?'block':'none';
     if(hasMsLink){_msRenderThread(t);_msRenderTimeline(t);}
   }
   const ti=document.getElementById('tEmailOrigTitle');
@@ -12117,6 +12143,12 @@ function openNewTaskModal(){
   const _abHb=document.getElementById('abschlussHtmlBtn');if(_abHb)_abHb.style.display='none';
   taskLinks=[];taskAttachments=[];taskAufgaben=[];taskAusserhausTermine=[];taskZeitEntries=[];taskFreieTermine=[];taskNotizVerlauf=[];taskFotos=[];taskCheckliste=[];taskEmailOriginals=[];taskEmailPdfs=[];taskGmailLinks=[];
   _attachImgsOpen=false;
+  // E-Mail-Felder vollständig leeren (verhindert Übernahme aus vorherigem Task)
+  const _esNewInp=document.getElementById('taskEmailSenderInput');if(_esNewInp)_esNewInp.value='';
+  ['pamGmailInlineList','pamMsInlineList','gmThreadList','msThreadList','gmThreadStatus','msThreadStatus'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='';});
+  ['pamGmailBody','pamOutlookBody'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  ['pamGmailChip','pamOutlookChip'].forEach(id=>{const el=document.getElementById(id);if(el){el.style.borderColor='var(--border)';el.style.background='var(--bg3)';el.style.borderBottomLeftRadius='8px';el.style.borderBottomRightRadius='8px';}});
+  _pamEmailRefresh({emailSender:'',gmailThreadMessages:[],msThreadMessages:[]});
   renderLinksList();renderAttachList();renderFotoListDesktop();renderPruefberichteDesktop();
   renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();renderCheckliste();renderEmailOriginals();renderEmailPdfs();renderGmailLinks();
   renderAufgabenList();renderFreieTermine();
