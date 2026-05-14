@@ -397,7 +397,6 @@ function _decodeB64Body(s,cs){
 }
 // ── EML-Anbieter-Erkennung ──────────────────────────────────────────────────
 // Gibt 'gmail', 'exchange' oder 'unknown' zurück.
-// Prüft in dieser Reihenfolge: X-Gmail-Header → Message-ID-Domain → Received-Header → X-MS-Exchange-Header
 function _detectEmlProvider(rawText){
   const he=rawText.search(/\r?\n\r?\n/);
   const hdr=he>=0?rawText.substring(0,he):rawText.substring(0,3000);
@@ -412,18 +411,14 @@ function _detectEmlProvider(rawText){
     if(/^X-Gmail-/i.test(l))hasXGmail=true;
     if(/^X-MS-Exchange-/i.test(l)||/^X-Microsoft-/i.test(l))hasXMsExchange=true;
   });
-  // 1. X-Gmail-Header → definitiv Gmail
   if(hasXGmail)return 'gmail';
-  // 2. Message-ID-Domain auswerten
   if(messageId){
     const domain=(messageId.split('@')[1]||'').toLowerCase();
     if(/google\.com$/.test(domain)||/gmail\.com$/.test(domain)||/googlemail\.com$/.test(domain))return 'gmail';
     if(/exchangelabs\.com$/.test(domain)||/outlook\.com$/.test(domain)||/hotmail\.com$/.test(domain))return 'exchange';
   }
-  // 3. Received-Header: Google-Mailserver erkennbar?
   const recStr=receivedParts.join(' ');
   if(recStr.includes('google.com')||recStr.includes('gmail.com')||recStr.includes('googlemail.com'))return 'gmail';
-  // 4. X-MS-Exchange → Exchange
   if(hasXMsExchange)return 'exchange';
   return 'unknown';
 }
@@ -572,7 +567,7 @@ async function _auftragDrop(dt){
         if(f.name.toLowerCase().endsWith('.eml')){
           let text=await new Promise(function(res){let r=new FileReader();r.onload=function(e){res(e.target.result);};r.readAsText(f);});
           info=_parseEmlText(text);
-          info._rawEmlText=text; // für spätere Provider-Erkennung speichern
+          info._rawEmlText=text;
           if(!info.subject)info.subject=f.name.replace(/\.eml$/i,'');
         }else{
           info={subject:f.name.replace(/\.msg$/i,''),sender:'',date:new Date(),bodyText:''};
@@ -747,19 +742,17 @@ async function _auftragAddToTask(task,boardName,fileMode){
     if(!task.emailOriginals)task.emailOriginals=[];
     if(!driveId2||!task.emailOriginals.some(e=>e.fileId&&e.fileId===driveId2)){
       task.emailOriginals.push({subject:info.subject||'',sender:info.sender||'',date:info.date instanceof Date?info.date.toISOString():new Date().toISOString(),fileId:driveId2,url:driveUrl2});
-      // Provider-Erkennung für bestehenden Task (Message-ID-Domain)
-      const _p2raw=info._rawEmlText||'';
-      const _p2prov=_p2raw&&info.messageId?_detectEmlProvider(_p2raw):'unknown';
       if(info.messageId){
-        if(_p2prov==='gmail'){
+        const _ap=info._rawEmlText?_detectEmlProvider(info._rawEmlText):'unknown';
+        if(_ap==='gmail'){
           if(!task.gmailMessageIds)task.gmailMessageIds=[];
           if(!task.gmailMessageIds.includes(info.messageId))task.gmailMessageIds.push(info.messageId);
           if(!task.gmailMessageId)task.gmailMessageId=info.messageId;
           if(!task.gmailThreadMessages)task.gmailThreadMessages=[];
         }else{
-          if(!task.msMessageId)task.msMessageId=info.messageId;
           if(!task.msMessageIds)task.msMessageIds=[];
           if(!task.msMessageIds.includes(info.messageId))task.msMessageIds.push(info.messageId);
+          if(!task.msMessageId)task.msMessageId=info.messageId;
           if(!task.msConversationId)task.msConversationId='';
           if(!task.msThreadMessages)task.msThreadMessages=[];
         }
@@ -862,14 +855,9 @@ async function _auftragConfirm(){
 
   // Provider-Erkennung: Message-ID in richtigen Slot schreiben
   if(info.messageId){
-    const _newProv=info._rawEmlText?_detectEmlProvider(info._rawEmlText):'unknown';
-    if(_newProv==='gmail'){
-      newTask.gmailMessageId=info.messageId;
-      newTask.gmailMessageIds=[info.messageId];
-    }else{
-      newTask.msMessageId=info.messageId;
-      newTask.msMessageIds=[info.messageId];
-    }
+    const _np=info._rawEmlText?_detectEmlProvider(info._rawEmlText):'unknown';
+    if(_np==='gmail'){newTask.gmailMessageId=info.messageId;newTask.gmailMessageIds=[info.messageId];}
+    else{newTask.msMessageId=info.messageId;newTask.msMessageIds=[info.messageId];}
   }
 
   if(!boards[boardName])boards[boardName]=[];
@@ -1813,7 +1801,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <span class="file-dot none" id="fileDot"></span>
     <span class="file-name" id="fileName">Keine Datei geöffnet</span>
     <span class="file-msg" id="fileMsg"></span>
-    <span id="pamVersionBadge" style="font-size:10px;color:var(--text2);opacity:.65;padding:1px 7px;border:0.5px solid var(--border);border-radius:4px;margin-left:8px;font-family:monospace;white-space:nowrap;flex-shrink:0;">v2026-05-14 · #43</span>
+    <span id="pamVersionBadge" style="font-size:10px;color:var(--text2);opacity:.65;padding:1px 7px;border:0.5px solid var(--border);border-radius:4px;margin-left:8px;font-family:monospace;white-space:nowrap;flex-shrink:0;">v2026-05-14 · #44</span>
   </div>
   <div class="filebar-right">
     <button id="gmailBtnBar" onclick="gmailConnect()" title="Mit Gmail / Google Workspace verbinden" style="padding:3px 10px;border-radius:4px;font-size:11px;background:transparent;color:#1B5E20;border:1px solid #A5D6A7;cursor:pointer;font-weight:500;">📩 Gmail</button>
@@ -2640,7 +2628,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 
 <script>
 // ── VERSION ── (bei jeder Änderung: PAM_BUILD erhöhen + sw.js CACHE_NAME synchron hochzählen)
-const PAM_BUILD = 'v2026-05-14 · #43';
+const PAM_BUILD = 'v2026-05-14 · #44';
 
 // ── STATE ──
 let boards = {};
@@ -11708,7 +11696,7 @@ async function _uploadEmailOriginal(file){
         preMessageId=(_parseEmlText(preText).messageId||'').replace(/^<|>$/g,'');
       }catch(e){}
     }
-    // Duplikat-Check: Message-ID bereits bekannt? (Gmail + Exchange)
+    // Duplikat-Check: Message-ID bereits bekannt?
     if(preMessageId){
       const taskId2=(document.getElementById('taskId')||{}).value||'';
       const t2=findTaskById(taskId2);
@@ -11750,43 +11738,38 @@ async function _uploadEmailOriginal(file){
     const taskId=(document.getElementById('taskId')||{}).value||'';
     const t=findTaskById(taskId);
     if(t){
-      // Anbieter erkennen (aus vollständigem EML-Text)
-      let _emlProvider='unknown';
-      if(isEml&&emailMeta.messageId){
-        try{const _pt=typeof preText!=='undefined'?preText:'';if(_pt)_emlProvider=_detectEmlProvider(_pt);}catch(e){}
-      }
-      // Message-ID im richtigen Provider-Slot speichern
+      // Provider-Erkennung + Message-ID in richtigen Slot
       if(emailMeta.messageId){
-        if(_emlProvider==='gmail'){
+        let _ep='unknown';
+        try{if(isEml&&typeof preText!=='undefined'&&preText)_ep=_detectEmlProvider(preText);}catch(e){}
+        if(_ep==='gmail'){
           if(!t.gmailMessageIds)t.gmailMessageIds=[];
           if(!t.gmailMessageIds.includes(emailMeta.messageId))t.gmailMessageIds.push(emailMeta.messageId);
           if(!t.gmailMessageId)t.gmailMessageId=emailMeta.messageId;
           if(!t.gmailThreadMessages)t.gmailThreadMessages=[];
         }else{
-          // Exchange oder unbekannt → Outlook-Slot (Fallback)
           if(!t.msMessageIds)t.msMessageIds=[];
           if(!t.msMessageIds.includes(emailMeta.messageId))t.msMessageIds.push(emailMeta.messageId);
           if(!t.msMessageId)t.msMessageId=emailMeta.messageId;
           if(!t.msConversationId)t.msConversationId='';
           if(!t.msThreadMessages)t.msThreadMessages=[];
         }
+        // Chip auto-aufklappen + Thread laden
+        if(_ep==='gmail'&&typeof gmailToken!=='undefined'&&gmailToken){
+          _pamEmailToggle('gmail');
+          setTimeout(()=>{if(typeof _gmLoadEmailThread==='function')_gmLoadEmailThread();},500);
+        }else if(_ep!=='gmail'&&typeof msToken!=='undefined'&&msToken){
+          _pamEmailToggle('outlook');
+          setTimeout(()=>{if(typeof _msLoadEmailThread==='function')_msLoadEmailThread();},500);
+        }
       }
-      // Absender: ersten Absender übernehmen
+      // Absender übernehmen
       if(emailMeta.sender&&!t.emailSender){
         t.emailSender=emailMeta.sender;
         const sndInp=document.getElementById('taskEmailSenderInput');
         if(sndInp&&!sndInp.value.trim())sndInp.value=emailMeta.sender;
       }
-      // Absender-Card aktualisieren
       _pamEmailRefresh(t);
-      // Richtigen Chip aufklappen + Thread automatisch laden (falls verbunden)
-      if(_emlProvider==='gmail'&&typeof gmailToken!=='undefined'&&gmailToken){
-        _pamEmailToggle('gmail');
-        setTimeout(()=>{if(typeof _gmLoadEmailThread==='function')_gmLoadEmailThread();},500);
-      }else if(_emlProvider!=='gmail'&&typeof msToken!=='undefined'&&msToken){
-        _pamEmailToggle('outlook');
-        setTimeout(()=>{if(typeof _msLoadEmailThread==='function')_msLoadEmailThread();},500);
-      }
     }
     renderEmailSection(); // aktualisiert Popup + zählt Originale
     renderEmailOriginals();
@@ -12894,10 +12877,339 @@ async function maybeDailySyncBackup(){
     const b='bu_'+Date.now();
     const mp='--'+b+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'
       +JSON.stringify({name,mimeType:'application/json'})
-      +'\r\\n--'+b+'\r\nContent-Type: application/json\r\n\r\n'
-      +body+'\r\n--'+b+'--';
-    const r2=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
-      {method:'POST',headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'multipart/related; boundary="'+b+'"'},body:mp});
-    if(r2.ok)localStorage.setItem('sync_backup_last',today);
-  }catch(e){console.warn('[PAM] Backup:',e);}
+      +'\r\n--'+b+'\r\nContent-Type: application/json\r\n\r\n'+body+'\r\n--'+b+'--';
+    await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+      {method:'POST',headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'multipart/related; boundary='+b},body:mp});
+    localStorage.setItem('sync_backup_last',today);
+    // Backups älter als 30 Tage aufräumen
+    try{
+      const listResp=await fetch("https://www.googleapis.com/drive/v3/files?q=name%20contains%20'ptp_bau_sync_'%20and%20trashed%3Dfalse&fields=files(id,name,createdTime)&orderBy=createdTime",
+        {headers:{Authorization:'Bearer '+gdriveToken}});
+      const listJ=await listResp.json();
+      const cutoff=Date.now()-30*24*3600*1000;
+      for(const f of (listJ.files||[])){
+        if(f.name&&f.name.startsWith('ptp_bau_sync_')&&f.name.endsWith('.json')){
+          const ct=new Date(f.createdTime||0).getTime();
+          if(ct&&ct<cutoff){
+            fetch('https://www.googleapis.com/drive/v3/files/'+f.id,
+              {method:'DELETE',headers:{Authorization:'Bearer '+gdriveToken}}).catch(()=>{});
+          }
+        }
+      }
+    }catch(e){console.warn('[PTP]',e);}
+  }catch(e){console.warn('Backup:',e);}
 }
+async function syncCreate(){
+  const empty={version:1,lastUpdated:new Date().toISOString(),updatedBy:SYNC_SOURCE,termine:[],zeiterfassung:[]};
+  const content=JSON.stringify(empty,null,2);
+  const b='sb_'+Date.now();
+  const syncMeta={name:SYNC_FILE_NAME,mimeType:'application/json'};
+  if(workspaceFolderId)syncMeta.parents=[workspaceFolderId];
+  const body='--'+b+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(syncMeta)+'\r\n--'+b+'\r\nContent-Type: application/json\r\n\r\n'+content+'\r\n--'+b+'--';
+  const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+    {method:'POST',headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'multipart/related; boundary='+b},body});
+  const f=await r.json();
+  syncFileId=f.id;syncData=empty;lastSyncTimestamp=empty.lastUpdated;
+}
+async function syncRead(initial=false){
+  if(!syncFileId||!gdriveToken)return;
+  try{
+    // Cache-Buster + no-store verhindert, dass der Browser eine alte Kopie liefert
+    const r=await fetch('https://www.googleapis.com/drive/v3/files/'+syncFileId+'?alt=media&_='+Date.now(),
+      {headers:{Authorization:'Bearer '+gdriveToken,'Cache-Control':'no-cache','Pragma':'no-cache'},cache:'no-store'});
+    if(!r.ok)return;
+    _ptpLastSyncReadAt=Date.now();
+    const d=await r.json();
+    if(d.lastUpdated&&d.lastUpdated!==lastSyncTimestamp){
+      const isFromOther=d.updatedBy&&d.updatedBy!==SYNC_SOURCE;
+      syncData=d;lastSyncTimestamp=d.lastUpdated;
+      if(isFromOther&&!initial){
+        const cnt=(d.termine||[]).filter(t=>t.source==='bau').length+(d.zeiterfassung||[]).filter(z=>z.source==='bau').length;
+        updateSyncUI();
+        if(cnt>0)showSyncToast(cnt);
+      } else if(initial){updateSyncUI();}
+      // offene Board-Ansicht + offenes Task-Modal neu zeichnen
+      try{render();}catch(e){console.warn('[PTP]',e);}
+      try{
+        const openTaskId=document.getElementById('taskId')&&document.getElementById('taskId').value;
+        if(openTaskId){
+          // Sync-Sections im offenen Modal neu zeichnen (ohne Formular zurückzusetzen)
+          if(typeof renderAusserhausTermine==='function')renderAusserhausTermine();
+          if(typeof renderZeiterfassung==='function')renderZeiterfassung();
+          if(typeof renderTimerSection==='function')renderTimerSection();
+        }
+      }catch(e){console.warn('[PTP]',e);}
+    }
+  }catch(e){console.warn('syncRead:',e);}
+}
+async function syncWrite(){
+  if(!syncFileId||!gdriveToken)return;
+  try{
+    await fetch('https://www.googleapis.com/upload/drive/v3/files/'+syncFileId+'?uploadType=media',
+      {method:'PATCH',headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'application/json'},
+       body:JSON.stringify(syncData,null,2)});
+  }catch(e){console.warn('syncWrite:',e);}
+}
+function startSyncPolling(){
+  if(syncPollingId)clearInterval(syncPollingId);
+  syncPollingId=setInterval(()=>syncRead(),30000); // Fix #7: 30s statt 10s – weniger API-Calls
+  // Cross-Tab Sync: Wenn ein anderer Tab ins localStorage schreibt, sofort lesen
+  if(!window._ptpStorageHooked){
+    window.addEventListener('storage',e=>{
+      if(e.key==='ptp_sync_ping'||e.key==='bau_sync_ping'){syncRead();}
+    });
+    window._ptpStorageHooked=true;
+  }
+  // Bei Sichtbarkeitswechsel sofort aktualisieren
+  if(!window._ptpVisHooked){
+    document.addEventListener('visibilitychange',()=>{
+      if(document.visibilityState==='visible')syncRead();
+    });
+    window._ptpVisHooked=true;
+  }
+  if(!window._ptpNetHooked){
+    window.addEventListener('online',()=>{updateSyncUI();syncRead();});
+    window.addEventListener('offline',()=>updateSyncUI());
+    setInterval(()=>{try{updateSyncUI();}catch(e){console.warn('[PTP]',e);}},5000);
+    window._ptpNetHooked=true;
+  }
+}
+function _syncHashTermin(t){return [t.kostenstelle||'',t.datum||'',t.von||'',t.bis||'',(t.beschreibung||'').trim().toLowerCase()].join('|');}
+function _syncHashZeit(z){return [z.kostenstelle||'',z.datum||'',z.von||'',z.bis||'',(z.beschreibung||'').trim().toLowerCase()].join('|');}
+function pushToSync(){
+  if(!syncFileId||!gdriveToken)return;
+  const termine=[];const zeiten=[];
+  Object.entries(boards).forEach(([bn,tasks])=>{
+    (tasks||[]).forEach(task=>{
+      if(!task||!task.title)return;
+      const ks=(((task.tags&&task.tags[0])||(task.title?task.title.split(/[–-]/)[0]:'')||'')+'').trim();
+      (task.ausserhausTermine||[]).forEach((t,i)=>{
+        if(!t.date&&!t.von)return;
+        termine.push({syncId:'ptp_'+task.id+'_t'+i,source:'ptp',kostenstelle:ks,auftragTitle:task.title||'',
+          datum:t.date||'',von:t.von||'',bis:t.bis||'',beschreibung:t.beschreibung||''});
+      });
+      (task.zeitEntries||[]).forEach((z,i)=>{
+        if(!z.date&&!z.von)return;
+        const min=parseMinutes(z.von,z.bis);
+        zeiten.push({syncId:'ptp_'+task.id+'_z'+i,source:'ptp',kostenstelle:ks,auftragTitle:task.title||'',
+          datum:z.date||'',von:z.von||'',bis:z.bis||'',beschreibung:z.beschreibung||'',minuten:min});
+      });
+    });
+  });
+  // Merge per syncId: eigene überschreiben, fremde behalten, Duplikate per Hash entfernen
+  const mySyncIds=new Set(termine.map(x=>x.syncId));
+  const myZSyncIds=new Set(zeiten.map(x=>x.syncId));
+  const otherT=(syncData.termine||[]).filter(x=>x&&x.syncId&&!mySyncIds.has(x.syncId));
+  const otherZ=(syncData.zeiterfassung||[]).filter(x=>x&&x.syncId&&!myZSyncIds.has(x.syncId));
+  const seenT=new Set();const seenZ=new Set();
+  const mergedT=[...otherT,...termine].filter(x=>{const h=_syncHashTermin(x);if(seenT.has(h))return false;seenT.add(h);return true;});
+  const mergedZ=[...otherZ,...zeiten].filter(x=>{const h=_syncHashZeit(x);if(seenZ.has(h))return false;seenZ.add(h);return true;});
+  syncData.termine=mergedT;
+  syncData.zeiterfassung=mergedZ;
+  syncData.lastUpdated=new Date().toISOString();
+  syncData.updatedBy='ptp';
+  lastSyncTimestamp=syncData.lastUpdated;
+  syncWrite();
+  // Andere offene Tabs sofort informieren
+  try{localStorage.setItem('ptp_sync_ping',String(Date.now()));}catch(e){console.warn('[PTP]',e);}
+}
+let _ptpLastSyncReadAt=0;
+function _ptpSyncStateTooltip(){
+  let base='';
+  if(!gdriveToken)base='Nicht angemeldet';
+  else if(!syncFileId)base='Sync-Datei nicht verbunden';
+  else if(!navigator.onLine)base='Offline – Änderungen werden später übertragen';
+  else if(_ptpLastSyncReadAt){
+    const sec=Math.max(0,Math.round((Date.now()-_ptpLastSyncReadAt)/1000));
+    if(sec<15)base='Synchron vor '+sec+' s';
+    else if(sec<90)base='Zuletzt synchronisiert vor '+sec+' s';
+    else base='Zuletzt synchronisiert vor '+Math.round(sec/60)+' min';
+  } else base='Noch nicht synchronisiert';
+  try{
+    const at=syncData&&syncData.activeTimer;
+    if(at&&at.deviceId&&at.deviceId!==DEVICE_ID){
+      const mins=Math.round((Date.now()-(at.startMs||Date.now()))/60000);
+      base+='\n⏱ Fremder Timer läuft: '+(at.auftragTitle||'')+' ('+at.source+', seit '+mins+' min)';
+    }
+  }catch(e){console.warn('[PTP]',e);}
+  return base;
+}
+function updateSyncUI(){
+  const btn=document.getElementById('syncBtn');
+  if(!btn)return;
+  const bauTermine=(syncData.termine||[]).filter(t=>t.source==='bau');
+  const bauZeiten=(syncData.zeiterfassung||[]).filter(z=>z.source==='bau');
+  const total=bauTermine.length+bauZeiten.length;
+  if(total>0){
+    btn.textContent='📡 Bau ('+total+')';
+    btn.style.color='#e67e22';btn.style.borderColor='#e67e22';btn.style.background='rgba(230,126,34,.1)';
+  }else{
+    if(!navigator.onLine){
+      btn.textContent='📡 Offline';
+      btn.style.color='var(--red)';btn.style.borderColor='var(--red)';btn.style.background='transparent';
+    }else{
+      btn.textContent='📡 Sync';
+      btn.style.color=syncFileId?'var(--green)':'var(--red)';
+      btn.style.borderColor=syncFileId?'var(--green)':'var(--red)';
+      btn.style.background='transparent';
+    }
+  }
+  btn.title=_ptpSyncStateTooltip();
+  render();
+}
+function showSyncToast(count){
+  const d=document.createElement('div');
+  d.style.cssText='position:fixed;bottom:24px;right:24px;background:#1a1a2e;color:#fff;padding:12px 18px;border-radius:8px;font-size:13px;z-index:5000;box-shadow:0 4px 16px rgba(0,0,0,.3);cursor:pointer';
+  d.textContent='📡 '+count+' neue Einträge von Bau Doku';
+  d.onclick=()=>{d.remove();openSyncPanel();};
+  document.body.appendChild(d);
+  setTimeout(()=>d.remove(),5000);
+}
+function openSyncPanel(){
+  const bauTermine=(syncData.termine||[]).filter(t=>t.source==='bau');
+  const bauZeiten=(syncData.zeiterfassung||[]).filter(z=>z.source==='bau');
+  let html='<div style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)this.remove()">';
+  html+='<div style="background:var(--bg);border-radius:12px;padding:24px;width:600px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px var(--shadow);color:var(--text)">';
+  html+='<h3 style="margin:0 0 16px;font-size:16px">📡 Sync – Daten von Bau Doku App</h3>';
+  if(bauTermine.length){
+    html+='<h4 style="font-size:11px;text-transform:uppercase;color:var(--text2);margin:0 0 8px">Außerhaus-Termine ('+bauTermine.length+')</h4>';
+    html+='<div style="overflow-x:auto;margin-bottom:16px"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+    html+='<tr style="background:var(--bg2)"><th style="padding:5px 8px;text-align:left;color:var(--text2)">Datum</th><th style="color:var(--text2)">Von</th><th style="color:var(--text2)">Bis</th><th style="color:var(--text2)">Beschreibung</th><th style="color:var(--text2)">Ausf.Datum</th><th style="color:var(--text2)">Auftrag</th></tr>';
+    bauTermine.forEach(t=>{html+='<tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 8px">'+(t.datum||'–')+'</td><td>'+(t.von||'–')+'</td><td>'+(t.bis||'–')+'</td><td>'+(t.beschreibung||'')+'</td><td style="color:var(--text2);font-size:11px">'+(t.ausführungsdatum||'–')+'</td><td style="color:var(--text2);font-size:11px">'+(t.auftragTitle||'')+'</td></tr>';});
+    html+='</table></div>';
+  }
+  if(bauZeiten.length){
+    html+='<h4 style="font-size:11px;text-transform:uppercase;color:var(--text2);margin:0 0 8px">Zeiterfassung ('+bauZeiten.length+')</h4>';
+    html+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+    html+='<tr style="background:var(--bg2)"><th style="padding:5px 8px;text-align:left;color:var(--text2)">Datum</th><th style="color:var(--text2)">Von</th><th style="color:var(--text2)">Bis</th><th style="color:var(--text2)">Min.</th><th style="color:var(--text2)">Beschreibung</th><th style="color:var(--text2)">Ausf.Datum</th><th style="color:var(--text2)">Auftrag</th></tr>';
+    bauZeiten.forEach(z=>{html+='<tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 8px">'+(z.datum||'–')+'</td><td>'+(z.von||'–')+'</td><td>'+(z.bis||'–')+'</td><td>'+(z.minuten||0)+'</td><td>'+(z.beschreibung||'')+'</td><td style="color:var(--text2);font-size:11px">'+(z.ausführungsdatum||'–')+'</td><td style="color:var(--text2);font-size:11px">'+(z.auftragTitle||'')+'</td></tr>';});
+    html+='</table></div>';
+  }
+  if(!bauTermine.length&&!bauZeiten.length){html+='<p style="color:var(--text2);font-size:13px">Noch keine synchronisierten Einträge von der Bau Doku App.</p>';}
+  html+='<div style="margin-top:16px;text-align:right"><button onclick="this.closest(\'div[style*=position]\').remove()" style="padding:7px 16px;border-radius:6px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:13px;font-weight:500">Schließen</button></div>';
+  html+='</div></div>';
+  const overlay=document.createElement('div');
+  overlay.innerHTML=html;
+  document.body.appendChild(overlay);
+}
+
+// ── KARTENGRÖSSE ──
+function setCardSize(pct){
+  const v=Math.max(60,Math.min(200,parseInt(pct,10)||100));
+  document.documentElement.style.setProperty('--card-scale',(v/100).toFixed(2));
+  const lbl=document.getElementById('cardSizeVal');if(lbl)lbl.textContent=v+'%';
+  try{localStorage.setItem('ptp_card_size',String(v));}catch(e){console.warn('[PTP]',e);}
+}
+(function initCardSize(){
+  try{
+    const s=parseInt(localStorage.getItem('ptp_card_size')||'100',10);
+    const inp=document.getElementById('cardSizeSlider');
+    if(inp){inp.value=String(s);setCardSize(s);}
+  }catch(e){console.warn('[PTP]',e);}
+})();
+
+// ── MODAL-GRÖSSE (zwei Regler: links ◧ / rechts ◨) ──
+function setModalSideScale(side,pct){
+  const v=Math.max(70,Math.min(200,parseInt(pct,10)||100));
+  const col=document.querySelector(side==='left'?'.mv2-left':'.mv2-right');
+  if(col)col.style.setProperty('--modal-scale',(v/100).toFixed(2));
+  const lbl=document.getElementById(side==='left'?'modalValL':'modalValR');
+  if(lbl)lbl.textContent=v+'%';
+  const inp=document.getElementById(side==='left'?'modalSliderL':'modalSliderR');
+  if(inp)inp.value=String(v);
+  try{localStorage.setItem('ptp_modal_'+side,String(v));}catch(e){console.warn('[PTP]',e);}
+}
+
+// Gespeicherte Modal-Seitengrössen beim Modal-Öffnen wiederherstellen
+function applyStoredModalSize(){
+  try{
+    ['left','right'].forEach(function(side){
+      const s=parseInt(localStorage.getItem('ptp_modal_'+side)||'100',10);
+      const inp=document.getElementById(side==='left'?'modalSliderL':'modalSliderR');
+      if(inp){inp.value=String(s);}
+      setModalSideScale(side,s);
+    });
+  }catch(e){console.warn('[PTP]',e);}
+}
+
+// Aktuelle Modal-Seitengrössen in localStorage sichern
+function saveModalSize(){
+  try{
+    const l=document.getElementById('modalSliderL');
+    const r=document.getElementById('modalSliderR');
+    if(l)localStorage.setItem('ptp_modal_left',l.value);
+    if(r)localStorage.setItem('ptp_modal_right',r.value);
+    showToast('Modal-Größe gespeichert ✓','ok',2000);
+  }catch(e){console.warn('[PTP]',e);}
+}
+
+(function initModalSize(){
+  try{
+    ['left','right'].forEach(function(side){
+      const s=parseInt(localStorage.getItem('ptp_modal_'+side)||'100',10);
+      const inp=document.getElementById(side==='left'?'modalSliderL':'modalSliderR');
+      if(inp){inp.value=String(s);}
+    });
+  }catch(e){console.warn('[PTP]',e);}
+})();
+
+// ── CHROME-FIX: Frühe Token-Sicherung + bfcache-Handling ────────────────────
+// Problem 1: Google gsi/client wird von Chrome-Extensions (uBlock, Privacy Badger)
+//            geblockt → onload feuert nie → Token aus URL-Hash geht verloren.
+// Problem 2: Chrome bfcache stellt Seite ohne neuen Page-Load wieder her →
+//            gdriveInit() wird nicht aufgerufen → Token-Check nach Idle fehlt.
+// Lösung:
+//   a) DOMContentLoaded: Hash früh sichern, bevor GSI lädt.
+//   b) pageshow: Nach bfcache-Restore Token prüfen und ggf. Banner zeigen.
+// ─────────────────────────────────────────────────────────────────────────────
+(function(){
+  // a) Token aus URL-Hash retten, falls GSI noch nicht geladen ist
+  document.addEventListener('DOMContentLoaded', function(){
+    if(gdriveToken) return; // GSI hat schon geliefert
+    var _h = window.location.hash;
+    if(!_h || !_h.includes('access_token')) return;
+    var _hp = new URLSearchParams(_h.substring(1));
+    var _ht = _hp.get('access_token');
+    var _he = _hp.get('expires_in');
+    if(!_ht) return;
+    // Hash sofort aus URL entfernen (sauber, kein Token in Adressleiste)
+    window.history.replaceState({}, document.title, window.location.pathname);
+    gdriveToken = _ht;
+    gdriveTokenExpires = Date.now() + (Number(_he || 3600) - 60) * 1000;
+    try{ localStorage.setItem(PC_TOKEN_KEY, JSON.stringify({token: gdriveToken, exp: gdriveTokenExpires})); }catch(e){}
+    // Falls GSI innerhalb von 3 Sek lädt, übernimmt gdriveInit() via localStorage-Zweig.
+    // Falls GSI geblockt: nach 3 Sek Callback direkt aufrufen (Fallback für Chrome ohne GSI).
+    var _snapHt = _ht, _snapHe = _he;
+    setTimeout(function(){
+      if(gdriveToken && !gdriveFileId && typeof gdriveTokenCallback === 'function'){
+        gdriveTokenCallback({access_token: _snapHt, expires_in: _snapHe || 3600});
+      }
+    }, 3000);
+  });
+
+  // b) bfcache: Nach Restore Token prüfen
+  window.addEventListener('pageshow', function(e){
+    if(!e.persisted) return; // Normaler Load, kein bfcache
+    // Seite aus bfcache wiederhergestellt – gdriveInit() lief nicht nochmal
+    var _h = window.location.hash;
+    if(_h && _h.includes('access_token')){
+      // Seltener Fall: Token im Hash nach bfcache-Restore
+      gdriveInit();
+      return;
+    }
+    // Token abgelaufen während Pause?
+    if(gdriveToken && Date.now() > gdriveTokenExpires - 60000){
+      gdriveToken = '';
+      gdriveTokenExpires = 0;
+    }
+    if(!gdriveToken){
+      var _sf = null;
+      try{ _sf = JSON.parse(localStorage.getItem(PC_FILE_KEY) || 'null'); }catch(e){}
+      if(_sf && _sf.id){ _showDriveWarnBanner(0); }
+    }
+  });
+})();
+
+</script>
+</body>
+</html>
