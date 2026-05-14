@@ -2057,21 +2057,8 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       <div class="mv2-subheader">
         <span id="_hdrStatus"></span>
         <span id="_hdrAkt" style="display:none;"></span>
+        <span id="_hdrZeitTerminBadge" style="display:none;align-items:center;gap:5px;"></span>
         <span id="_hdrEmailSender" style="display:none;"></span>
-        <span id="_hdrZeitTerminBadge" style="display:none;border:1px solid #C0DD97;border-radius:10px;overflow:hidden;font-size:calc(12px * var(--modal-scale,1));font-weight:700;white-space:nowrap;line-height:1;display:inline-flex;align-items:stretch;">
-          <span id="_hdrGesamtRow" style="display:none;align-items:center;gap:4px;padding:3px 10px;background:#EAF3DE;">
-            <span style="color:#3B6D11;">⏱ Gesamt</span>
-            <span id="_hdrGesamtVal" style="color:#27500A;padding-left:2px;"></span>
-          </span>
-          <span id="_hdrZeitRow" style="display:none;align-items:center;gap:3px;padding:3px 9px;background:#EAF3DE;">
-            <span style="color:#3B6D11;">⏱ Zeit</span>
-            <span id="_hdrZeitVal" style="color:#27500A;padding-left:2px;"></span>
-          </span>
-          <span id="_hdrTerminRow" style="display:none;align-items:center;gap:3px;padding:3px 9px;background:#D6EAF8;border-left:1px solid #C0DD97;">
-            <span style="color:#1A5276;">📅 Außerhaus</span>
-            <span id="_hdrTerminVal" style="color:#154360;padding-left:2px;"></span>
-          </span>
-        </span>
         <span class="baustelle-only" id="_hdrMapsBox" style="display:none;margin-left:auto;align-items:center;gap:6px;border:2px solid #0F6E56;border-radius:12px;padding:3px 7px 3px 10px;background:#ffffff;flex-shrink:0;">
           <span class="mv2-subhdr-obj-lbl" id="_hdrObjLabel" style="display:inline;margin-left:0;">Objekt:</span>
           <button type="button" class="mv2-subhdr-maps" id="_hdrMapsBtn" onclick="_openTaskMaps()" title="In Google Maps öffnen" style="display:none;">
@@ -2702,7 +2689,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 
 <script>
 // ── VERSION ── (bei jeder Änderung: PAM_BUILD erhöhen + sw.js CACHE_NAME synchron hochzählen)
-const PAM_BUILD = 'v2026-05-14 · #65';
+const PAM_BUILD = 'v2026-05-14 · #67';
 
 // ── STATE ──
 let boards = {};
@@ -3156,45 +3143,7 @@ function _updateMapsBtn(){
     }catch(e){datesEl.style.display='none';}
   }
   // Header: kombiniertes Zeiterfassung/Termine-Tabellen-Badge
-  (function(){
-    const tid=document.getElementById('taskId')?.value;
-    const t=tid?findTaskById(tid):null;
-    const _pm=(von,bis)=>{try{if(!von||!bis)return 0;const[vh,vm]=von.split(':').map(Number);const[bh,bm]=bis.split(':').map(Number);const d=(bh*60+bm)-(vh*60+vm);return d>0?d:0;}catch(_){return 0;}};
-    const _fm=m=>{const h=Math.floor(m/60),r=m%60;return h>0?(h+'h'+(r>0?' '+r+'m':'')):(r+'m');};
-    const zMins=(t&&t.zeitEntries||[]).reduce((s,e)=>s+_pm(e.von,e.bis),0);
-    const tMins=(t&&t.ausserhausTermine||[]).reduce((s,e)=>s+_pm(e.von,e.bis),0);
-    const gMins=zMins+tMins;
-    const wrap=document.getElementById('_hdrZeitTerminBadge');
-    const zRow=document.getElementById('_hdrZeitRow');
-    const tRow=document.getElementById('_hdrTerminRow');
-    const gRow=document.getElementById('_hdrGesamtRow');
-    const zVal=document.getElementById('_hdrZeitVal');
-    const tVal=document.getElementById('_hdrTerminVal');
-    const gVal=document.getElementById('_hdrGesamtVal');
-    if(!wrap)return;
-    if(gMins===0){wrap.style.display='none';return;}
-    wrap.style.display='inline-flex';
-    if(zMins>0&&tMins>0){
-      // Beide haben Einträge → getrennt + Gesamt anzeigen
-      if(zRow){if(zVal)zVal.textContent=_fm(zMins);zRow.style.display='inline-flex';}
-      if(tRow){if(tVal)tVal.textContent=_fm(tMins);tRow.style.display='inline-flex';}
-      if(gRow){if(gVal)gVal.textContent=_fm(gMins);gRow.style.display='inline-flex';
-        gRow.style.borderLeft='1px solid #C0DD97';gRow.style.background='#D5E8D4';}
-    }else{
-      // Nur ein Typ → nur Gesamt-Row
-      if(zRow)zRow.style.display='none';
-      if(tRow)tRow.style.display='none';
-      if(gRow){
-        if(gVal)gVal.textContent=_fm(gMins);
-        gRow.style.display='inline-flex';
-        gRow.style.borderLeft='';
-        gRow.style.background='#EAF3DE';
-        // Label anpassen
-        const lbl=gRow.querySelector('span');
-        if(lbl)lbl.textContent=(zMins>0?'⏱ Zeiterfassung':'📅 Außerhaus-Termine')+' gesamt';
-      }
-    }
-  })();
+  _updateHdrZeitBadge();
   // Header: Maps-Button
   const hBtn=document.getElementById('_hdrMapsBtn');
   if(hBtn){hBtn.style.display=adr?'inline-flex':'none';hBtn.title=adr||'In Google Maps öffnen';}
@@ -5444,7 +5393,7 @@ function addAusserhausTermin(date='',von='',bis='',beschreibung=''){
   scheduleTaskFieldSave();
 }
 function removeAusserhausTermin(i){taskAusserhausTermine.splice(i,1);renderAusserhausTermine();scheduleTaskFieldSave();}
-function syncAusserhausTermin(i,field,val){if(taskAusserhausTermine[i]){taskAusserhausTermine[i][field]=val;if(field==='von'||field==='bis')renderTermineGesamt();scheduleTaskFieldSave();}}
+function syncAusserhausTermin(i,field,val){if(taskAusserhausTermine[i]){taskAusserhausTermine[i][field]=val;if(field==='von'||field==='bis'){renderTermineGesamt();_updateHdrZeitBadge();}scheduleTaskFieldSave();}}
 function openGcalTermin(i){
   const t=taskAusserhausTermine[i];
   const title=encodeURIComponent(document.getElementById('taskTitleInput').value.trim()||'Außerhaus-Termin');
@@ -5506,6 +5455,26 @@ function _modalKostenstelle(){
   const part=title.split(/[–-]/)[0]||'';
   return part.trim();
 }
+function _updateHdrZeitBadge(){
+  const _pm=(von,bis)=>{try{if(!von||!bis)return 0;const[vh,vm]=von.split(':').map(Number);const[bh,bm]=bis.split(':').map(Number);const d=(bh*60+bm)-(vh*60+vm);return d>0?d:0;}catch(_){return 0;}};
+  const _hm=m=>{const h=Math.floor(m/60),r=m%60;return String(h).padStart(2,'0')+':'+String(r).padStart(2,'0');};
+  const zMins=(taskZeitEntries||[]).reduce((s,e)=>s+_pm(e.von,e.bis),0);
+  const tMins=(taskAusserhausTermine||[]).reduce((s,e)=>s+_pm(e.von,e.bis),0);
+  const wrap=document.getElementById('_hdrZeitTerminBadge');
+  if(!wrap)return;
+  if(zMins===0&&tMins===0){wrap.style.display='none';wrap.innerHTML='';return;}
+  const gMins=zMins+tMins;
+  const fs='calc(10px*var(--modal-scale,1))';
+  let inner='<span style="color:var(--text2);font-size:'+fs+';font-weight:500;white-space:nowrap;">Gesamtzeit:</span>'
+    +'<span style="color:var(--text);font-size:'+fs+';font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.4px;margin-left:4px;">'+_hm(gMins)+'</span>';
+  inner+='<span style="display:inline-block;width:1px;height:12px;background:var(--border);margin:0 6px;vertical-align:middle;"></span>';
+  if(tMins>0)inner+='<span style="font-size:12px;line-height:1;">📅</span><span style="color:#6a8aff;font-size:'+fs+';font-weight:700;font-variant-numeric:tabular-nums;margin-left:2px;">'+_hm(tMins)+'</span>';
+  if(tMins>0&&zMins>0)inner+='<span style="color:var(--text2);font-size:9px;margin:0 3px;">·</span>';
+  if(zMins>0)inner+='<span style="font-size:12px;line-height:1;">⏱</span><span style="color:#4ade80;font-size:'+fs+';font-weight:700;font-variant-numeric:tabular-nums;margin-left:2px;">'+_hm(zMins)+'</span>';
+  wrap.innerHTML='<span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:6px;background:var(--bg3);border:0.5px solid var(--border);white-space:nowrap;">'+inner+'</span>';
+  wrap.style.display='inline-flex';
+  wrap.style.gap='0';
+}
 function renderAusserhausTermine(){
   const el=document.getElementById('ausserhausTermineList');
   if(!el)return;
@@ -5542,6 +5511,7 @@ function renderAusserhausTermine(){
   const _tb=document.getElementById('tTermineBadge');
   if(_tb){const _tc=taskAusserhausTermine?taskAusserhausTermine.length:0;_tb.innerHTML=_tc?'<span style="background:var(--accent);color:#fff;border-radius:10px;padding:1px 7px;font-size:calc(11px*var(--modal-scale,1));font-weight:700;">'+_tc+'</span>':'';}
   renderTermineGesamt();
+  _updateHdrZeitBadge();
 }
 function renderTermineGesamt(){
   const el=document.getElementById('termineGesamtRow');if(!el)return;
@@ -5584,7 +5554,7 @@ function addZeitEntry(date='',von='',bis='',beschreibung=''){
   scheduleTaskFieldSave();
 }
 function removeZeitEntry(i){taskZeitEntries.splice(i,1);renderZeiterfassung();scheduleTaskFieldSave();}
-function syncZeitEntry(i,field,val){if(taskZeitEntries[i]){taskZeitEntries[i][field]=val;renderZeitGesamt();_updateMapsBtn();scheduleTaskFieldSave();}}
+function syncZeitEntry(i,field,val){if(taskZeitEntries[i]){taskZeitEntries[i][field]=val;renderZeitGesamt();_updateHdrZeitBadge();_updateMapsBtn();scheduleTaskFieldSave();}}
 function parseMinutes(von,bis){
   try{
     if(!von||!bis)return 0;
@@ -5673,6 +5643,7 @@ function renderZeiterfassung(){
   const _zb=document.getElementById('tZeitBadge');
   if(_zb){const _zc=taskZeitEntries?taskZeitEntries.length:0;_zb.innerHTML=_zc?'<span style="background:var(--accent);color:#fff;border-radius:10px;padding:1px 7px;font-size:calc(11px*var(--modal-scale,1));font-weight:700;">'+_zc+'</span>':'';}
   renderZeitGesamt();
+  _updateHdrZeitBadge();
 }
 
 // ── AUFTRAG ANLEGEN (aus Textdatei) ──
