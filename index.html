@@ -1364,7 +1364,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 .mv2-size-ctrl{display:flex;align-items:center;gap:5px;flex-shrink:0;}
 .mv2-body{flex:1;overflow:hidden;display:flex;gap:0;min-height:0;}
 .mv2-left{flex:0 0 var(--mv2-left-w,62%);min-width:200px;overflow-y:auto;padding:14px 16px 14px 20px;border-right:1px solid var(--border);}
-.mv2-right{flex:1 1 0;min-width:240px;overflow-y:auto;padding:14px 20px 14px 14px;scroll-padding-top:130px;}
+.mv2-right{flex:1 1 0;min-width:240px;overflow-y:auto;padding:0 20px 14px 14px;scroll-padding-top:130px;}
 .mv2-resizer{width:5px;flex-shrink:0;cursor:col-resize;background:var(--border);transition:background .15s;position:relative;z-index:2;}
 .mv2-resizer:hover,.mv2-resizer.dragging{background:var(--accent);}
 .mv2-termine-card{border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding-left:12px;margin-left:-12px;}
@@ -2202,7 +2202,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
       <div class="mv2-right">
 
         <!-- Timer-Stoppuhr (2-Zeilen, sticky) – Build #53 -->
-        <div class="mv2-section" id="pamTimerSticky" style="position:sticky;top:0;z-index:20;background:var(--bg);padding-top:8px;margin-top:-14px;padding-bottom:8px;border-bottom:1.5px solid var(--border);margin-bottom:14px;box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+        <div class="mv2-section" id="pamTimerSticky" style="position:sticky;top:0;z-index:20;background:var(--bg);padding-top:14px;margin-top:0;padding-bottom:8px;border-bottom:1.5px solid var(--border);margin-bottom:14px;box-shadow:0 2px 6px rgba(0,0,0,0.06);">
           <div class="modal-timer-bar" id="modalTimerBar" style="margin-bottom:6px;">
             <!-- Zeile 1: Uhr + Stop/Start + Collapse -->
             <div style="display:flex;align-items:center;gap:8px;">
@@ -2303,10 +2303,10 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
           <div class="mv2-r-card-body">
             <!-- versteckter Maps-Button für JS-Kompatibilität -->
             <button type="button" id="taskMapsBtn" onclick="_openTaskMaps()" style="display:none;" disabled></button>
-            <div style="display:grid;grid-template-columns:80px 1fr 140px;gap:6px;margin-bottom:6px;">
-              <div class="modal-field" style="margin:0"><label style="font-size:9px;color:var(--text2);display:block;margin-bottom:1px;">Bearbeiter</label><input type="text" id="taskOwnerInput" placeholder="Name" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%;box-sizing:border-box;" oninput="scheduleTaskFieldSave();_updateStammSummary();_updateHdrMeta()" autocomplete="off"></div>
-              <div class="modal-field" style="margin:0"><label style="font-size:9px;color:var(--text2);display:block;margin-bottom:1px;">Task</label><select id="taskStatusInput" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%;box-sizing:border-box;" onchange="updateGcalModalBtn();scheduleTaskFieldSave();_updateStammSummary();_updateMapsBtn()"></select></div>
-              <div class="modal-field" style="margin:0"><label style="font-size:9px;color:var(--text2);display:block;margin-bottom:1px;">Anfrage vom</label><input type="date" id="taskAnfrageEingangDatum" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%;box-sizing:border-box;" onchange="scheduleTaskFieldSave();_updateMapsBtn();" autocomplete="off"></div>
+            <div style="display:grid;grid-template-columns:80px 1fr auto;gap:6px;margin-bottom:6px;align-items:end;">
+              <div class="modal-field" style="margin:0"><label>Bearbeiter</label><input type="text" id="taskOwnerInput" placeholder="Name" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%;box-sizing:border-box;" oninput="scheduleTaskFieldSave();_updateStammSummary();_updateHdrMeta()" autocomplete="off"></div>
+              <div class="modal-field" style="margin:0"><label>Task</label><select id="taskStatusInput" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:100%;box-sizing:border-box;" onchange="updateGcalModalBtn();scheduleTaskFieldSave();_updateStammSummary();_updateMapsBtn()"></select></div>
+              <div class="modal-field" style="margin:0"><label>Anfrage vom</label><input type="date" id="taskAnfrageEingangDatum" style="font-size:calc(12px * var(--modal-scale,1));padding:4px 6px;width:auto;box-sizing:border-box;" onchange="scheduleTaskFieldSave();_updateMapsBtn();" autocomplete="off"></div>
               <input type="hidden" id="taskAktivitaetInput" value="">
             </div>
             <!-- Sender-Input versteckt -->
@@ -2694,7 +2694,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 
 <script>
 // ── VERSION ── (bei jeder Änderung: PAM_BUILD erhöhen + sw.js CACHE_NAME synchron hochzählen)
-const PAM_BUILD = 'v2026-05-14 · #57';
+const PAM_BUILD = 'v2026-05-14 · #59';
 
 // ── STATE ──
 let boards = {};
