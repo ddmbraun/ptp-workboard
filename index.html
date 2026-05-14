@@ -1801,7 +1801,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <span class="file-dot none" id="fileDot"></span>
     <span class="file-name" id="fileName">Keine Datei geöffnet</span>
     <span class="file-msg" id="fileMsg"></span>
-    <span id="pamVersionBadge" style="font-size:10px;color:var(--text2);opacity:.65;padding:1px 7px;border:0.5px solid var(--border);border-radius:4px;margin-left:8px;font-family:monospace;white-space:nowrap;flex-shrink:0;">v2026-05-14 · #44</span>
+    <span id="pamVersionBadge" style="font-size:10px;color:var(--text2);opacity:.65;padding:1px 7px;border:0.5px solid var(--border);border-radius:4px;margin-left:8px;font-family:monospace;white-space:nowrap;flex-shrink:0;">v2026-05-14 · #45</span>
   </div>
   <div class="filebar-right">
     <button id="gmailBtnBar" onclick="gmailConnect()" title="Mit Gmail / Google Workspace verbinden" style="padding:3px 10px;border-radius:4px;font-size:11px;background:transparent;color:#1B5E20;border:1px solid #A5D6A7;cursor:pointer;font-weight:500;">📩 Gmail</button>
@@ -2628,7 +2628,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 
 <script>
 // ── VERSION ── (bei jeder Änderung: PAM_BUILD erhöhen + sw.js CACHE_NAME synchron hochzählen)
-const PAM_BUILD = 'v2026-05-14 · #44';
+const PAM_BUILD = 'v2026-05-14 · #45';
 
 // ── STATE ──
 let boards = {};
@@ -11690,9 +11690,10 @@ async function _uploadEmailOriginal(file){
     // EML vorab lesen um Message-ID zu prüfen (Duplikat-Check VOR Upload)
     const isEml=file.name.toLowerCase().endsWith('.eml');
     let preMessageId='';
+    let preText='';
     if(isEml){
       try{
-        const preText=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsText(file,'utf-8');});
+        preText=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsText(file,'utf-8');});
         preMessageId=(_parseEmlText(preText).messageId||'').replace(/^<|>$/g,'');
       }catch(e){}
     }
@@ -11741,7 +11742,7 @@ async function _uploadEmailOriginal(file){
       // Provider-Erkennung + Message-ID in richtigen Slot
       if(emailMeta.messageId){
         let _ep='unknown';
-        try{if(isEml&&typeof preText!=='undefined'&&preText)_ep=_detectEmlProvider(preText);}catch(e){}
+        try{if(isEml&&preText)_ep=_detectEmlProvider(preText);}catch(e){}
         if(_ep==='gmail'){
           if(!t.gmailMessageIds)t.gmailMessageIds=[];
           if(!t.gmailMessageIds.includes(emailMeta.messageId))t.gmailMessageIds.push(emailMeta.messageId);
