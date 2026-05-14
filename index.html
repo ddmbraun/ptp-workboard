@@ -1049,6 +1049,7 @@ async function _auftragConfirm(){
 (function(){const _orig=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(t,a){if(t==='2d')a=Object.assign({willReadFrequently:true},a||{});return _orig.call(this,t,a);};})();
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
 :root {
   --bg:#ffffff; --bg2:#f4f4f8; --bg3:#eaeaf0; --bg4:#dcdce8;
@@ -1509,8 +1510,8 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 /* Foto-Galerie (Drive-Uploads vom Handy) */
 .foto-desktop-wrap{margin-bottom:10px;}
 .foto-desktop-wrap-label{font-size:11px;color:var(--text2);margin-bottom:4px;display:flex;align-items:center;gap:6px;}
-.foto-desktop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;}
-.foto-desktop-grid.expanded{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;}
+.foto-desktop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px;}
+.foto-desktop-grid.expanded{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;}
 .foto-desktop-wrap.expanded{max-height:540px;overflow-y:auto;overflow-x:hidden;padding-right:4px;border:1px solid var(--border);border-radius:10px;padding:10px;background:var(--bg3);scroll-behavior:smooth;overscroll-behavior:contain;}
 .foto-desktop-thumb{position:relative;aspect-ratio:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;overflow:hidden;cursor:pointer;transition:transform .12s,box-shadow .12s;}
 .foto-desktop-thumb:hover{transform:scale(1.03);box-shadow:0 4px 18px rgba(0,0,0,.4);}
@@ -2689,7 +2690,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 
 <script>
 // ── VERSION ── (bei jeder Änderung: PAM_BUILD erhöhen + sw.js CACHE_NAME synchron hochzählen)
-const PAM_BUILD = 'v2026-05-14 · #70';
+const PAM_BUILD = 'v2026-05-14 · #72';
 
 // ── STATE ──
 let boards = {};
@@ -9879,10 +9880,84 @@ async function _driveUploadPDF(name,arrayBuffer,parentId){
   });
   if(!r.ok)throw new Error('PDF hochladen: HTTP '+r.status);
 }
+// ── ZIP-Sicherung: Task exportieren ──────────────────────────────────────────
+async function exportTaskZip(){
+  if(!window.JSZip){showToast('⚠ JSZip-Bibliothek nicht geladen – kurz warten','error',3000);return;}
+  const taskId=(document.getElementById('taskId')||{}).value||_pamActiveTaskId||'';
+  const task=findTaskById(taskId);
+  if(!task){showToast('⚠ Kein Task geöffnet','error',3000);return;}
+  try{
+    showToast('⏳ Erstelle ZIP…','info',4000);
+    const zip=new window.JSZip();
+    // Vollständiger Task-Datensatz als JSON
+    const snapshot=JSON.parse(JSON.stringify(task));
+    zip.file('task.json',JSON.stringify(snapshot,null,2));
+    // Metadaten-Datei für schnelle Übersicht
+    zip.file('info.txt',
+      'PAM Workboard – Task-Sicherung\n'+
+      'Erstellt: '+new Date().toLocaleString('de-DE')+'\n'+
+      'Titel: '+(task.titel||task.title||'–')+'\n'+
+      'ID: '+(task.id||'–')+'\n'+
+      'Status: '+(task.status||'–')+'\n'
+    );
+    const buf=await zip.generateAsync({type:'arraybuffer',compression:'DEFLATE',compressionOptions:{level:6}});
+    const safeTitle=(task.titel||task.title||'Task').replace(/[^a-zA-Z0-9_\-äöüÄÖÜß ]/g,'_').substring(0,60);
+    const fname=safeTitle+'_Sicherung_'+new Date().toISOString().slice(0,10)+'.zip';
+    // In Projektordner hochladen (falls vorhanden + Drive verbunden)
+    const projUrl=(document.getElementById('tGDOrdner')?.value||'').trim();
+    const projId=_extractFolderIdFromUrl(projUrl);
+    if(projId&&gdriveToken){
+      await _driveUploadGeneric(buf,fname,'application/zip',projId);
+      showToast('✓ ZIP-Sicherung in Projektordner gespeichert','success',4000);
+    }
+    // Immer auch lokal herunterladen
+    const blob=new Blob([buf],{type:'application/zip'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=fname;
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+    if(!projId||!gdriveToken)showToast('✓ ZIP gespeichert (kein Projektordner → nur Download)','success',3500);
+  }catch(e){showToast('⚠ Fehler: '+e.message,'error',5000);console.error('[ZIP Export]',e);}
+}
+
+// ── ZIP-Sicherung: Task wiederherstellen ─────────────────────────────────────
+async function importTaskFromZip(file){
+  if(!file)return;
+  if(!window.JSZip){showToast('⚠ JSZip-Bibliothek nicht geladen – kurz warten','error',3000);return;}
+  try{
+    showToast('⏳ Lese ZIP…','info',3000);
+    const buf=await file.arrayBuffer();
+    const zip=await window.JSZip.loadAsync(buf);
+    const jsonFile=zip.file('task.json');
+    if(!jsonFile){showToast('⚠ Ungültige Sicherung – task.json nicht gefunden','error',4000);return;}
+    const json=await jsonFile.async('string');
+    const data=JSON.parse(json);
+    if(!data||!data.id){showToast('⚠ Ungültige task.json – keine ID gefunden','error',4000);return;}
+    // Vorhandenen Task in boards suchen und überschreiben, sonst im aktuellen Board anlegen
+    let found=false;
+    for(const bk of Object.keys(boards)){
+      const idx=(boards[bk]||[]).findIndex(t=>t.id===data.id);
+      if(idx>=0){
+        if(!confirm('Task "'+(data.titel||data.title||data.id)+'" ist bereits vorhanden. Überschreiben?'))return;
+        boards[bk][idx]=data;found=true;break;
+      }
+    }
+    if(!found)boards[currentBoard].push(data);
+    render();scheduleSave();
+    // Task sofort öffnen
+    if(typeof openEditTaskModal==='function')openEditTaskModal(data.id);
+    showToast('✓ Task wiederhergestellt: '+(data.titel||data.title||data.id),'success',4000);
+  }catch(e){showToast('⚠ Fehler beim Einlesen: '+e.message,'error',5000);console.error('[ZIP Import]',e);}
+}
+
+// ── Hilfsfunktion: ZIP-Restore aus Topbar-Drop ───────────────────────────────
+function _zipRestoreDrop(file){importTaskFromZip(file);}
+
 async function createAbschlussakte(){
-  const gdrive=document.getElementById('tGD').value.trim();
+  const gdrive=document.getElementById('tGDOrdner').value.trim();
   const folderId=_extractFolderIdFromUrl(gdrive);
-  if(!folderId){showToast('⚠ Bitte zuerst einen Google Drive-Foto-Ordner im Task eintragen','error',5000);return;}
+  if(!folderId){showToast('⚠ Bitte zuerst einen Google Drive-Projektordner im Task eintragen','error',5000);return;}
   if(!gdriveToken){showToast('⚠ Bitte zuerst mit Google Drive verbinden (☁️ oben rechts)','error',5000);return;}
   if(!window.jspdf){alert('PDF-Bibliothek noch nicht geladen. Bitte kurz warten und erneut versuchen.');return;}
   const btn=document.getElementById('abschlussBtn');
@@ -10893,14 +10968,21 @@ table.data-tbl{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:
 </body>
 </html>`;
 
-    // ── Optionen: öffnen oder herunterladen ──
+    // ── In Projektordner hochladen ──
+    const safeTitle=(title||'Abschlussakte').replace(/[^a-zA-Z0-9_\-äöüÄÖÜß ]/g,'_');
     const blob=new Blob([html],{type:'text/html;charset=utf-8'});
     const url=URL.createObjectURL(blob);
-
-    // Overlay mit zwei Optionen
+    const projUrl=(document.getElementById('tGDOrdner')?.value||'').trim();
+    const projId=_extractFolderIdFromUrl(projUrl);
+    if(projId&&gdriveToken){
+      btn.textContent='⏳ Hochladen…';
+      const enc=new TextEncoder();
+      await _driveUploadGeneric(enc.encode(html).buffer,safeTitle+'.html','text/html;charset=utf-8',projId);
+      showToast('✓ Abschlussakte HTML in Projektordner gespeichert','success',4000);
+    }
+    // Overlay mit Download-Option
     const ov=document.createElement('div');
     ov.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;';
-    const safeTitle=(title||'Abschlussakte').replace(/[^a-zA-Z0-9_\-äöüÄÖÜß ]/g,'_');
     ov.innerHTML=`<div style="background:#fff;border-radius:14px;padding:28px 32px;max-width:380px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,.3);text-align:center;">
       <div style="font-size:28px;margin-bottom:10px;">🌐</div>
       <div style="font-size:17px;font-weight:700;margin-bottom:6px;">Abschlussakte HTML</div>
@@ -10908,7 +10990,7 @@ table.data-tbl{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:
       <div style="display:flex;flex-direction:column;gap:10px;">
         <a href="${url}" target="_blank" style="padding:11px 0;border-radius:8px;background:#5a50b4;color:#fff;font-weight:700;font-size:14px;text-decoration:none;display:block;">🔍 Im Browser öffnen</a>
         <a href="${url}" download="${safeTitle}.html" style="padding:11px 0;border-radius:8px;background:#15803d;color:#fff;font-weight:700;font-size:14px;text-decoration:none;display:block;">⬇ Herunterladen (.html)</a>
-        <button onclick="this.closest('div[style]').parentElement.remove()" style="padding:9px 0;border-radius:8px;background:#f0f0f0;color:#555;font-weight:600;font-size:13px;border:none;cursor:pointer;display:block;width:100%;">Abbrechen</button>
+        <button onclick="this.closest('div[style]').parentElement.remove()" style="padding:9px 0;border-radius:8px;background:#f0f0f0;color:#555;font-weight:600;font-size:13px;border:none;cursor:pointer;display:block;width:100%;">Schließen</button>
       </div>
     </div>`;
     ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});

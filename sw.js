@@ -3,7 +3,7 @@
 // Google-APIs (Drive, OAuth) werden NIEMALS gecacht –
 // sie brauchen Auth-Token und müssen immer live abgefragt werden.
 
-const CACHE_NAME = 'pam-desktop-v70';
+const CACHE_NAME = 'pam-desktop-v72';
 const PRECACHE = [
   // CDN – Workboard
   'https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css',
@@ -12,6 +12,7 @@ const PRECACHE = [
   'https://cdn.jsdelivr.net/npm/jspdf-autotable@5.0.7/dist/jspdf.plugin.autotable.min.js',
   // CDN – Workboard + Stammblatt (gemeinsam)
   'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
   // 'https://accounts.google.com/gsi/client' → Cache-Control: no-store, nicht cachebar
 ];
