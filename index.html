@@ -2704,7 +2704,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 
 <script>
 // ── VERSION ── (bei jeder Änderung: PAM_BUILD erhöhen + sw.js CACHE_NAME synchron hochzählen)
-const PAM_BUILD = 'v2026-05-14 · #62';
+const PAM_BUILD = 'v2026-05-14 · #63';
 
 // ── STATE ──
 let boards = {};
@@ -12227,8 +12227,11 @@ async function _openEmailOrigInlinePreview(item){
     const e2=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     const d=info.date instanceof Date&&!isNaN(info.date)?info.date:new Date();
     const dateStr=d.toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})+', '+d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})+' Uhr';
-    const bodyContent=info.bodyHtml
-      ?info.bodyHtml.replace(/<base[^>]*>/gi,'').replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<link[^>]+rel=["']?stylesheet["']?[^>]*>/gi,'')
+    // CID-Bilder (eingebettete Inline-Bilder) durch data:-URLs ersetzen
+    let _inlineHtml=info.bodyHtml||'';
+    if(_inlineHtml&&info.cidMap){for(const [cid,durl] of Object.entries(info.cidMap)){_inlineHtml=_inlineHtml.split(cid).join(durl);}}
+    const bodyContent=_inlineHtml
+      ?_inlineHtml.replace(/<base[^>]*>/gi,'').replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<link[^>]+rel=["']?stylesheet["']?[^>]*>/gi,'')
       :'<pre style="font-family:Arial,sans-serif;font-size:10pt;white-space:pre-wrap;margin:0;">'+e2(info.bodyText||'(kein Inhalt)')+'</pre>';
     const previewHtml='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,Helvetica,sans-serif;font-size:10pt;color:#000;background:#fff;}.subj{font-size:14pt;font-weight:bold;padding:12px 20px 10px;border-bottom:1px solid #ccc;}.meta{padding:8px 20px 6px;border-bottom:1px solid #ddd;}.mr{display:flex;gap:0;margin-bottom:4px;font-size:9pt;}.mk{font-weight:bold;min-width:58px;flex-shrink:0;}.body{padding:16px 20px;font-size:10pt;line-height:1.55;}</style></head><body>'
       +'<div class="subj">'+e2(info.subject||'(kein Betreff)')+'</div>'
@@ -12256,8 +12259,11 @@ function _openEmailPrintWindow(info,w){
   const d=info.date instanceof Date&&!isNaN(info.date)?info.date:new Date();
   const e2=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const dateStr=d.toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})+', '+d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})+' Uhr';
-  const bodyContent=info.bodyHtml
-    ?info.bodyHtml
+  // CID-Bilder (eingebettete Inline-Bilder) durch data:-URLs ersetzen
+  let _pwHtml=info.bodyHtml||'';
+  if(_pwHtml&&info.cidMap){for(const [cid,durl] of Object.entries(info.cidMap)){_pwHtml=_pwHtml.split(cid).join(durl);}}
+  const bodyContent=_pwHtml
+    ?_pwHtml
       .replace(/<base[^>]*>/gi,'')
       .replace(/<script[\s\S]*?<\/script>/gi,'')
       .replace(/<link[^>]+rel=["']?stylesheet["']?[^>]*>/gi,'')
