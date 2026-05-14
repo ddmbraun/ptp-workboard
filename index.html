@@ -565,7 +565,7 @@ async function _auftragDrop(dt){
       if(f){
         rawFile=f;
         if(f.name.toLowerCase().endsWith('.eml')){
-          let text=await new Promise(function(res){let r=new FileReader();r.onload=function(e){res(e.target.result);};r.readAsText(f);});
+          let text=await new Promise(function(res,rej){let r=new FileReader();r.onload=function(e){res(e.target.result);};r.onerror=function(e){rej(new Error('EML-Lesefehler: '+(e.target?.error?.message||'unbekannt')));};r.readAsText(f);});
           info=_parseEmlText(text);
           info._rawEmlText=text;
           if(!info.subject)info.subject=f.name.replace(/\.eml$/i,'');
@@ -652,7 +652,7 @@ function _auftragShowPopup(subject){
     sel.appendChild(opt);
   });
   // Letztes verwendetes Board vorauswählen
-  let last=localStorage.getItem('ptp_auftrag_last_board');
+  let last=localStorage.getItem('pam_auftrag_last_board');
   if(last&&sel.querySelector('option[value="'+CSS.escape(last)+'"]'))sel.value=last;
   document.getElementById('auftragPopupSubject').textContent='"'+subject+'"';
   // Toggle zurücksetzen (immer mit "Neuer Task" starten)
@@ -733,14 +733,16 @@ async function _auftragAddToTask(task,boardName,fileMode){
     if(fid&&gdriveToken&&rawFile){
       try{
         let stamp2=(function(){let d=info.date instanceof Date&&!isNaN(info.date)?info.date:new Date();return d.getFullYear()+'.'+_ez2(d.getMonth()+1)+'.'+_ez2(d.getDate());})();
-        let pdfName2=stamp2+'_'+_ezClean(info.subject)+'.pdf';
+        let pdfName2=stamp2+'_'+_ezClean(info.subject)+(rawFile.name.toLowerCase().endsWith('.eml')?'.eml':'.msg');
         let buf2=await new Promise(function(res,rej){let r=new FileReader();r.onload=function(e){res(e.target.result);};r.onerror=rej;r.readAsArrayBuffer(rawFile);});
-        let result2=await _driveUploadGeneric(buf2,rawFile.name,rawFile.type||'message/rfc822',fid);
+        let result2=await _driveUploadGeneric(buf2,pdfName2,rawFile.type||'message/rfc822',fid); // Fix: pdfName2 statt rawFile.name
         if(result2&&result2.id){driveId2=result2.id;driveUrl2='https://drive.google.com/file/d/'+result2.id+'/view';}
       }catch(e){console.warn('[PTP] E-Mail-Upload:',e);}
     }
     if(!task.emailOriginals)task.emailOriginals=[];
-    if(!driveId2||!task.emailOriginals.some(e=>e.fileId&&e.fileId===driveId2)){
+    // Fix: nur speichern wenn Drive-Upload erfolgreich war (driveId2 gesetzt)
+    // Sonst entstehen Phantom-Einträge mit leerem fileId/url bei Verbindungsfehlern
+    if(driveId2&&!task.emailOriginals.some(e=>e.fileId&&e.fileId===driveId2)){
       task.emailOriginals.push({subject:info.subject||'',sender:info.sender||'',date:info.date instanceof Date?info.date.toISOString():new Date().toISOString(),fileId:driveId2,url:driveUrl2});
       if(info.messageId){
         const _ap=info._rawEmlText?_detectEmlProvider(info._rawEmlText):'unknown';
@@ -781,7 +783,7 @@ async function _auftragConfirm(){
   if(!boardName||!boards[boardName]){alert('Board nicht gefunden.');return;}
   let targetMode=(document.getElementById('auftragBoardPopup').dataset.targetMode||'new');
   document.getElementById('auftragBoardPopup').style.display='none';
-  localStorage.setItem('ptp_auftrag_last_board',boardName);
+  localStorage.setItem('pam_auftrag_last_board',boardName);
   // PDF-Modus: separaten Flow starten
   let mode=(document.getElementById('auftragPopupMode')||{}).value||'email';
   if(mode==='ziprestore'){document.getElementById('auftragPopupMode').value='email';return _zipRestoreCreate(boardName);}
@@ -982,18 +984,21 @@ async function _auftragConfirm(){
     });
   }
   // Beim Laden und nach jedem Modal-Öffnen initialisieren
-  document.addEventListener('DOMContentLoaded',initResizer);
+  document.addEventListener('DOMContentLoaded',function(){
+    initResizer();
+    // Fix: Hook auf openEditTaskModal erst nach DOMContentLoaded setzen, da die Funktion
+    // erst später im Script definiert wird – IIFE-Timing-Bug behoben
+    const _origOpen=window.openEditTaskModal;
+    if(typeof _origOpen==='function'){
+      window.openEditTaskModal=function(){
+        const r=_origOpen.apply(this,arguments);
+        setTimeout(initResizer,80);
+        return r;
+      };
+    }
+  });
   // Fallback falls DOMContentLoaded schon gefeuert
   if(document.readyState!=='loading')initResizer();
-  // Hook auf openEditTaskModal
-  const _origOpen=window.openEditTaskModal;
-  if(typeof _origOpen==='function'){
-    window.openEditTaskModal=function(){
-      const r=_origOpen.apply(this,arguments);
-      setTimeout(initResizer,80);
-      return r;
-    };
-  }
 })();
 
 </script>
@@ -2628,7 +2633,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 
 <script>
 // ── VERSION ── (bei jeder Änderung: PAM_BUILD erhöhen + sw.js CACHE_NAME synchron hochzählen)
-const PAM_BUILD = 'v2026-05-14 · #47';
+const PAM_BUILD = 'v2026-05-14 · #48';
 
 // ── STATE ──
 let boards = {};
@@ -2665,7 +2670,7 @@ let _colSort = {}; // { [status]: {field:'title'|'tags', dir:1|-1} }
 
   function _mb(){return document.getElementById('taskModalBox');}
 
-  const MODAL_DEFAULT_KEY='ptp_modal_default_v2'; // v2: kein zoom mehr
+  const MODAL_DEFAULT_KEY='pam_modal_default_v2'; // v2: kein zoom mehr
 
   // Gespeicherte Größe laden (Fallback: 945×756)
   function _getDefault(){
@@ -3246,8 +3251,22 @@ function saveTaskData(){
   };
   if(!boards[currentBoard])boards[currentBoard]=[];
   if(id){
-    const idx=boards[currentBoard].findIndex(t=>t.id===id);
-    if(idx>=0) boards[currentBoard][idx]=data;
+    let idx=boards[currentBoard].findIndex(t=>t.id===id);
+    if(idx>=0){
+      boards[currentBoard][idx]=data;
+    } else {
+      // Task nicht im aktuellen Board – alle Boards durchsuchen (z.B. nach Drag&Drop zwischen Boards)
+      let _savedInBoard=false;
+      for(const bk of Object.keys(boards)){
+        const i=(boards[bk]||[]).findIndex(t=>t.id===id);
+        if(i>=0){boards[bk][i]=data;currentBoard=bk;_savedInBoard=true;break;}
+      }
+      if(!_savedInBoard){
+        // Task komplett nicht gefunden – als Neueintrag im aktuellen Board sichern
+        console.warn('[PTP] saveTaskData: Task '+id+' in keinem Board gefunden, wird neu angelegt');
+        boards[currentBoard].push(data);
+      }
+    }
   } else {
     document.getElementById('taskId').value=data.id; // ID setzen damit Folge-Saves updaten
     boards[currentBoard].push(data);
@@ -3256,20 +3275,20 @@ function saveTaskData(){
   return true;
 }
 
-// ── TIMER STATE (persistent via localStorage['ptp_timer']) ──
+// ── TIMER STATE (persistent via localStorage['pam_timer']) ──
 let activeTimerTaskId = null;
 let activeTimerIntervalId = null;
 (function(){
   try{
-    const raw=localStorage.getItem('ptp_timer');
+    const raw=localStorage.getItem('pam_timer');
     if(raw){const t=JSON.parse(raw);if(t&&t.taskId){activeTimerTaskId=t.taskId;}}
-  }catch(e){console.warn('[PTP]',e);}
+  }catch(e){console.warn('[PAM]',e);}
 })();
 function persistTimerState(){
   try{
-    if(activeTimerTaskId){localStorage.setItem('ptp_timer',JSON.stringify({taskId:activeTimerTaskId,startMs:Date.now()}));}
-    else{localStorage.removeItem('ptp_timer');}
-  }catch(e){console.warn('[PTP]',e);}
+    if(activeTimerTaskId){localStorage.setItem('pam_timer',JSON.stringify({taskId:activeTimerTaskId,startMs:Date.now()}));}
+    else{localStorage.removeItem('pam_timer');}
+  }catch(e){console.warn('[PAM]',e);}
 }
 function resumeRunningTimer(){
   // Läuft ein Timer aus vorheriger Session? Wir erkennen ihn am offenen timeEntries-Eintrag (end:null)
@@ -3282,7 +3301,7 @@ function resumeRunningTimer(){
   if(activeTimerIntervalId)clearInterval(activeTimerIntervalId);
   const tid=activeTimerTaskId;
   activeTimerIntervalId=setInterval(()=>{
-    try{renderTimerDisplay();updateCardTimerBadge(tid);}catch(e){console.warn('[PTP]',e);}
+    try{renderTimerDisplay();updateCardTimerBadge(tid);}catch(e){console.warn('[PAM]',e);}
   },1000);
 }
 
@@ -3319,11 +3338,48 @@ const DEFAULT_FOLDER_BAUSTELLE= 'https://drive.google.com/drive/u/0/folders/1GBc
 const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.metadata.readonly';
 const GMAIL_SCOPE  = 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send';
 let gmailToken=null;let gmailTokenClient=null;let gmailUserEmail=null;
-const WORKSPACE_FOLDER_NAME = 'PTP-BAU Daten';
-const PC_TOKEN_KEY = 'ptp_gdrive_token_v1';
-const PC_FILE_KEY  = 'ptp_gdrive_file_v1';   // Zuletzt geladene Datei (id + name)
-const PC_BACKUP_KEY = 'ptp_board_backup_v1';
-let workspaceFolderId = localStorage.getItem('workspace_folder_id') || null;
+const WORKSPACE_FOLDER_NAME     = 'PAM-Workboard Daten';
+const WORKSPACE_FOLDER_NAME_OLD = 'PTP-BAU Daten';        // Fallback: alter Ordnername
+const PC_TOKEN_KEY  = 'pam_gdrive_token_v1';
+const PC_FILE_KEY   = 'pam_gdrive_file_v1';   // Zuletzt geladene Datei (id + name)
+const PC_BACKUP_KEY = 'pam_board_backup_v1';
+
+// ── Einmalige Migration: alte ptp_-Schlüssel → pam_- (läuft nur wenn noch alte Daten vorhanden) ──
+(function _migratePtpToPam(){
+  const _km=[
+    ['ptp_gdrive_token_v1','pam_gdrive_token_v1'],
+    ['ptp_gdrive_file_v1','pam_gdrive_file_v1'],
+    ['ptp_board_backup_v1','pam_board_backup_v1'],
+    ['pam_timer','pam_timer'],
+    ['pam_user_email_v1','pam_user_email_v1'],
+    ['pam_gmail_token_v1','pam_gmail_token_v1'],
+    ['pam_lastBoard','pam_lastBoard'],
+    ['pam_stammblatt_url','pam_stammblatt_url'],
+    ['pam_prefill_task','pam_prefill_task'],
+    ['pam_sync_ping','pam_sync_ping'],
+    ['pam_topbar_collapsed','pam_topbar_collapsed'],
+    ['pam_heute_pc_zoom','pam_heute_pc_zoom'],
+    ['pam_modal_default_v2','pam_modal_default_v2'],
+    ['pam_auftrag_last_board','pam_auftrag_last_board'],
+    ['pam_workspace_folder_id','pam_workspace_folder_id'],
+    ['pam_gdrive_last_action','pam_gdrive_last_action'],
+    ['pam_import','pam_import'],
+  ];
+  let _n=0;
+  _km.forEach(([ok,nk])=>{
+    try{
+      const v=localStorage.getItem(ok);
+      if(v!==null){
+        if(localStorage.getItem(nk)===null)localStorage.setItem(nk,v);
+        localStorage.removeItem(ok);
+        _n++;
+      }
+    }catch(e){}
+  });
+  if(_n>0)console.info('[PAM] localStorage-Migration: '+_n+' Einträge von ptp_ → pam_ übertragen');
+})();
+
+let workspaceFolderId = localStorage.getItem('pam_workspace_folder_id') || null;
 
 // ── localStorage-Backup: Boards lokal sichern (Absicherung wenn Drive nicht erreichbar) ──
 function _saveLocalBackup(){
@@ -3402,7 +3458,7 @@ function gdriveInit() {
         if(isSilentFail){
           // Silent-Refresh fehlgeschlagen (kein Cookie-Kontext) → 15 Min Pause
           _setGaveUp();
-          console.log('[PTP]',err.type,'(silent) – automatischer Retry in 15 Min');
+          console.log('[PAM]',err.type,'(silent) – automatischer Retry in 15 Min');
         } else if(err.type==='popup_failed_to_open'){
           _showDriveWarnBanner(0);
           showToast('⚠ Google-Popup blockiert – Popup-Blocker deaktivieren','error',9000);
@@ -3424,8 +3480,8 @@ function gdriveInit() {
       gdriveTokenExpires = stored.exp;
       _scheduleTokenRefresh(); // Proaktiven 10-Min-Timer starten
       setTimeout(updateDriveBtnBar, 500); // Timer-Anzeige starten sobald DOM bereit
-      const lastAction = localStorage.getItem('gdrive_last_action');
-      if (lastAction) localStorage.removeItem('gdrive_last_action');
+      const lastAction = localStorage.getItem('pam_gdrive_last_action');
+      if (lastAction) localStorage.removeItem('pam_gdrive_last_action');
       ensureWorkspaceFolder().then(() => {
         // Zuletzt geladene Datei direkt öffnen (kein Picker, kein Button)
         if (storedFile && storedFile.id && storedFile.name) {
@@ -3439,7 +3495,7 @@ function gdriveInit() {
     }
   } catch(e) {}
   // Token abgelaufen oder fehlt → direkt Banner zeigen (prompt:none öffnet unzuverlässig Popups)
-  if (storedFile || localStorage.getItem('gdrive_last_action')) {
+  if (storedFile || localStorage.getItem('pam_gdrive_last_action')) {
     _driveSetStatus('⚠ Drive-Verbindung abgelaufen', true);
     _showDriveWarnBanner(0);
   } else {
@@ -3450,15 +3506,39 @@ function gdriveInit() {
 }
 
 async function ensureWorkspaceFolder() {
-  if (workspaceFolderId) return workspaceFolderId;
-  const q = encodeURIComponent("name='" + WORKSPACE_FOLDER_NAME + "' and mimeType='application/vnd.google-apps.folder' and trashed=false");
-  const r = await fetch('https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=files(id,name)&orderBy=createdTime',
-    { headers: { Authorization: 'Bearer ' + gdriveToken } });
-  _driveCheckResponse(r);
-  const d = await r.json();
-  if (d.files && d.files.length > 0) {
-    workspaceFolderId = d.files[0].id;
-  } else {
+  if (workspaceFolderId) {
+    // Fix: gecachte ID kurz validieren – wenn der Ordner in Drive gelöscht wurde,
+    // würden sonst alle Uploads mit 404 fehlschlagen ohne Meldung an den Nutzer
+    try {
+      const _vr = await fetch('https://www.googleapis.com/drive/v3/files/'+workspaceFolderId+'?fields=id,trashed',
+        {headers:{Authorization:'Bearer '+gdriveToken}});
+      if(_vr.status===404||(_vr.ok&&(await _vr.json()).trashed)){
+        console.warn('[PTP] Workspace-Ordner nicht mehr vorhanden – wird neu erstellt');
+        workspaceFolderId=null;
+        try{localStorage.removeItem('pam_workspace_folder_id');}catch(e){}
+      } else {
+        return workspaceFolderId; // ID ist gültig
+      }
+    } catch(e){ return workspaceFolderId; } // Bei Netzwerkfehler: gecachte ID verwenden
+  }
+  // Neuen Ordner suchen, dann Fallback auf alten Namen (Migration PTP-BAU Daten → PAM-Workboard Daten)
+  const _searchFolder = async (name) => {
+    const q = encodeURIComponent("name='"+name+"' and mimeType='application/vnd.google-apps.folder' and trashed=false");
+    const r = await fetch('https://www.googleapis.com/drive/v3/files?q='+q+'&fields=files(id,name)&orderBy=createdTime',
+      {headers:{Authorization:'Bearer '+gdriveToken}});
+    _driveCheckResponse(r);
+    const d = await r.json();
+    return (d.files&&d.files.length>0) ? d.files[0].id : null;
+  };
+  // 1. Neuen Ordnernamen suchen
+  let _fid = await _searchFolder(WORKSPACE_FOLDER_NAME);
+  // 2. Fallback: alter Ordnername (PTP-BAU Daten) – bei erster Umstellung noch vorhanden
+  if(!_fid){
+    _fid = await _searchFolder(WORKSPACE_FOLDER_NAME_OLD).catch(()=>null);
+    if(_fid) console.info('[PAM] Alter Drive-Ordner "'+WORKSPACE_FOLDER_NAME_OLD+'" gefunden – wird weiter verwendet');
+  }
+  // 3. Keiner gefunden → neuen Ordner anlegen
+  if(!_fid){
     const cr = await fetch('https://www.googleapis.com/drive/v3/files', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + gdriveToken, 'Content-Type': 'application/json' },
@@ -3466,9 +3546,11 @@ async function ensureWorkspaceFolder() {
     });
     _driveCheckResponse(cr);
     const f = await cr.json();
-    workspaceFolderId = f.id;
+    _fid = f.id;
+    console.info('[PAM] Neuer Drive-Ordner "'+WORKSPACE_FOLDER_NAME+'" erstellt');
   }
-  localStorage.setItem('workspace_folder_id', workspaceFolderId);
+  workspaceFolderId = _fid;
+  localStorage.setItem('pam_workspace_folder_id', workspaceFolderId);
   return workspaceFolderId;
 }
 
@@ -3525,9 +3607,9 @@ async function gdriveTokenCallback(resp) {
   // Token in localStorage speichern (übersteht Seitenreload)
   try { localStorage.setItem(PC_TOKEN_KEY, JSON.stringify({token: gdriveToken, exp: gdriveTokenExpires})); } catch(e) {}
   // User-E-Mail für login_hint speichern (einmalig)
-  if (!localStorage.getItem('ptp_user_email_v1')) {
+  if (!localStorage.getItem('pam_user_email_v1')) {
     fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: 'Bearer ' + gdriveToken } })
-      .then(r => r.json()).then(u => { if (u.email) try { localStorage.setItem('ptp_user_email_v1', u.email); } catch(e){} })
+      .then(r => r.json()).then(u => { if (u.email) try { localStorage.setItem('pam_user_email_v1', u.email); } catch(e){} })
       .catch(() => {});
   }
   _scheduleTokenRefresh(); // Proaktiven 10-Min-Timer für diesen Token starten
@@ -3536,7 +3618,7 @@ async function gdriveTokenCallback(resp) {
   updateDriveBtnBar(); // Timer-Anzeige starten
   const action = gdrivePendingAction;
   gdrivePendingAction = null;
-  if (action && action !== 'autoload') localStorage.setItem('gdrive_last_action', action);
+  if (action && action !== 'autoload') localStorage.setItem('pam_gdrive_last_action', action);
   try { await ensureWorkspaceFolder(); } catch(e) { console.warn('Workspace-Ordner:', e); }
   if (action === 'load') gdrivePickAndLoad();
   else if (action === 'new') gdriveCreateFile();
@@ -3572,7 +3654,7 @@ async function gdriveTokenCallback(resp) {
       img.dataset.hydrated='';// Reset so sie neu geladen werden
     });
     if(typeof hydrateDesktopFotoThumbs==='function')hydrateDesktopFotoThumbs();
-  }catch(e){console.warn('[PTP]',e);}
+  }catch(e){console.warn('[PAM]',e);}
 }
 
 // ── Token stille Erneuerung ──
@@ -3585,7 +3667,7 @@ function _showDriveWarnBanner(secondsLeft){
     banner = document.createElement('div');
     banner.id = '_driveWarnBanner';
     banner.style.cssText = 'position:sticky;top:0;z-index:1500;background:#e67e22;color:#fff;display:flex;align-items:center;justify-content:center;gap:12px;padding:10px 16px;font-size:13px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.3);flex-shrink:0;';
-    let _savedEmail=localStorage.getItem('ptp_user_email_v1')||'';
+    let _savedEmail=localStorage.getItem('pam_user_email_v1')||'';
     let _btnLabel=_savedEmail ? '🔑 Als '+_savedEmail+' anmelden' : '🔑 Erneut anmelden';
     banner.innerHTML = '<span id="_driveWarnMsg">⚠ Google Drive Verbindung läuft ab</span>'
       + '<button id="_driveRenewBtn" onclick="_renewDriveTokenSilent()" style="background:#fff;color:#e67e22;border:none;border-radius:6px;padding:5px 14px;font-size:13px;font-weight:700;cursor:pointer;">'+_btnLabel+'</button>'
@@ -3637,8 +3719,8 @@ function _renewDriveTokenSilent(){
 function _renewDriveOtherAccount(){
   if(!gdriveTokenClient){ showToast('⏳ Google-Dienst lädt noch','error',4000); return; }
   _silentRefreshInProgress=false;
-  try { localStorage.setItem('gdrive_last_action','reconnect'); } catch(e) {}
-  const _hint2=localStorage.getItem('ptp_user_email_v1')||'';
+  try { localStorage.setItem('pam_gdrive_last_action','reconnect'); } catch(e) {}
+  const _hint2=localStorage.getItem('pam_user_email_v1')||'';
   const _p2=new URLSearchParams({client_id:GDRIVE_CLIENT_ID,redirect_uri:window.location.origin+window.location.pathname.replace(/index\.html$/i,''),response_type:'token',scope:GDRIVE_SCOPE,include_granted_scopes:'true',prompt:'select_account'});
   if(_hint2)_p2.set('login_hint',_hint2);
   window.location.href='https://accounts.google.com/o/oauth2/v2/auth?'+_p2;
@@ -3761,7 +3843,23 @@ setInterval(()=>{
     showToast('⚠ Drive-Verbindung läuft bald ab – Drive-Button ☁️ oben drücken','error',10000);
   }
   // Kein _silentTokenRefresh: GitHub Pages COOP-Header blockiert GIS-Popups zuverlässig.
+
+  // Gmail-Token-Ablauf prüfen (Gmail hat keinen eigenen Timer)
+  if(gmailToken){
+    let _gmExp=0;try{const _gs=JSON.parse(localStorage.getItem('pam_gmail_token_v1')||'null');if(_gs)_gmExp=_gs.expires||0;}catch(e){}
+    if(_gmExp&&Date.now()>_gmExp-120000&&!_gmWarnToastShown){
+      // Weniger als 2 Min → Token läuft gleich ab
+      _gmWarnToastShown=true;
+      gmailToken=null;gmailUserEmail=null;
+      try{localStorage.removeItem('pam_gmail_token_v1');}catch(e){}
+      _gmUpdateBtn();
+      showToast('ℹ Gmail-Sitzung abgelaufen – bitte 📩 Gmail-Button drücken zum Neu-Verbinden','error',9000);
+    }
+  } else {
+    _gmWarnToastShown=false; // Reset wenn abgemeldet
+  }
 },60*1000);
+let _gmWarnToastShown=false; // Gmail-Ablauf-Toast nur einmal pro Session
 
 // Fix #4: Konsolidierter visibilitychange-Handler (Token-Check + Sync in einem)
 // Der zweite Handler in startSyncPolling() wird durch _ptpVisHooked unterdrückt
@@ -3823,10 +3921,10 @@ function gdriveRequestToken(action) {
   _driveSetStatus('⏳ Weiterleitung zu Google…', false);
   // Aktion in localStorage speichern – wird nach Redirect-Rückkehr in gdriveInit() ausgeführt
   if (action && action !== 'autoload') {
-    try { localStorage.setItem('gdrive_last_action', action); } catch(e) {}
+    try { localStorage.setItem('pam_gdrive_last_action', action); } catch(e) {}
   }
   // Redirect-Flow: kein Popup – funktioniert zuverlässig auf PC und Mobil
-  const hint = localStorage.getItem('ptp_user_email_v1') || '';
+  const hint = localStorage.getItem('pam_user_email_v1') || '';
   const params = new URLSearchParams({
     client_id:              GDRIVE_CLIENT_ID,
     // BUG-FIX: index.html aus redirect_uri entfernen – stimmt so mit dem in der
@@ -4044,8 +4142,8 @@ async function pollWorkboardFile(){
     try{
       const ind=document.getElementById('fileMsg');
       if(ind)ind.textContent='↻ Aktualisiert vom Handy '+new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
-    }catch(e){console.warn('[PTP]',e);}
-  }catch(e){console.warn('[PTP]',e);}
+    }catch(e){console.warn('[PAM]',e);}
+  }catch(e){console.warn('[PAM]',e);}
 }
 function startWorkboardPolling(){
   if(workboardPollTimer)clearInterval(workboardPollTimer);
@@ -4100,7 +4198,7 @@ async function gdriveCreateFile(keepCurrentData) {
     syncFileId = null;
     syncData = {version:1,lastUpdated:'',updatedBy:'',termine:[],zeiterfassung:[],activeTimer:null};
     lastSyncTimestamp = '';
-    try{syncInit();}catch(e){console.warn('[PTP]',e);}
+    try{syncInit();}catch(e){console.warn('[PAM]',e);}
     updateFileStatus('ok', '☁️ ' + gdriveFileName, '✓ Neue Datei in Google Drive erstellt');
     updateDriveBtnBar();
     startWorkboardPolling();
@@ -4292,19 +4390,19 @@ async function gdriveSaveData() {
             if(modalTaskId){
               const refreshed=findTaskById(modalTaskId);
               if(refreshed){
-                try{taskAusserhausTermine=JSON.parse(JSON.stringify(refreshed.ausserhausTermine||[]));}catch(e){console.warn('[PTP]',e);}
-                try{taskZeitEntries=JSON.parse(JSON.stringify(refreshed.zeitEntries||[]));}catch(e){console.warn('[PTP]',e);}
-                try{taskNotizVerlauf=JSON.parse(JSON.stringify(refreshed.notizVerlauf||[]));}catch(e){console.warn('[PTP]',e);}
-                try{taskLinks=JSON.parse(JSON.stringify(refreshed.links||[]));}catch(e){console.warn('[PTP]',e);}
-                try{taskAttachments=JSON.parse(JSON.stringify(refreshed.attachments||[]));}catch(e){console.warn('[PTP]',e);}
-                try{taskFotos=JSON.parse(JSON.stringify(refreshed.fotos||[]));}catch(e){console.warn('[PTP]',e);}
-                try{if(typeof renderZeiterfassung==='function')renderZeiterfassung();}catch(e){console.warn('[PTP]',e);}
-                try{if(typeof renderAusserhausTermine==='function')renderAusserhausTermine();}catch(e){console.warn('[PTP]',e);}
-                try{if(typeof renderTaskNotizen==='function')renderTaskNotizen();}catch(e){console.warn('[PTP]',e);}
-                try{if(typeof renderLinksList==='function')renderLinksList();}catch(e){console.warn('[PTP]',e);}
-                try{if(typeof renderAttachList==='function')renderAttachList();}catch(e){console.warn('[PTP]',e);}
-                try{if(typeof renderFotoListDesktop==='function')renderFotoListDesktop();}catch(e){console.warn('[PTP]',e);}
-                try{if(typeof renderTimerSection==='function')renderTimerSection();}catch(e){console.warn('[PTP]',e);}
+                try{taskAusserhausTermine=JSON.parse(JSON.stringify(refreshed.ausserhausTermine||[]));}catch(e){console.warn('[PAM]',e);}
+                try{taskZeitEntries=JSON.parse(JSON.stringify(refreshed.zeitEntries||[]));}catch(e){console.warn('[PAM]',e);}
+                try{taskNotizVerlauf=JSON.parse(JSON.stringify(refreshed.notizVerlauf||[]));}catch(e){console.warn('[PAM]',e);}
+                try{taskLinks=JSON.parse(JSON.stringify(refreshed.links||[]));}catch(e){console.warn('[PAM]',e);}
+                try{taskAttachments=JSON.parse(JSON.stringify(refreshed.attachments||[]));}catch(e){console.warn('[PAM]',e);}
+                try{taskFotos=JSON.parse(JSON.stringify(refreshed.fotos||[]));}catch(e){console.warn('[PAM]',e);}
+                try{if(typeof renderZeiterfassung==='function')renderZeiterfassung();}catch(e){console.warn('[PAM]',e);}
+                try{if(typeof renderAusserhausTermine==='function')renderAusserhausTermine();}catch(e){console.warn('[PAM]',e);}
+                try{if(typeof renderTaskNotizen==='function')renderTaskNotizen();}catch(e){console.warn('[PAM]',e);}
+                try{if(typeof renderLinksList==='function')renderLinksList();}catch(e){console.warn('[PAM]',e);}
+                try{if(typeof renderAttachList==='function')renderAttachList();}catch(e){console.warn('[PAM]',e);}
+                try{if(typeof renderFotoListDesktop==='function')renderFotoListDesktop();}catch(e){console.warn('[PAM]',e);}
+                try{if(typeof renderTimerSection==='function')renderTimerSection();}catch(e){console.warn('[PAM]',e);}
               }
             }
           }
@@ -4330,7 +4428,7 @@ async function gdriveSaveData() {
         if(meta&&meta.modifiedTime)workboardLastModified=meta.modifiedTime;
         const newETag=r.headers.get('ETag')||r.headers.get('etag');
         if(newETag)gdriveETag=newETag;
-      }catch(e){console.warn('[PTP]',e);}
+      }catch(e){console.warn('[PAM]',e);}
       updateFileStatus('ok', '☁️ ' + gdriveFileName,
         '✓ Gespeichert ' + new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}));
       _saveLocalBackup(); // Lokales Backup nach erfolgreichem Drive-Speichern aktualisieren
@@ -4526,10 +4624,10 @@ function loadFromObject(data){
   if(_fixed)console.info('[PTP] boardTypes ergänzt ('+_fixed+' Boards):',boardTypes);}
   const keys=Object.keys(boards);
   // Zuletzt gewähltes Projekt aus localStorage wiederherstellen
-  try{const saved=localStorage.getItem('ptp_lastBoard');if(saved&&boards[saved])currentBoard=saved;}catch(e){console.warn('[PTP]',e);}
+  try{const saved=localStorage.getItem('pam_lastBoard');if(saved&&boards[saved])currentBoard=saved;}catch(e){console.warn('[PAM]',e);}
   if(!currentBoard||!boards[currentBoard])currentBoard=keys.length?keys[0]:'';
   // laufenden Timer aus Vorgänger-Session fortsetzen, sobald die Tasks geladen sind
-  try{resumeRunningTimer();}catch(e){console.warn('[PTP]',e);}
+  try{resumeRunningTimer();}catch(e){console.warn('[PAM]',e);}
 }
 function buildSaveObject(){
   const out={_statuses:statuses};
@@ -4889,7 +4987,7 @@ function renderHeute(){
   function diffDays(due){return Math.round((new Date(today)-new Date(due))/(864e5));}
   function fmtDate(due){let p=due.split('-');return p[2]+'.'+p[1]+'.';}
 
-  let HZKEY='ptp_heute_pc_zoom';
+  let HZKEY='pam_heute_pc_zoom';
   let zoom=100;
   try{let z=parseInt(localStorage.getItem(HZKEY)||'100',10);if(z>=70&&z<=150)zoom=z;}catch(e){}
 
@@ -5000,7 +5098,7 @@ function renderHeute(){
     +'<input type="range" min="70" max="150" step="5" value="'+zoom+'" style="flex:1;max-width:180px;accent-color:var(--accent);" '
     +'oninput="(function(v){let c=document.getElementById(\'heuteZoomContent\');if(c)c.style.zoom=v+\'%\';'
     +'let lbl=document.getElementById(\'heuteZoomVal\');if(lbl)lbl.textContent=v+\'%\';'
-    +'try{localStorage.setItem(\'ptp_heute_pc_zoom\',v);}catch(e){}}).call(null,this.value)">'
+    +'try{localStorage.setItem(\'pam_heute_pc_zoom\',v);}catch(e){}}).call(null,this.value)">'
     +'<span id="heuteZoomVal" style="font-size:11px;color:var(--text);min-width:32px;flex-shrink:0;">'+zoom+'%</span>'
     +'</div>';
   let html='<div style="padding:20px 24px;max-width:860px;">'
@@ -5245,7 +5343,7 @@ function onBoardTabDrop(e){
 }
 function switchBoard(name){
   currentBoard=name;
-  try{localStorage.setItem('ptp_lastBoard',name);}catch(e){console.warn('[PTP]',e);}
+  try{localStorage.setItem('pam_lastBoard',name);}catch(e){console.warn('[PAM]',e);}
   render();
 }
 function switchView(view){currentView=view;document.querySelectorAll('.view-tab').forEach(t=>t.classList.toggle('active',t.dataset.view===view));render();}
@@ -5696,7 +5794,7 @@ function parseAuftragText(text){
     catch(e){console.error('Fehler beim NAS-Feld:',e);}
     try{
       if(stammblattLink && stammblattLink !== '(noch offen)'){
-        localStorage.setItem('ptp_stammblatt_url', stammblattLink);
+        localStorage.setItem('pam_stammblatt_url', stammblattLink);
       }
     }catch(e){}
     try{
@@ -5811,7 +5909,7 @@ function _akteNachtragenFuellen(text){
 
   // Stammblatt-Link
   if(stammLink&&stammLink!=='(noch offen)'){
-    try{localStorage.setItem('ptp_stammblatt_url',stammLink);filled.push('Stammblatt-Link');}catch(e){}
+    try{localStorage.setItem('pam_stammblatt_url',stammLink);filled.push('Stammblatt-Link');}catch(e){}
   }
 
   // Drive-Ordner für Stammblatt PDF
@@ -8376,7 +8474,7 @@ function _deskInitPannellum(blobUrl){
   }
 }
 function _deskClosePannellum(){
-  if(_deskPannellumViewer){try{_deskPannellumViewer.destroy();}catch(e){console.warn('[PTP]',e);}_deskPannellumViewer=null;}
+  if(_deskPannellumViewer){try{_deskPannellumViewer.destroy();}catch(e){console.warn('[PAM]',e);}_deskPannellumViewer=null;}
   const c=document.getElementById('desktopPannellumContainer');
   if(c){c.classList.remove('active');c.innerHTML='';}
   const cnt=document.getElementById('previewContent');
@@ -8706,18 +8804,27 @@ function gmailInit(){
   gmailTokenClient=google.accounts.oauth2.initTokenClient({
     client_id:GDRIVE_CLIENT_ID,scope:GMAIL_SCOPE,
     callback:_gmHandleToken,
-    error_callback:(err)=>console.warn('[GM] OAuth Fehler:',err),
+    error_callback:(err)=>{
+      console.warn('[GM] OAuth Fehler:',err);
+      if(err?.type==='popup_failed_to_open'){
+        showToast('⚠ Gmail-Popup blockiert – bitte Popups für diese Seite im Browser erlauben','error',8000);
+      } else if(err?.type==='popup_closed'){
+        showToast('ℹ Gmail-Anmeldefenster geschlossen – bitte nochmals klicken','info',4000);
+      } else if(err?.type==='access_denied'){
+        showToast('⚠ Gmail-Zugriff verweigert – bitte Berechtigungen beim Anmelden bestätigen','error',7000);
+      }
+    },
   });
-  try{const s=localStorage.getItem('ptp_gmail_token_v1');if(s){const p=JSON.parse(s);if(p.token&&p.expires>Date.now()){gmailToken=p.token;gmailUserEmail=p.email;_gmUpdateBtn();}}}catch(e){}
+  try{const s=localStorage.getItem('pam_gmail_token_v1');if(s){const p=JSON.parse(s);if(p.token&&p.expires>Date.now()){gmailToken=p.token;gmailUserEmail=p.email;_gmUpdateBtn();}}}catch(e){}
 }
 function gmailConnect(){
   if(!gmailTokenClient){showToast('⚠ Gmail nicht verfügbar – Seite neu laden','error',3000);return;}
   if(gmailToken){
     gmailToken=null;gmailUserEmail=null;
-    try{localStorage.removeItem('ptp_gmail_token_v1');}catch(e){}
+    try{localStorage.removeItem('pam_gmail_token_v1');}catch(e){}
     _gmUpdateBtn();showToast('Gmail abgemeldet','info',2000);return;
   }
-  const hint=localStorage.getItem('ptp_user_email_v1')||'';
+  const hint=localStorage.getItem('pam_user_email_v1')||'';
   gmailTokenClient.requestAccessToken({hint});
 }
 function _gmHandleToken(resp){
@@ -8727,7 +8834,7 @@ function _gmHandleToken(resp){
     .then(r=>r.json()).then(d=>{
       gmailUserEmail=d.email||'';_gmUpdateBtn();
       showToast('✅ Gmail verbunden: '+gmailUserEmail,'success',3000);
-      try{localStorage.setItem('ptp_gmail_token_v1',JSON.stringify({token:gmailToken,email:gmailUserEmail,expires:Date.now()+3500000}));}catch(e){}
+      try{localStorage.setItem('pam_gmail_token_v1',JSON.stringify({token:gmailToken,email:gmailUserEmail,expires:Date.now()+3500000}));}catch(e){}
     }).catch(()=>{_gmUpdateBtn();showToast('✅ Gmail verbunden','success',2000);});
 }
 function _gmUpdateBtn(){
@@ -8842,6 +8949,7 @@ async function _gmLoadEmailThread(){
     for(const msgId of allMsgIds){
       try{const q=encodeURIComponent('rfc822msgid:<'+msgId+'>');
         const r=await fetch('https://www.googleapis.com/gmail/v1/users/me/messages?q='+q+'&maxResults=1',{headers:{Authorization:'Bearer '+gmailToken}});
+        if(r.status===401){throw new Error('Gmail-Token abgelaufen – bitte Gmail neu verbinden (Toolbar: 📩 Gmail)');}
         if(r.ok){const d=await r.json();if(d.messages?.length)threadIds.add(d.messages[0].threadId);}
       }catch(e){console.warn('[GM] msgId lookup:',e);}
     }
@@ -8877,7 +8985,9 @@ async function _gmSaveThreadPdfs(task,threadMsgs){
   if(!gdriveToken)return 0;
   const folderUrl=(document.getElementById('tEmailOrdner')?.value||document.getElementById('tGDOrdner')?.value||'').trim();
   const fid=_ezFolderId(folderUrl);if(!fid)return 0;
-  const knownIds=new Set([...(taskEmailPdfs||[]).map(p=>p.gmailMessageId||'').filter(Boolean),...(task.gmailMessageIds||[]),(task.gmailMessageId||'')].filter(Boolean));
+  // Fix: nur bereits als PDF gespeicherte IDs ausschließen, NICHT die EML-Drop-IDs
+  // (sonst wird die erste abgelegte Mail nie als PDF erstellt, da ihre ID als "bekannt" gilt)
+  const knownIds=new Set([...(taskEmailPdfs||[]).map(p=>p.gmailMessageId||'').filter(Boolean)]);
   const toSave=threadMsgs.filter(m=>m.messageId&&!knownIds.has(m.messageId));
   if(!toSave.length)return 0;
   let saved=0;
@@ -9054,7 +9164,9 @@ async function msConnect(){
   }
   try{
     // Sicherstellen dass MSAL vollständig initialisiert ist
-    if(typeof msalInstance.initialize==='function'&&!msalInstance.initialized){
+    // Fix: msalInstance.initialized ist keine offizielle MSAL-Property → Guard entfernt,
+    // initialize() ist in MSAL v3 idempotent und kann sicher wiederholt aufgerufen werden
+    if(typeof msalInstance.initialize==='function'){
       await msalInstance.initialize();
     }
     await msalInstance.loginRedirect({scopes:MS_SCOPES});
@@ -9191,9 +9303,10 @@ async function _msSaveThreadPdfs(task,threadMsgs){
   if(!fid){showToast('⚠ Kein E-Mail-Ordner verknüpft – PDFs nicht gespeichert','warning',3000);return 0;}
   // Bereits gespeicherte MessageIds → keine Duplikate
   // Prüft: taskEmailPdfs (vom Verlauf laden) + msMessageIds (manuell abgelegte EMLs)
+  // Fix: nur bereits als PDF gespeicherte IDs ausschließen, NICHT die EML-Drop-IDs
+  // (sonst wird die erste abgelegte Mail nie als PDF erstellt, da ihre ID als "bekannt" gilt)
   const _knownFromPdfs=(taskEmailPdfs||[]).map(p=>p.msMessageId||'').filter(Boolean);
-  const _knownFromDrop=[...(task.msMessageIds||[]),(task.msMessageId||'')].filter(Boolean);
-  const savedIds=new Set([..._knownFromPdfs,..._knownFromDrop]);
+  const savedIds=new Set([..._knownFromPdfs]);
   const toSave=threadMsgs.filter(m=>m.internetMessageId&&!savedIds.has(m.internetMessageId));
   if(!toSave.length)return 0;
   let saved=0;
@@ -9653,7 +9766,7 @@ async function createAbschlussakte(){
         head:[['Datum','Von','Bis','Dauer','Beschreibung']],
         body:taskZeitEntries.map(z=>{
           let dur='';
-          try{const[vh,vm]=z.von.split(':').map(Number);const[bh,bm]=z.bis.split(':').map(Number);const d=(bh*60+bm)-(vh*60+vm);if(d>0)dur=Math.floor(d/60)+'h '+(d%60)+'min';}catch(e){console.warn('[PTP]',e);}
+          try{const[vh,vm]=z.von.split(':').map(Number);const[bh,bm]=z.bis.split(':').map(Number);const d=(bh*60+bm)-(vh*60+vm);if(d>0)dur=Math.floor(d/60)+'h '+(d%60)+'min';}catch(e){console.warn('[PAM]',e);}
           return[z.date||'',z.von||'',z.bis||'',dur,z.beschreibung||''];
         }),
         foot:[['','','','Gesamt:',zeitH+'h '+zeitM+'min']],
@@ -9841,12 +9954,12 @@ function startTimer(taskId){
   try{
     if(syncFileId&&gdriveToken){
       const ks=((task.tags&&task.tags[0])||(task.title?task.title.split(/[–-]/)[0]:'')||'').trim();
-      syncData.activeTimer={deviceId:DEVICE_ID,source:'ptp',taskId,kostenstelle:ks,auftragTitle:task.title||'',startMs:Date.now()};
-      syncData.lastUpdated=new Date().toISOString();syncData.updatedBy='ptp';
+      syncData.activeTimer={deviceId:DEVICE_ID,source:'pam',taskId,kostenstelle:ks,auftragTitle:task.title||'',startMs:Date.now()};
+      syncData.lastUpdated=new Date().toISOString();syncData.updatedBy='pam';
       syncWrite();
-      try{localStorage.setItem('ptp_sync_ping',String(Date.now()));}catch(e){console.warn('[PTP]',e);}
+      try{localStorage.setItem('pam_sync_ping',String(Date.now()));}catch(e){console.warn('[PAM]',e);}
     }
-  }catch(e){console.warn('[PTP]',e);}
+  }catch(e){console.warn('[PAM]',e);}
   autoSave();
 }
 function stopTimer(){
@@ -9881,7 +9994,7 @@ function stopTimer(){
     if(syncData&&syncData.activeTimer&&syncData.activeTimer.deviceId===DEVICE_ID){
       syncData.activeTimer=null;
     }
-  }catch(e){console.warn('[PTP]',e);}
+  }catch(e){console.warn('[PAM]',e);}
   scheduleSave();  // includes pushToSync()
   updateCardTimerBadge(stoppedId);
 }
@@ -10624,7 +10737,7 @@ function _showSbPreview(previewUrl,docName){
   document.body.appendChild(ov);
 }
 // ── Stammblatt-Verwaltung direkt öffnen ────────────────────────────────────
-const _SB_URL_KEY='ptp_stammblatt_url';
+const _SB_URL_KEY='pam_stammblatt_url';
 function _openSbVerwaltung(){
   let url=(document.getElementById('tSbPdfOrdner')||{value:''}).value.trim();
   if(!url){showToast('Bitte zuerst den Stammblatt-Ordner eintragen','warning',4000);return;}
@@ -10634,8 +10747,8 @@ function _openSbVerwaltung(){
   // Gespeicherte URL nutzen, sonst automatisch aus aktuellem Pfad ableiten
   let sbUrl=(localStorage.getItem(_SB_URL_KEY)||'').trim();
   if(!sbUrl){
-    // Ableitung: PTPBAU liegt in /PTPBAU/, stammblatt.html eine Ebene höher
-    let base=window.location.href.replace(/\/[^\/]*$\/[^\/]*$/,'').replace(/\/PTPBAU\/[^\/]*$/,'');
+    // Stammblatt-URL aus aktuellem Pfad ableiten (pam-desktop bleibt als GitHub-Name unverändert)
+    let base=window.location.href.replace(/\/[^\/]*$\/[^\/]*$/,'').replace(/\/pam-desktop\/[^\/]*$/,'').replace(/\/PTPBAU\/[^\/]*$/,'');
     sbUrl=base+'/stammblatt.html';
   }
   let target=sbUrl+(sbUrl.includes('?')?'&':'?')+'driveid='+encodeURIComponent(fid);
@@ -12163,6 +12276,7 @@ function openModal(){
   if(typeof _applyStoredModalSize2==='function')_applyStoredModalSize2();
 }
 function closeModal(){
+  clearTimeout(autoSaveTimer); // Ausstehenden Auto-Save-Timer stoppen (verhindert Überschreiben beim Tab-Wechsel)
   const _isNewTask = !(document.getElementById('taskId')?.value);
   // Nur speichern wenn User etwas geändert hat ODER es ein neuer Task ist.
   // Ohne Änderung würde saveTaskData() den T0-Stand zurückschreiben und
@@ -12183,6 +12297,7 @@ function saveTaskAndBack(){
 }
 
 function openNewTaskModal(){
+  _pamActiveTaskId=''; // Fallback-ID zurücksetzen (verhindert Laden beim falschen Task)
   document.getElementById('taskId').value='';
   document.getElementById('taskTitleInput').value='';
   document.getElementById('taskDescInput').value='';
@@ -12194,6 +12309,11 @@ function openNewTaskModal(){
   const _aktEl=document.getElementById('taskAktivitaetInput');if(_aktEl)_aktEl.value='';
   const _avNEl=document.getElementById('taskAuftragVomDatum');if(_avNEl)_avNEl.value='';
   const _ortEl=document.getElementById('taskOrtsterminInput');if(_ortEl)_ortEl.value='';
+  // Felder die in openEditTaskModal gesetzt werden, aber vorher gefehlt haben:
+  const _atNewEl=document.getElementById('taskAusfTerminInput');if(_atNewEl)_atNewEl.value='';
+  const _aeNewEl=document.getElementById('taskAnfrageEingangDatum');if(_aeNewEl)_aeNewEl.value='';
+  const _sbNewEl=document.getElementById('tSbPdfOrdner');if(_sbNewEl)_sbNewEl.value='';
+  const _sbVNewEl=document.getElementById('tSbPdfOrdnerVerk');if(_sbVNewEl)_sbVNewEl.value='';
   document.getElementById('taskTagsInput').value='';
   document.getElementById('taskSourceInput').value='';
   document.getElementById('taskRepNr').value='';
@@ -12238,12 +12358,12 @@ function openNewTaskModal(){
 
 function _applyStammblattPrefill(){
   try{
-    let raw=localStorage.getItem('ptp_prefill_task');
+    let raw=localStorage.getItem('pam_prefill_task');
     if(!raw)return;
     let p=JSON.parse(raw);
     // Nur verwenden wenn jünger als 60 Sekunden
-    if(!p||!p._ts||(Date.now()-p._ts)>60000){localStorage.removeItem('ptp_prefill_task');return;}
-    localStorage.removeItem('ptp_prefill_task');
+    if(!p||!p._ts||(Date.now()-p._ts)>60000){localStorage.removeItem('pam_prefill_task');return;}
+    localStorage.removeItem('pam_prefill_task');
     if(p.adresse){const el=document.getElementById('taskTitleInput');if(el)el.value=p.adresse;}
     if(p.hv){const el=document.getElementById('tHV');if(el)el.value=p.hv;}
     if(p.adresse){const el=document.getElementById('tAdr');if(el)el.value=p.adresse;}
@@ -12251,7 +12371,7 @@ function _applyStammblattPrefill(){
     if(p.sbPdfOrdner){const el=document.getElementById('tSbPdfOrdner');if(el)el.value=p.sbPdfOrdner; const el2=document.getElementById('tSbPdfOrdnerVerk');if(el2)el2.value=p.sbPdfOrdner;}
     if(p.nasOrdner){const el=document.getElementById('tNAS');if(el)el.value=p.nasOrdner;}
     if(p.gdriveProjOrdner){const el=document.getElementById('tGDOrdner');if(el)el.value=p.gdriveProjOrdner;}
-    if(p.sbUrl){try{localStorage.setItem('ptp_stammblatt_url',p.sbUrl);}catch(e){}}
+    if(p.sbUrl){try{localStorage.setItem('pam_stammblatt_url',p.sbUrl);}catch(e){}}
     if(p._status){const el=document.getElementById('taskStatusInput');if(el)el.value=p._status;}
     showToast('✓ Objektdaten aus Stammblatt übernommen','success',4000);
     _updateStammSummary();_updateHdrMeta();_updateMapsBtn();
@@ -12261,17 +12381,17 @@ function _applyStammblattPrefill(){
 // Beim Start: prüfen ob Prefill vorliegt → Auswahl-Dialog zeigen
 (function _checkPrefillOnLoad(){
   try{
-    let raw=localStorage.getItem('ptp_prefill_task');
+    let raw=localStorage.getItem('pam_prefill_task');
     if(!raw)return;
     let p=JSON.parse(raw);
-    if(!p||!p._ts||(Date.now()-p._ts)>60000){localStorage.removeItem('ptp_prefill_task');return;}
+    if(!p||!p._ts||(Date.now()-p._ts)>60000){localStorage.removeItem('pam_prefill_task');return;}
     setTimeout(function(){ _showPrefillBoardDialog(p); },900);
   }catch(e){}
 })();
 
-// Falls PTPBAU bereits geöffnet ist: storage-Event abfangen
+// Falls PAM-Workboard bereits geöffnet ist: storage-Event abfangen
 window.addEventListener('storage',function(e){
-  if(e.key!=='ptp_prefill_task'||!e.newValue)return;
+  if(e.key!=='pam_prefill_task'||!e.newValue)return;
   try{
     let p=JSON.parse(e.newValue);
     if(!p||!p._ts||(Date.now()-p._ts)>60000)return;
@@ -12325,7 +12445,7 @@ function _showPrefillBoardDialog(p){
   document.body.appendChild(ov);
 
   box.querySelector('#_pfCancel').addEventListener('click',function(){
-    localStorage.removeItem('ptp_prefill_task');
+    localStorage.removeItem('pam_prefill_task');
     ov.remove();
   });
   box.querySelector('#_pfOk').addEventListener('click',function(){
@@ -12336,7 +12456,7 @@ function _showPrefillBoardDialog(p){
     if(selBoard&&selBoard!==currentBoard) switchBoard(selBoard);
     // Prefill mit gewähltem Status erweitern
     p._status=selStatus;
-    localStorage.setItem('ptp_prefill_task',JSON.stringify(p));
+    localStorage.setItem('pam_prefill_task',JSON.stringify(p));
     setTimeout(function(){openNewTaskModal();},150);
   });
 }
@@ -12545,10 +12665,10 @@ function _doMoveTask(id,targetBoard,targetStatus){
 // ── TOPBAR COLLAPSE ──
 function _toggleTopbarCollapse(){
   const collapsed=document.body.classList.toggle('topbar-collapsed');
-  localStorage.setItem('ptp_topbar_collapsed', collapsed?'1':'0');
+  localStorage.setItem('pam_topbar_collapsed', collapsed?'1':'0');
 }
 (function _initTopbarCollapse(){
-  if(localStorage.getItem('ptp_topbar_collapsed')==='1'){
+  if(localStorage.getItem('pam_topbar_collapsed')==='1'){
     document.body.classList.add('topbar-collapsed');
   }
 })();
@@ -12806,7 +12926,7 @@ function openBaudokuApp(){
   const eigentuemer=kontakte.find(k=>k.rolle==='eigentuemer')||{};
   const ag=kontakte.find(k=>k.rolle==='ag')||{};
   const payload={
-    _quelle:'ptp',
+    _quelle:'pam',
     _zeitstempel:new Date().toISOString(),
     ks,
     rep:'',
@@ -12831,17 +12951,18 @@ function openBaudokuApp(){
     eigEmail:eigentuemer.email||'',
     kontakte:kontakte
   };
-  localStorage.setItem('bau_ptp_import',JSON.stringify(payload));
+  localStorage.setItem('pam_import',JSON.stringify(payload));
   const isGithub=window.location.hostname.includes('github.io');
   const bauUrl=isGithub?'https://ddmbraun.github.io/bau-doku/':'../bau/index.html';
   window.open(bauUrl,'_blank');
 }
 
 // ══════════════════════════════════════════════
-// ── SYNC-MODUL (ptp_bau_sync.json) – PTP ──
+// ── SYNC-MODUL (pam_workboard_sync.json) ──
 // ══════════════════════════════════════════════
-const SYNC_FILE_NAME='ptp_bau_sync.json';
-const SYNC_SOURCE='ptp';
+const SYNC_FILE_NAME='pam_workboard_sync.json';
+const SYNC_FILE_NAME_OLD='ptp_bau_sync.json'; // Fallback: alter Name
+const SYNC_SOURCE='pam';
 let syncFileId=null;
 let syncData={version:1,lastUpdated:'',updatedBy:'',termine:[],zeiterfassung:[],activeTimer:null};
 let lastSyncTimestamp='';
@@ -12852,12 +12973,21 @@ const DEVICE_ID=(function(){let d=localStorage.getItem('device_id');if(!d){d='de
 async function syncInit(){
   if(!gdriveToken)return;
   try{
-    const r=await fetch("https://www.googleapis.com/drive/v3/files?q=name%3D'ptp_bau_sync.json'%20and%20trashed%3Dfalse&fields=files(id,modifiedTime)&orderBy=modifiedTime%20desc",
-      {headers:{Authorization:'Bearer '+gdriveToken}});
-    if(r.status===401){_handleDrive401();return;}
-    const d=await r.json();
-    if(d.files&&d.files.length>0){
-      syncFileId=d.files[0].id;
+    // Neuen Sync-Dateinamen suchen, dann Fallback auf alten (ptp_bau_sync.json)
+    const _findSync=async(name)=>{
+      const r=await fetch("https://www.googleapis.com/drive/v3/files?q=name%3D'"+encodeURIComponent(name)+"'%20and%20trashed%3Dfalse&fields=files(id,modifiedTime)&orderBy=modifiedTime%20desc",
+        {headers:{Authorization:'Bearer '+gdriveToken}});
+      if(r.status===401){_handleDrive401();return null;}
+      const d=await r.json();
+      return (d.files&&d.files.length>0)?d.files[0]:null;
+    };
+    let _sf=await _findSync(SYNC_FILE_NAME);
+    if(!_sf){
+      _sf=await _findSync(SYNC_FILE_NAME_OLD).catch(()=>null);
+      if(_sf)console.info('[PAM] Alter Sync-Dateiname "'+SYNC_FILE_NAME_OLD+'" gefunden – wird weiter verwendet');
+    }
+    if(_sf){
+      syncFileId=_sf.id;
       await syncRead(true);
     }else if(!syncFileId){
       // Datei existiert noch nicht → erstmalig anlegen.
@@ -12866,7 +12996,7 @@ async function syncInit(){
       await syncCreate();
     }
     startSyncPolling();updateSyncUI();
-    try{maybeDailySyncBackup();}catch(e){console.warn('[PTP]',e);}
+    try{maybeDailySyncBackup();}catch(e){console.warn('[PAM]',e);}
   }catch(e){console.warn('Sync init:',e);}
 }
 // ── Tägliches Backup der Sync-Datei in Google Drive ──
@@ -12880,7 +13010,7 @@ async function maybeDailySyncBackup(){
       {headers:{Authorization:'Bearer '+gdriveToken}});
     if(!r.ok)return;
     const body=await r.text();
-    const name='ptp_bau_sync_'+today+'.json';
+    const name='pam_workboard_sync_'+today+'.json';
     // prüfen ob heute schon Backup da ist
     const q="name%3D'"+name+"'%20and%20trashed%3Dfalse";
     const chk=await fetch('https://www.googleapis.com/drive/v3/files?q='+q+'&fields=files(id)',
@@ -12896,12 +13026,12 @@ async function maybeDailySyncBackup(){
     localStorage.setItem('sync_backup_last',today);
     // Backups älter als 30 Tage aufräumen
     try{
-      const listResp=await fetch("https://www.googleapis.com/drive/v3/files?q=name%20contains%20'ptp_bau_sync_'%20and%20trashed%3Dfalse&fields=files(id,name,createdTime)&orderBy=createdTime",
+      const listResp=await fetch("https://www.googleapis.com/drive/v3/files?q=name%20contains%20'pam_workboard_sync_'%20and%20trashed%3Dfalse&fields=files(id,name,createdTime)&orderBy=createdTime",
         {headers:{Authorization:'Bearer '+gdriveToken}});
       const listJ=await listResp.json();
       const cutoff=Date.now()-30*24*3600*1000;
       for(const f of (listJ.files||[])){
-        if(f.name&&f.name.startsWith('ptp_bau_sync_')&&f.name.endsWith('.json')){
+        if(f.name&&(f.name.startsWith('pam_workboard_sync_')||f.name.startsWith('ptp_bau_sync_'))&&f.name.endsWith('.json')){
           const ct=new Date(f.createdTime||0).getTime();
           if(ct&&ct<cutoff){
             fetch('https://www.googleapis.com/drive/v3/files/'+f.id,
@@ -12909,7 +13039,7 @@ async function maybeDailySyncBackup(){
           }
         }
       }
-    }catch(e){console.warn('[PTP]',e);}
+    }catch(e){console.warn('[PAM]',e);}
   }catch(e){console.warn('Backup:',e);}
 }
 async function syncCreate(){
@@ -12942,7 +13072,7 @@ async function syncRead(initial=false){
         if(cnt>0)showSyncToast(cnt);
       } else if(initial){updateSyncUI();}
       // offene Board-Ansicht + offenes Task-Modal neu zeichnen
-      try{render();}catch(e){console.warn('[PTP]',e);}
+      try{render();}catch(e){console.warn('[PAM]',e);}
       try{
         const openTaskId=document.getElementById('taskId')&&document.getElementById('taskId').value;
         if(openTaskId){
@@ -12951,7 +13081,7 @@ async function syncRead(initial=false){
           if(typeof renderZeiterfassung==='function')renderZeiterfassung();
           if(typeof renderTimerSection==='function')renderTimerSection();
         }
-      }catch(e){console.warn('[PTP]',e);}
+      }catch(e){console.warn('[PAM]',e);}
     }
   }catch(e){console.warn('syncRead:',e);}
 }
@@ -12969,7 +13099,7 @@ function startSyncPolling(){
   // Cross-Tab Sync: Wenn ein anderer Tab ins localStorage schreibt, sofort lesen
   if(!window._ptpStorageHooked){
     window.addEventListener('storage',e=>{
-      if(e.key==='ptp_sync_ping'||e.key==='bau_sync_ping'){syncRead();}
+      if(e.key==='pam_sync_ping'||e.key==='bau_sync_ping'||e.key==='ptp_sync_ping'){syncRead();}
     });
     window._ptpStorageHooked=true;
   }
@@ -12983,7 +13113,7 @@ function startSyncPolling(){
   if(!window._ptpNetHooked){
     window.addEventListener('online',()=>{updateSyncUI();syncRead();});
     window.addEventListener('offline',()=>updateSyncUI());
-    setInterval(()=>{try{updateSyncUI();}catch(e){console.warn('[PTP]',e);}},5000);
+    setInterval(()=>{try{updateSyncUI();}catch(e){console.warn('[PAM]',e);}},5000);
     window._ptpNetHooked=true;
   }
 }
@@ -12998,13 +13128,13 @@ function pushToSync(){
       const ks=(((task.tags&&task.tags[0])||(task.title?task.title.split(/[–-]/)[0]:'')||'')+'').trim();
       (task.ausserhausTermine||[]).forEach((t,i)=>{
         if(!t.date&&!t.von)return;
-        termine.push({syncId:'ptp_'+task.id+'_t'+i,source:'ptp',kostenstelle:ks,auftragTitle:task.title||'',
+        termine.push({syncId:'pam_'+task.id+'_t'+i,source:'pam',kostenstelle:ks,auftragTitle:task.title||'',
           datum:t.date||'',von:t.von||'',bis:t.bis||'',beschreibung:t.beschreibung||''});
       });
       (task.zeitEntries||[]).forEach((z,i)=>{
         if(!z.date&&!z.von)return;
         const min=parseMinutes(z.von,z.bis);
-        zeiten.push({syncId:'ptp_'+task.id+'_z'+i,source:'ptp',kostenstelle:ks,auftragTitle:task.title||'',
+        zeiten.push({syncId:'pam_'+task.id+'_z'+i,source:'pam',kostenstelle:ks,auftragTitle:task.title||'',
           datum:z.date||'',von:z.von||'',bis:z.bis||'',beschreibung:z.beschreibung||'',minuten:min});
       });
     });
@@ -13024,7 +13154,7 @@ function pushToSync(){
   lastSyncTimestamp=syncData.lastUpdated;
   syncWrite();
   // Andere offene Tabs sofort informieren
-  try{localStorage.setItem('ptp_sync_ping',String(Date.now()));}catch(e){console.warn('[PTP]',e);}
+  try{localStorage.setItem('pam_sync_ping',String(Date.now()));}catch(e){console.warn('[PAM]',e);}
 }
 let _ptpLastSyncReadAt=0;
 function _ptpSyncStateTooltip(){
@@ -13044,7 +13174,7 @@ function _ptpSyncStateTooltip(){
       const mins=Math.round((Date.now()-(at.startMs||Date.now()))/60000);
       base+='\n⏱ Fremder Timer läuft: '+(at.auftragTitle||'')+' ('+at.source+', seit '+mins+' min)';
     }
-  }catch(e){console.warn('[PTP]',e);}
+  }catch(e){console.warn('[PAM]',e);}
   return base;
 }
 function updateSyncUI(){
@@ -13111,14 +13241,14 @@ function setCardSize(pct){
   const v=Math.max(60,Math.min(200,parseInt(pct,10)||100));
   document.documentElement.style.setProperty('--card-scale',(v/100).toFixed(2));
   const lbl=document.getElementById('cardSizeVal');if(lbl)lbl.textContent=v+'%';
-  try{localStorage.setItem('ptp_card_size',String(v));}catch(e){console.warn('[PTP]',e);}
+  try{localStorage.setItem('ptp_card_size',String(v));}catch(e){console.warn('[PAM]',e);}
 }
 (function initCardSize(){
   try{
     const s=parseInt(localStorage.getItem('ptp_card_size')||'100',10);
     const inp=document.getElementById('cardSizeSlider');
     if(inp){inp.value=String(s);setCardSize(s);}
-  }catch(e){console.warn('[PTP]',e);}
+  }catch(e){console.warn('[PAM]',e);}
 })();
 
 // ── MODAL-GRÖSSE (zwei Regler: links ◧ / rechts ◨) ──
@@ -13130,7 +13260,7 @@ function setModalSideScale(side,pct){
   if(lbl)lbl.textContent=v+'%';
   const inp=document.getElementById(side==='left'?'modalSliderL':'modalSliderR');
   if(inp)inp.value=String(v);
-  try{localStorage.setItem('ptp_modal_'+side,String(v));}catch(e){console.warn('[PTP]',e);}
+  try{localStorage.setItem('ptp_modal_'+side,String(v));}catch(e){console.warn('[PAM]',e);}
 }
 
 // Gespeicherte Modal-Seitengrössen beim Modal-Öffnen wiederherstellen
@@ -13142,7 +13272,7 @@ function applyStoredModalSize(){
       if(inp){inp.value=String(s);}
       setModalSideScale(side,s);
     });
-  }catch(e){console.warn('[PTP]',e);}
+  }catch(e){console.warn('[PAM]',e);}
 }
 
 // Aktuelle Modal-Seitengrössen in localStorage sichern
@@ -13153,7 +13283,7 @@ function saveModalSize(){
     if(l)localStorage.setItem('ptp_modal_left',l.value);
     if(r)localStorage.setItem('ptp_modal_right',r.value);
     showToast('Modal-Größe gespeichert ✓','ok',2000);
-  }catch(e){console.warn('[PTP]',e);}
+  }catch(e){console.warn('[PAM]',e);}
 }
 
 (function initModalSize(){
@@ -13163,7 +13293,7 @@ function saveModalSize(){
       const inp=document.getElementById(side==='left'?'modalSliderL':'modalSliderR');
       if(inp){inp.value=String(s);}
     });
-  }catch(e){console.warn('[PTP]',e);}
+  }catch(e){console.warn('[PAM]',e);}
 })();
 
 // ── CHROME-FIX: Frühe Token-Sicherung + bfcache-Handling ────────────────────
