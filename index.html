@@ -2168,7 +2168,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
           ondragover="event.preventDefault();event.dataTransfer.dropEffect='copy'"
           ondragleave="if(!document.getElementById('tFotoSect').contains(event.relatedTarget)){document.getElementById('tFotoSect').classList.remove('foto-sect-drag-over');}"
           ondrop="event.preventDefault();document.getElementById('tFotoSect').classList.remove('foto-sect-drag-over');document.getElementById('tFotoSect').classList.add('open');document.getElementById('fotosDropBody').classList.remove('foto-drag-over');_handleFotoDrop(event.dataTransfer);">
-          <div class="mv2-section-label" onclick="_toggleMv2Sect('tFotoSect',event)"><span class="mvl-dot"><i style="background:#888780"></i></span><span class="mvl-icon">📷</span><span class="mvl-text">Fotos (Drive)</span><span class="mvl-badge"><span id="tFotoCountBadge" style="display:none;background:var(--accent);color:#fff;border-radius:10px;padding:1px 7px;font-size:calc(11px*var(--modal-scale,1));font-weight:700;"></span><button onclick="event.stopPropagation();openFotoGallery()" title="Alle Fotos groß anzeigen" style="padding:2px 8px;border-radius:6px;border:1px solid var(--accent);background:rgba(108,99,255,0.1);color:var(--accent);font-size:calc(10px*var(--modal-scale,1));cursor:pointer;font-weight:600;white-space:nowrap;">⛶ Groß</button></span><span class="mv2-coll-arrow">›</span></div>
+          <div class="mv2-section-label" onclick="_toggleMv2Sect('tFotoSect',event)"><span class="mvl-dot"><i style="background:#888780"></i></span><span class="mvl-icon">📷</span><span class="mvl-text">Fotos (Drive)</span><span class="mvl-badge"><button onclick="event.stopPropagation();openFotoGallery()" title="Alle Fotos groß anzeigen" style="padding:2px 8px;border-radius:6px;border:1px solid var(--accent);background:rgba(108,99,255,0.1);color:var(--accent);font-size:calc(10px*var(--modal-scale,1));cursor:pointer;font-weight:600;white-space:nowrap;">⛶ Groß</button><span id="tFotoCountBadge" style="display:none;background:var(--accent);color:#fff;border-radius:10px;padding:1px 7px;font-size:calc(11px*var(--modal-scale,1));font-weight:700;"></span></span><span class="mv2-coll-arrow">›</span></div>
           <div id="fotosDropBody"
             ondragenter="event.preventDefault();document.getElementById('fotosDropBody').classList.add('foto-drag-over')"
             ondragover="event.preventDefault();event.dataTransfer.dropEffect='copy'"
@@ -2689,7 +2689,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 
 <script>
 // ── VERSION ── (bei jeder Änderung: PAM_BUILD erhöhen + sw.js CACHE_NAME synchron hochzählen)
-const PAM_BUILD = 'v2026-05-14 · #67';
+const PAM_BUILD = 'v2026-05-14 · #70';
 
 // ── STATE ──
 let boards = {};
@@ -3344,7 +3344,8 @@ const DEFAULT_FOLDER_NOTIZ    = 'https://drive.google.com/drive/u/0/folders/1iSE
 const DEFAULT_FOLDER_BAUSTELLE= 'https://drive.google.com/drive/u/0/folders/1GBcSWtUkKw7pJJ2CKvbTs_WZCZ1_RJ07';
 // Fix #6: drive.file erlaubt nur app-eigene Dateien; drive.readonly für Lesezugriff auf fremde Dateien.
 // drive.metadata.readonly erlaubt Datei-Suche (name, parents) ohne vollen Lesezugriff.
-const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.metadata.readonly';
+// email-Scope: erlaubt /oauth2/v3/userinfo (für login_hint-Speicherung), kein extra Consent nötig.
+const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.metadata.readonly email';
 const GMAIL_SCOPE  = 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send';
 let gmailToken=null;let gmailTokenClient=null;let gmailUserEmail=null;
 const WORKSPACE_FOLDER_NAME     = 'PAM-Workboard Daten';
@@ -5464,13 +5465,13 @@ function _updateHdrZeitBadge(){
   if(!wrap)return;
   if(zMins===0&&tMins===0){wrap.style.display='none';wrap.innerHTML='';return;}
   const gMins=zMins+tMins;
-  const fs='calc(10px*var(--modal-scale,1))';
+  const fs='calc(12px*var(--modal-scale,1))';
   let inner='<span style="color:var(--text2);font-size:'+fs+';font-weight:500;white-space:nowrap;">Gesamtzeit:</span>'
     +'<span style="color:var(--text);font-size:'+fs+';font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.4px;margin-left:4px;">'+_hm(gMins)+'</span>';
   inner+='<span style="display:inline-block;width:1px;height:12px;background:var(--border);margin:0 6px;vertical-align:middle;"></span>';
-  if(tMins>0)inner+='<span style="font-size:12px;line-height:1;">📅</span><span style="color:#6a8aff;font-size:'+fs+';font-weight:700;font-variant-numeric:tabular-nums;margin-left:2px;">'+_hm(tMins)+'</span>';
-  if(tMins>0&&zMins>0)inner+='<span style="color:var(--text2);font-size:9px;margin:0 3px;">·</span>';
-  if(zMins>0)inner+='<span style="font-size:12px;line-height:1;">⏱</span><span style="color:#4ade80;font-size:'+fs+';font-weight:700;font-variant-numeric:tabular-nums;margin-left:2px;">'+_hm(zMins)+'</span>';
+  if(tMins>0)inner+='<span style="font-size:'+fs+';line-height:1;">📅</span><span style="color:var(--text);font-size:'+fs+';font-weight:700;font-variant-numeric:tabular-nums;margin-left:2px;">'+_hm(tMins)+'</span>';
+  if(tMins>0&&zMins>0)inner+='<span style="color:var(--text2);font-size:'+fs+';margin:0 3px;">·</span>';
+  if(zMins>0)inner+='<span style="font-size:'+fs+';line-height:1;">⏱</span><span style="color:var(--text);font-size:'+fs+';font-weight:700;font-variant-numeric:tabular-nums;margin-left:2px;">'+_hm(zMins)+'</span>';
   wrap.innerHTML='<span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:6px;background:var(--bg3);border:0.5px solid var(--border);white-space:nowrap;">'+inner+'</span>';
   wrap.style.display='inline-flex';
   wrap.style.gap='0';
