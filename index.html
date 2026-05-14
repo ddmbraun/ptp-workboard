@@ -1755,7 +1755,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <span class="file-dot none" id="fileDot"></span>
     <span class="file-name" id="fileName">Keine Datei geöffnet</span>
     <span class="file-msg" id="fileMsg"></span>
-    <span id="pamVersionBadge" style="font-size:10px;color:var(--text2);opacity:.65;padding:1px 7px;border:0.5px solid var(--border);border-radius:4px;margin-left:8px;font-family:monospace;white-space:nowrap;flex-shrink:0;">v2026-05-14 · #38</span>
+    <span id="pamVersionBadge" style="font-size:10px;color:var(--text2);opacity:.65;padding:1px 7px;border:0.5px solid var(--border);border-radius:4px;margin-left:8px;font-family:monospace;white-space:nowrap;flex-shrink:0;">v2026-05-14 · #39</span>
   </div>
   <div class="filebar-right">
     <button id="gmailBtnBar" onclick="gmailConnect()" title="Mit Gmail / Google Workspace verbinden" style="padding:3px 10px;border-radius:4px;font-size:11px;background:transparent;color:#1B5E20;border:1px solid #A5D6A7;cursor:pointer;font-weight:500;">📩 Gmail</button>
@@ -2573,7 +2573,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 
 <script>
 // ── VERSION ── (bei jeder Änderung: PAM_BUILD erhöhen + sw.js CACHE_NAME synchron hochzählen)
-const PAM_BUILD = 'v2026-05-14 · #38';
+const PAM_BUILD = 'v2026-05-14 · #39';
 
 // ── STATE ──
 let boards = {};
@@ -9256,23 +9256,40 @@ function _pamEmailRefresh(task){
   if(mc){mc.textContent=msMsgs;mc.style.display=msMsgs?'inline':'none';}
   const oc=document.getElementById('pamOrigCount');
   if(oc){oc.textContent=origCount?origCount:'';oc.style.display=origCount?'inline':'none';}
-  // Absender-Card
-  const senderVal=(document.getElementById('taskEmailSenderInput')||{}).value||(t&&t.emailSender)||'';
+  // Absender: gespeicherter Wert, sonst ersten Absender aus Gmail/Outlook übernehmen
+  let senderVal=(document.getElementById('taskEmailSenderInput')||{}).value||(t&&t.emailSender)||'';
+  if(!senderVal){
+    const gmFirst=(t&&t.gmailThreadMessages||[])[0];
+    const msFirst=(t&&t.msThreadMessages||[])[0];
+    const src=gmFirst||msFirst;
+    if(src){
+      senderVal=src.fromName?'"'+src.fromName+'" <'+(src.from||'')+'>':(src.from||'');
+      // in taskEmailSenderInput + task speichern
+      const inp=document.getElementById('taskEmailSenderInput');
+      if(inp&&senderVal){inp.value=senderVal;}
+      if(t&&senderVal)t.emailSender=senderVal;
+    }
+  }
+  // Absender-Card immer anzeigen (Platzhalter wenn leer)
   const absCard=document.getElementById('pamAbsenderCard');
   if(absCard){
+    absCard.style.display='block';
+    const av=document.getElementById('pamAbsenderAvatar');
+    const an=document.getElementById('pamAbsenderName');
+    const aa=document.getElementById('pamAbsenderAddr');
     if(senderVal){
-      absCard.style.display='block';
       const nm=senderVal.match(/^"?([^"<]+?)"?\s*<([^>]+)>/);
       const name=nm?nm[1].trim():'';
       const addr=nm?nm[2].trim():(senderVal.includes('@')?senderVal:'');
       const initials=((name||addr||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('')).toUpperCase()||'?';
-      const av=document.getElementById('pamAbsenderAvatar');
-      const an=document.getElementById('pamAbsenderName');
-      const aa=document.getElementById('pamAbsenderAddr');
-      if(av)av.textContent=initials;
+      if(av){av.textContent=initials;av.style.background='#2d6a4f';}
       if(an)an.textContent=name||addr;
       if(aa)aa.textContent=addr;
-    }else{absCard.style.display='none';}
+    }else{
+      if(av){av.textContent='?';av.style.background='#aaa';}
+      if(an){an.textContent='Kein Absender';an.style.color='var(--text2)';}
+      if(aa)aa.textContent='.eml einziehen oder Verlauf laden';
+    }
   }
 }
 // ─────────────────────────────────────────────────────────────────
@@ -10798,6 +10815,8 @@ function renderEmailSection(){
       grid.style.display='none';
     }
   }
+  // Chip-Counts im neuen E-Mail-Block aktualisieren
+  _pamEmailRefresh();
 }
 // Stubs so old call sites still work
 function renderEmailOriginals(){renderEmailSection();}
@@ -11588,11 +11607,11 @@ async function _driveUploadGeneric(buf,fname,mimeType,fid){
 }
 
 async function _uploadEmailOriginal(file){
-  if(!gdriveToken){showToast('⚠ Bitte zuerst mit Google Drive verbinden.','error');return;}
+  if(!gdriveToken){showToast('⚠ .eml ablegen: Bitte zuerst oben „☁️ Google Drive" verbinden.','error',5000);return;}
   // Zielordner: tEmailOrdner → tGDOrdner → Fehler
   const folderUrl=(document.getElementById('tEmailOrdner')?.value||document.getElementById('tGDOrdner')?.value||'').trim();
   const fid=_ezFolderId(folderUrl);
-  if(!fid){showToast('⚠ Bitte zuerst einen Drive-Projektordner in den Verknüpfungen eintragen.','error');return;}
+  if(!fid){showToast('⚠ .eml ablegen: Kein Drive-Ordner gefunden. Bitte Projektordner-URL unter Verknüpfungen eintragen.','error',6000);return;}
   const msgEl=document.getElementById('emailOrigDropMsg');
   if(msgEl)msgEl.textContent='⏳ Prüfe: '+file.name+'…';
   try{
@@ -11661,12 +11680,13 @@ async function _uploadEmailOriginal(file){
         t.emailSender=emailMeta.sender;
         const sndInp=document.getElementById('taskEmailSenderInput');
         if(sndInp&&!sndInp.value.trim())sndInp.value=emailMeta.sender;
-        const sndRow=document.getElementById('taskEmailSenderRow');
-        if(sndRow)sndRow.style.display='flex';
       }
+      // Absender-Card im neuen E-Mail-Block aktualisieren
+      _pamEmailRefresh(t);
     }
-    renderEmailSection(); // aktualisiert auch msThreadBar
+    renderEmailSection(); // aktualisiert Popup + zählt Originale
     renderEmailOriginals();
+    _pamEmailRefresh(); // Chip-Counts + Absender-Card im rechten Block aktualisieren
     scheduleTaskFieldSave();
     if(msgEl)msgEl.textContent='✅ Abgelegt: '+file.name;
     setTimeout(()=>{if(msgEl)msgEl.textContent='📧 .eml / .msg hier hineinziehen';},3500);
