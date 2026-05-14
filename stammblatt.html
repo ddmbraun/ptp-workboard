@@ -251,7 +251,7 @@ textarea{min-height:48px;resize:vertical;}
     <button class="tbtn gelb" id="btnDruck" onclick="drucken()" disabled>🖨 Drucken/PDF</button>
     <button class="tbtn grau" id="btnPdfDrive" onclick="pdfNachDrive()" disabled title="PDF in Drive-Ordner speichern">📤 PDF→Drive</button>
     <button class="tbtn grau" id="btnShortcut" onclick="shortcutNachDrive()" disabled title="Stammblatt-Verknüpfung (.url) in Drive-Stammdaten-Ordner speichern">🔗 Shortcut→Drive</button>
-    <button class="tbtn" id="btnNeuerTask" onclick="neuerTaskInPTP()" disabled style="background:#6c63ff;color:#fff;" title="Neuen Task in PTPBAU mit Objektdaten anlegen">➕ Neuer Task</button>
+    <button class="tbtn" id="btnNeuerTask" onclick="neuerTaskInPTP()" disabled style="background:#6c63ff;color:#fff;" title="Neuen Task in PAM Workboard mit Objektdaten anlegen">➕ Neuer Task</button>
     <button class="tbtn grau" onclick="beenden()">✕</button>
   </div>
   <div id="wrap">
@@ -860,12 +860,12 @@ function neuerTaskInPTP(){
     sbUrl: window.location.href.split('?')[0].split('#')[0],
     _ts: Date.now()
   };
-  try{ localStorage.setItem('ptp_prefill_task', JSON.stringify(prefill)); }catch(e){ alert('Fehler: '+e.message); return; }
-  // PTPBAU-URL immer automatisch ableiten (kein veralteter Cache-Wert)
+  try{ localStorage.setItem('pam_prefill_task', JSON.stringify(prefill)); }catch(e){ alert('Fehler: '+e.message); return; }
+  // PAM-Workboard-URL ableiten – beide Apps liegen im selben Ordner (pam-desktop)
   var _href=window.location.href.split('?')[0].split('#')[0];
   var _base=_href.replace(/[^\/]*$/, '');
-  var ptpUrl=_base+'PTPBAU/index.html';
-  try{ localStorage.removeItem('ptp_stammblatt_url_ptp'); }catch(e){}
+  var ptpUrl=_base+'index.html';
+  try{ localStorage.removeItem('pam_stammblatt_url'); }catch(e){}
   // Shortcut automatisch im Hintergrund nach Drive speichern (wenn verbunden + Ordner gesetzt)
   (function(){
     try{
@@ -888,15 +888,15 @@ function neuerTaskInPTP(){
       }
     }catch(ex){}
   })();
-  // Toast mit Link anzeigen – wenn PTPBAU schon offen ist springt der storage-Event dort hin
-  // Wenn nicht offen: Link im Toast öffnet PTPBAU in neuem Tab
+  // Toast mit Link anzeigen – wenn PAM Workboard schon offen ist springt der storage-Event dort hin
+  // Wenn nicht offen: Link im Toast öffnet PAM Workboard in neuem Tab
   var _tn=document.createElement('div');
   _tn.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:99999;'
     +'background:#1a2744;color:#fff;border-radius:10px;padding:14px 20px;font-size:13px;'
     +'display:flex;align-items:center;gap:14px;box-shadow:0 4px 20px rgba(0,0,0,.4);max-width:90vw;';
   _tn.innerHTML='<span>✅ Objektdaten bereit</span>'
-    +'<a href="'+ptpUrl+'" target="_ptpbau" style="background:#6c63ff;color:#fff;text-decoration:none;'
-    +'padding:6px 14px;border-radius:6px;font-weight:700;white-space:nowrap;font-size:13px;">➕ Zu PTPBAU</a>'
+    +'<a href="'+ptpUrl+'" target="_pamworkboard" style="background:#6c63ff;color:#fff;text-decoration:none;'
+    +'padding:6px 14px;border-radius:6px;font-weight:700;white-space:nowrap;font-size:13px;">➕ Zu PAM Workboard</a>'
     +'<button onclick="this.parentNode.remove()" style="background:none;border:none;color:rgba(255,255,255,.6);'
     +'font-size:18px;cursor:pointer;padding:0 4px;line-height:1;">✕</button>';
   document.body.appendChild(_tn);
@@ -1495,7 +1495,8 @@ wechsleDach('z',true);
 // ════════════════════════════════════════════════
 const GDRIVE_CLIENT_ID = '56419258975-2ri3eujer9p6saph1mesa5hihlcae1pl.apps.googleusercontent.com';
 const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.metadata.readonly';
-const GDRIVE_FOLDER_NAME = 'PTP-BAU Daten';
+const GDRIVE_FOLDER_NAME = 'PAM-Workboard Daten';
+const GDRIVE_FOLDER_NAME_OLD = 'PTP-BAU Daten'; // Fallback für bestehende Drive-Ordner
 const GDRIVE_FILE_NAME   = 'stammblatt-daten.json';
 const SD_TOKEN_KEY  = 'sd_gdrive_token_v1';
 const SD_FILE_KEY   = 'sd_gdrive_file_v1';
@@ -1597,21 +1598,26 @@ async function gdriveTokenCallback(resp){
 
 async function _ensureWorkspaceFolder(){
   if(workspaceFolderId) return workspaceFolderId;
-  var q = encodeURIComponent("name='"+GDRIVE_FOLDER_NAME+"' and mimeType='application/vnd.google-apps.folder' and trashed=false");
-  var r = await fetch('https://www.googleapis.com/drive/v3/files?q='+q+'&fields=files(id,name)&orderBy=createdTime',
-    {headers:{Authorization:'Bearer '+gdriveToken}});
-  var d = await r.json();
-  if(d.files && d.files.length > 0){
-    workspaceFolderId = d.files[0].id;
-  } else {
-    var cr = await fetch('https://www.googleapis.com/drive/v3/files',{
+  var _searchF=async function(name){
+    var q=encodeURIComponent("name='"+name+"' and mimeType='application/vnd.google-apps.folder' and trashed=false");
+    var r=await fetch('https://www.googleapis.com/drive/v3/files?q='+q+'&fields=files(id,name)&orderBy=createdTime',
+      {headers:{Authorization:'Bearer '+gdriveToken}});
+    var d=await r.json();
+    return (d.files&&d.files.length>0)?d.files[0].id:null;
+  };
+  // Neuen Namen suchen, dann Fallback auf alten (PTP-BAU Daten)
+  var _fid=await _searchF(GDRIVE_FOLDER_NAME);
+  if(!_fid) _fid=await _searchF(GDRIVE_FOLDER_NAME_OLD).catch(function(){return null;});
+  if(!_fid){
+    var cr=await fetch('https://www.googleapis.com/drive/v3/files',{
       method:'POST',
       headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'application/json'},
       body:JSON.stringify({name:GDRIVE_FOLDER_NAME, mimeType:'application/vnd.google-apps.folder'})
     });
-    var f = await cr.json();
-    workspaceFolderId = f.id;
+    var f=await cr.json();
+    _fid=f.id;
   }
+  workspaceFolderId=_fid;
   try{ localStorage.setItem('sd_workspace_folder_id', workspaceFolderId); }catch(e){}
   return workspaceFolderId;
 }
@@ -1701,7 +1707,7 @@ function gdriveRequestToken(action){
   try{
     var opts = {};
     // COMPAT-FIX: Auch Desktop-Key lesen – kein Konto-Dialog wenn Desktop bereits angemeldet ist.
-    var hint = localStorage.getItem('sd_user_email_v1') || localStorage.getItem('ptp_user_email_v1') || '';
+    var hint = localStorage.getItem('sd_user_email_v1') || localStorage.getItem('pam_user_email_v1') || localStorage.getItem('ptp_user_email_v1') || '';
     if(hint) opts.login_hint = hint;
     // prompt leer lassen: Google wählt Konto automatisch wenn hint bekannt (kein Dialog)
     gdriveTokenClient.requestAccessToken(opts);

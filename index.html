@@ -397,28 +397,38 @@ function _decodeB64Body(s,cs){
 }
 // ── EML-Anbieter-Erkennung ──────────────────────────────────────────────────
 // Gibt 'gmail', 'exchange' oder 'unknown' zurück.
+// Bekannte Google-Workspace-Domains (Mails über Gmail-Server, aber eigene Domain)
+// Erweiterbar: weitere Workspace-Domains hier eintragen
+// info@ddmbraun.de → Exchange/MS365 (NICHT hier eintragen!)
+// frank.braun@sv-fb.de → Google Workspace Gmail
+const _GMAIL_WORKSPACE_DOMAINS=['sv-fb.de'];
+
 function _detectEmlProvider(rawText){
   const he=rawText.search(/\r?\n\r?\n/);
   const hdr=he>=0?rawText.substring(0,he):rawText.substring(0,3000);
   const hl=hdr.replace(/\r?\n([ \t])/g,' ').split(/\r?\n/);
   let messageId='';
+  let fromAddr='';
   const receivedParts=[];
   let hasXGmail=false;
   let hasXMsExchange=false;
   hl.forEach(l=>{
     if(/^Message-ID:/i.test(l))messageId=l.replace(/^Message-ID:\s*/i,'').trim().replace(/^<|>$/g,'');
+    if(/^From:/i.test(l))fromAddr=l.replace(/^From:\s*/i,'').trim().toLowerCase();
     if(/^Received:/i.test(l))receivedParts.push(l.toLowerCase());
-    if(/^X-Gmail-/i.test(l))hasXGmail=true;
+    if(/^X-Gmail-/i.test(l)||/^X-Google-/i.test(l))hasXGmail=true;
     if(/^X-MS-Exchange-/i.test(l)||/^X-Microsoft-/i.test(l))hasXMsExchange=true;
   });
   if(hasXGmail)return 'gmail';
+  // Bekannte Google-Workspace-Domains: Absender-Adresse prüfen
+  if(_GMAIL_WORKSPACE_DOMAINS.some(d=>fromAddr.includes('@'+d)||fromAddr.includes('<'+d)||messageId.toLowerCase().includes('@'+d)))return 'gmail';
   if(messageId){
     const domain=(messageId.split('@')[1]||'').toLowerCase();
     if(/google\.com$/.test(domain)||/gmail\.com$/.test(domain)||/googlemail\.com$/.test(domain))return 'gmail';
     if(/exchangelabs\.com$/.test(domain)||/outlook\.com$/.test(domain)||/hotmail\.com$/.test(domain))return 'exchange';
   }
   const recStr=receivedParts.join(' ');
-  if(recStr.includes('google.com')||recStr.includes('gmail.com')||recStr.includes('googlemail.com'))return 'gmail';
+  if(recStr.includes('google.com')||recStr.includes('gmail.com')||recStr.includes('googlemail.com')||recStr.includes('smtp.gmail'))return 'gmail';
   if(hasXMsExchange)return 'exchange';
   return 'unknown';
 }
@@ -2633,7 +2643,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 
 <script>
 // ── VERSION ── (bei jeder Änderung: PAM_BUILD erhöhen + sw.js CACHE_NAME synchron hochzählen)
-const PAM_BUILD = 'v2026-05-14 · #48';
+const PAM_BUILD = 'v2026-05-14 · #49';
 
 // ── STATE ──
 let boards = {};
@@ -9417,17 +9427,22 @@ function _pamEmailRefresh(task){
   const t=task||(()=>{const id=(document.getElementById('taskId')||{}).value;return id?findTaskById(id):null;})();
   const gmMsgs=((t&&t.gmailThreadMessages)||[]).length;
   const msMsgs=((t&&t.msThreadMessages)||[]).length;
+  // Fallback-Badge: wenn Thread noch nicht geladen, aber Mail-IDs vorhanden → verknüpfte Mails anzeigen
+  const gmLinked=((t&&t.gmailMessageIds)||[]).length||(t&&t.gmailMessageId?1:0);
+  const msLinked=((t&&t.msMessageIds)||[]).length||(t&&t.msMessageId?1:0);
+  const gmBadge=gmMsgs||gmLinked;
+  const msBadge=msMsgs||msLinked;
   const origCount=(typeof taskEmailOriginals!=='undefined'?taskEmailOriginals.length:0)
                  +(typeof taskEmailPdfs!=='undefined'?taskEmailPdfs.length:0);
-  const total=gmMsgs+msMsgs;
+  const total=gmBadge+msBadge;
   // Nachrichten-Badge
   const badge=document.getElementById('pamEmailMsgBadge');
   if(badge){badge.textContent=total+' Nachrichten';badge.style.display=total?'':'none';}
-  // Counts
+  // Counts (Thread-Anzahl wenn geladen, sonst verknüpfte Mail-IDs)
   const gc=document.getElementById('pamGmailCount');
-  if(gc){gc.textContent=gmMsgs;gc.style.display=gmMsgs?'inline':'none';}
+  if(gc){gc.textContent=gmBadge;gc.style.display=gmBadge?'inline':'none';}
   const mc=document.getElementById('pamOutlookCount');
-  if(mc){mc.textContent=msMsgs;mc.style.display=msMsgs?'inline':'none';}
+  if(mc){mc.textContent=msBadge;mc.style.display=msBadge?'inline':'none';}
   const oc=document.getElementById('pamOrigCount');
   if(oc){oc.textContent=origCount?origCount:'';oc.style.display=origCount?'inline':'none';}
   // Absender: gespeicherter Wert, sonst ersten Absender aus Gmail/Outlook/EML-Originale übernehmen
@@ -12297,6 +12312,8 @@ function saveTaskAndBack(){
 }
 
 function openNewTaskModal(){
+  clearTimeout(autoSaveTimer); // Ausstehende Saves vom letzten Task stoppen
+  _taskModalDirty = false;     // Dirty-Flag zurücksetzen
   _pamActiveTaskId=''; // Fallback-ID zurücksetzen (verhindert Laden beim falschen Task)
   document.getElementById('taskId').value='';
   document.getElementById('taskTitleInput').value='';
@@ -12338,10 +12355,11 @@ function openNewTaskModal(){
   _attachImgsOpen=false;
   // E-Mail-Felder vollständig leeren (verhindert Übernahme aus vorherigem Task)
   const _esNewInp=document.getElementById('taskEmailSenderInput');if(_esNewInp)_esNewInp.value='';
+  _renderSenderDisplay(); // Sender-Display-Element ebenfalls zurücksetzen (Style-State)
   ['pamGmailInlineList','pamMsInlineList','gmThreadList','msThreadList','gmThreadStatus','msThreadStatus'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='';});
   ['pamGmailBody','pamOutlookBody'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
   ['pamGmailChip','pamOutlookChip'].forEach(id=>{const el=document.getElementById(id);if(el){el.style.borderColor='var(--border)';el.style.background='var(--bg3)';el.style.borderBottomLeftRadius='8px';el.style.borderBottomRightRadius='8px';}});
-  _pamEmailRefresh({emailSender:'',gmailThreadMessages:[],msThreadMessages:[]});
+  _pamEmailRefresh({emailSender:'',gmailThreadMessages:[],msThreadMessages:[],gmailMessageIds:[],gmailMessageId:'',msMessageIds:[],msMessageId:''});
   renderLinksList();renderAttachList();renderFotoListDesktop();renderPruefberichteDesktop();
   renderAusserhausTermine();renderZeiterfassung();updateGcalModalBtn();renderTimerSection();renderTaskNotizen();renderCheckliste();renderEmailOriginals();renderEmailPdfs();renderGmailLinks();
   renderAufgabenList();renderFreieTermine();
