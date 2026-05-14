@@ -1801,7 +1801,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <span class="file-dot none" id="fileDot"></span>
     <span class="file-name" id="fileName">Keine Datei geöffnet</span>
     <span class="file-msg" id="fileMsg"></span>
-    <span id="pamVersionBadge" style="font-size:10px;color:var(--text2);opacity:.65;padding:1px 7px;border:0.5px solid var(--border);border-radius:4px;margin-left:8px;font-family:monospace;white-space:nowrap;flex-shrink:0;">v2026-05-14 · #45</span>
+    <span id="pamVersionBadge" style="font-size:10px;color:var(--text2);opacity:.65;padding:1px 7px;border:0.5px solid var(--border);border-radius:4px;margin-left:8px;font-family:monospace;white-space:nowrap;flex-shrink:0;">v2026-05-14 · #47</span>
   </div>
   <div class="filebar-right">
     <button id="gmailBtnBar" onclick="gmailConnect()" title="Mit Gmail / Google Workspace verbinden" style="padding:3px 10px;border-radius:4px;font-size:11px;background:transparent;color:#1B5E20;border:1px solid #A5D6A7;cursor:pointer;font-weight:500;">📩 Gmail</button>
@@ -2628,7 +2628,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 
 <script>
 // ── VERSION ── (bei jeder Änderung: PAM_BUILD erhöhen + sw.js CACHE_NAME synchron hochzählen)
-const PAM_BUILD = 'v2026-05-14 · #45';
+const PAM_BUILD = 'v2026-05-14 · #47';
 
 // ── STATE ──
 let boards = {};
@@ -8830,9 +8830,9 @@ async function _gmFindByMsgId(task){
 }
 
 async function _gmLoadEmailThread(){
-  const taskId=(document.getElementById('taskId')||{}).value||'';
+  const taskId=(document.getElementById('taskId')||{}).value||_pamActiveTaskId||'';
   const task=findTaskById(taskId);
-  if(!task){showToast('⚠ Kein Task geöffnet','error',2000);return;}
+  if(!task){showToast('⚠ Kein Task geöffnet (ID: '+(taskId||'leer')+')','error',3000);return;}
   if(!gmailToken){showToast('⚠ Bitte zuerst Gmail verbinden (Toolbar: 📩 Gmail)','warning',4000);return;}
   const stEl=document.getElementById('gmThreadStatus');if(stEl)stEl.textContent='⏳ Lade…';
   showToast('⏳ Lade Gmail-Verlauf…','info',8000);
@@ -9015,6 +9015,7 @@ const MS_SCOPES=['Mail.Read','User.Read'];
 let msalInstance=null;
 let msToken=null;
 let msUserEmail=null;
+let _pamActiveTaskId=''; // Fallback-ID wenn taskId-DOM-Feld leer ist
 
 function msInit(){
   if(typeof msal==='undefined'){console.warn('[MS] MSAL nicht verfügbar');return;}
@@ -9098,9 +9099,9 @@ async function _msRefreshToken(){
 }
 
 async function _msLoadEmailThread(){
-  const taskId=(document.getElementById('taskId')||{}).value||'';
+  const taskId=(document.getElementById('taskId')||{}).value||_pamActiveTaskId||'';
   const task=findTaskById(taskId);
-  if(!task){showToast('⚠ Kein Task geöffnet','error',2000);return;}
+  if(!task){showToast('⚠ Kein Task geöffnet (ID: '+(taskId||'leer')+')','error',3000);return;}
   if(!msToken){
     showToast('⚠ Bitte zuerst Outlook verbinden (Toolbar: 📨 Outlook)','warning',4000);
     return;
@@ -9127,7 +9128,15 @@ async function _msLoadEmailThread(){
           {headers:{Authorization:'Bearer '+msToken}});
         if(r.ok){
           const d=await r.json();
-          if(d.value&&d.value.length)convIds.add(d.value[0].conversationId);
+          if(d.value&&d.value.length){
+            convIds.add(d.value[0].conversationId);
+          }else{
+            // Fallback: manche Exchange-Server speichern ohne Spitzklammern
+            const _f1b=encodeURIComponent(`internetMessageId eq '${msgId}'`);
+            const rb=await fetch(`https://graph.microsoft.com/v1.0/me/messages?$filter=${_f1b}&$select=id,conversationId&$top=1`,
+              {headers:{Authorization:'Bearer '+msToken}});
+            if(rb.ok){const db=await rb.json();if(db.value&&db.value.length)convIds.add(db.value[0].conversationId);}
+          }
         }
       }catch(e){console.warn('[MS] ConvId für',msgId,':',e);}
     }
@@ -9140,7 +9149,7 @@ async function _msLoadEmailThread(){
       try{
         // me/messages ohne Ordner-Einschränkung → sucht in Posteingang, Gesendet, Unterordner, Gelöscht, Archiv
         const _f2=encodeURIComponent(`conversationId eq '${convId}' and isDraft eq false`);
-        const r2=await fetch(`https://graph.microsoft.com/v1.0/me/messages?$filter=${_f2}&$select=id,subject,from,receivedDateTime,internetMessageId,bodyPreview,isDraft&$top=50&$orderby=receivedDateTime asc`,
+        const r2=await fetch(`https://graph.microsoft.com/v1.0/me/messages?$filter=${_f2}&$select=id,subject,from,receivedDateTime,internetMessageId,bodyPreview,isDraft&$top=50`,
           {headers:{Authorization:'Bearer '+msToken}});
         if(!r2.ok){const _e2=await r2.json().catch(()=>({}));console.warn('[MS] Thread',convId,':',_e2.error?.message);continue;}
         const d2=await r2.json();
@@ -11743,6 +11752,8 @@ async function _uploadEmailOriginal(file){
       if(emailMeta.messageId){
         let _ep='unknown';
         try{if(isEml&&preText)_ep=_detectEmlProvider(preText);}catch(e){}
+        // Debug-Toast: zeigt erkannten Provider und MessageId
+        showToast('📨 EML erkannt · '+(_ep==='gmail'?'Gmail':'Exchange/Unbekannt')+' · ID: '+(emailMeta.messageId.substring(0,30)||'(keine)'),'info',6000);
         if(_ep==='gmail'){
           if(!t.gmailMessageIds)t.gmailMessageIds=[];
           if(!t.gmailMessageIds.includes(emailMeta.messageId))t.gmailMessageIds.push(emailMeta.messageId);
@@ -12349,6 +12360,7 @@ function openEditTaskModal(id){
   // currentBoard auf das Board des Tasks setzen (wichtig für Heute-Ansicht)
   if(taskBoard&&taskBoard!==currentBoard){currentBoard=taskBoard;}
   document.getElementById('taskId').value=task.id;
+  _pamActiveTaskId=task.id; // globaler Fallback für _msLoadEmailThread etc.
   document.getElementById('taskTitleInput').value=(task.title||'').replace(/[-_]+/g,' ').replace(/\s+/g,' ').trim();
   document.getElementById('taskDescInput').value=task.desc||'';
   document.getElementById('taskOwnerInput').value=task.owner||'Braun';
