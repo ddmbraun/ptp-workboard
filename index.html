@@ -12894,4 +12894,10 @@ async function maybeDailySyncBackup(){
     const b='bu_'+Date.now();
     const mp='--'+b+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'
       +JSON.stringify({name,mimeType:'application/json'})
-      +'\r\                                                                                 
+      +'\r\\n--'+b+'\r\nContent-Type: application/json\r\n\r\n'
+      +body+'\r\n--'+b+'--';
+    const r2=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+      {method:'POST',headers:{Authorization:'Bearer '+gdriveToken,'Content-Type':'multipart/related; boundary="'+b+'"'},body:mp});
+    if(r2.ok)localStorage.setItem('sync_backup_last',today);
+  }catch(e){console.warn('[PAM] Backup:',e);}
+}
