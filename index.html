@@ -1045,6 +1045,9 @@ async function _auftragConfirm(){
 <script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@5.0.7/dist/jspdf.plugin.autotable.min.js"></script>
+<script>/* html2canvas willReadFrequently-Patch: verhindert Canvas2D-Performance-Warnung */
+(function(){const _orig=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(t,a){if(t==='2d')a=Object.assign({willReadFrequently:true},a||{});return _orig.call(this,t,a);};})();
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 :root {
@@ -2704,7 +2707,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 
 <script>
 // ── VERSION ── (bei jeder Änderung: PAM_BUILD erhöhen + sw.js CACHE_NAME synchron hochzählen)
-const PAM_BUILD = 'v2026-05-14 · #63';
+const PAM_BUILD = 'v2026-05-14 · #64';
 
 // ── STATE ──
 let boards = {};
@@ -12106,13 +12109,13 @@ async function _uploadEmailOriginal(file){
           if(!t.msConversationId)t.msConversationId='';
           if(!t.msThreadMessages)t.msThreadMessages=[];
         }
-        // Chip auto-aufklappen + Thread laden
+        // Chip auto-aufklappen + Thread laden (nur wenn Task noch geöffnet)
         if(_ep==='gmail'&&typeof gmailToken!=='undefined'&&gmailToken){
           _pamEmailToggle('gmail');
-          setTimeout(()=>{if(typeof _gmLoadEmailThread==='function')_gmLoadEmailThread();},500);
+          setTimeout(()=>{const _tid=(document.getElementById('taskId')||{}).value||_pamActiveTaskId||'';if(_tid&&typeof _gmLoadEmailThread==='function')_gmLoadEmailThread();},600);
         }else if(_ep!=='gmail'&&typeof msToken!=='undefined'&&msToken){
           _pamEmailToggle('outlook');
-          setTimeout(()=>{if(typeof _msLoadEmailThread==='function')_msLoadEmailThread();},500);
+          setTimeout(()=>{const _tid=(document.getElementById('taskId')||{}).value||_pamActiveTaskId||'';if(_tid&&typeof _msLoadEmailThread==='function')_msLoadEmailThread();},600);
         }
       }
       // Absender übernehmen
