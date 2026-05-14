@@ -12405,6 +12405,37 @@ function _pamTimerToggleDesc(){
   row.style.display=hidden?'flex':'none';
   if(btn)btn.style.transform=hidden?'rotate(0deg)':'rotate(-90deg)';
 }
+
+// ── Skalierung linke / rechte Spalte ──────────────────────────────────────────
+function setModalSideScale(side, val){
+  val=Math.min(200,Math.max(70,+val));
+  const el=document.querySelector(side==='left'?'.mv2-left':'.mv2-right');
+  if(el) el.style.setProperty('--modal-scale', (val/100).toFixed(2));
+  const sliderId=side==='left'?'modalSliderL':'modalSliderR';
+  const valId   =side==='left'?'modalValL'  :'modalValR';
+  const slider=document.getElementById(sliderId);
+  const label =document.getElementById(valId);
+  if(slider) slider.value=val;
+  if(label)  label.textContent=val+'%';
+}
+function saveModalSize(){
+  const l=document.getElementById('modalSliderL');
+  const r=document.getElementById('modalSliderR');
+  try{
+    localStorage.setItem('pam_modal_scale_l', l?l.value:'100');
+    localStorage.setItem('pam_modal_scale_r', r?r.value:'100');
+  }catch(e){console.warn('[PAM]',e);}
+  if(typeof showToast==='function') showToast('✅ Schriftgröße gespeichert','success',2000);
+}
+function _restoreModalSize(){
+  try{
+    const l=+(localStorage.getItem('pam_modal_scale_l')||100);
+    const r=+(localStorage.getItem('pam_modal_scale_r')||100);
+    setModalSideScale('left',  l);
+    setModalSideScale('right', r);
+  }catch(e){console.warn('[PAM]',e);}
+}
+
 function _toggleMv2Sect(id, evt){
   if(evt){
     if(evt.target.tagName==='BUTTON'||evt.target.closest('button'))return;
@@ -12744,7 +12775,7 @@ function openEditTaskModal(id){
   if(_sbOrdnerEl){ _sbOrdnerEl.value=task.sbPdfOrdner||''; if(!_sbOrdnerEl.value) _autoFillSbOrdner(task.adresse||''); }
   let _sbVerkEl=document.getElementById('tSbPdfOrdnerVerk');
   if(_sbVerkEl) _sbVerkEl.value=_sbOrdnerEl?_sbOrdnerEl.value:'';
-  setTimeout(()=>{_updateMapsBtn();_updateHdrMeta();},50);
+  setTimeout(()=>{_updateMapsBtn();_updateHdrMeta();_restoreModalSize();},50);
   // Kontakte: migrate old static fields if no kontakte array yet
   let _kontakte=task.kontakte||[];
   if(!_kontakte.length){
