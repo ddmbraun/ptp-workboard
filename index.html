@@ -2651,7 +2651,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 
 <script>
 // ── VERSION ── (bei jeder Änderung: PAM_BUILD erhöhen + sw.js CACHE_NAME synchron hochzählen)
-const PAM_BUILD = 'v2026-05-14 · #50';
+const PAM_BUILD = 'v2026-05-14 · #52';
 
 // ── STATE ──
 let boards = {};
@@ -9229,6 +9229,25 @@ async function _msRefreshToken(){
   }
 }
 
+function _msCleanPreview(raw){
+  // bodyPreview von MS Graph kann CSS-Text enthalten wenn E-Mail mit <style>-Block beginnt
+  // (passiert bei Outlook/Exchange-Mails mit word-generiertem HTML)
+  if(!raw)return '';
+  let s=raw;
+  // @-Regeln: @font-face {...}, @charset "..." etc.
+  s=s.replace(/@[\w-]+[^{]*\{[^}]*\}/g,'');
+  // CSS-Regelmengen: Selektor { Eigenschaft: Wert; }
+  s=s.replace(/[.#]?[\w][\w\s,.#:>*[\]()-]*\{[^}]*\}/g,'');
+  // Übrige geschweifte Klammern-Fragmente
+  s=s.replace(/\{[^}]*\}/g,'');
+  // Whitespace bereinigen
+  s=s.replace(/\s+/g,' ').trim();
+  // Wenn nach Bereinigung zu kurz → Original nochmals versuchen ohne CSS-Blöcke (zeilenweise)
+  if(s.length<8){
+    s=raw.split('\n').filter(l=>!/^\s*[@.#*\w][\w\s,.#:>*[\]()-]*\{/.test(l)&&!/^\s*\}/.test(l)&&l.trim().length>0).join(' ').replace(/\s+/g,' ').trim();
+  }
+  return s.substring(0,120);
+}
 async function _msLoadEmailThread(){
   const taskId=(document.getElementById('taskId')||{}).value||_pamActiveTaskId||'';
   const task=findTaskById(taskId);
@@ -9320,7 +9339,7 @@ async function _msLoadEmailThread(){
       from:m.from?.emailAddress?.address||'',
       fromName:m.from?.emailAddress?.name||'',
       date:m.receivedDateTime||'',
-      preview:(m.bodyPreview||'').substring(0,120),
+      preview:_msCleanPreview(m.bodyPreview||''),
       direction:myAddrs.includes((m.from?.emailAddress?.address||'').toLowerCase())?'gesendet':'eingang',
       internetMessageId:(m.internetMessageId||'').replace(/^<|>$/g,''),
     }));
@@ -9442,13 +9461,84 @@ function _pamEmailToggle(which){
     if(msBody)msBody.style.display='none';
     _setChip(msChip,false,'#0078d4');
   }else{
-    const open=msBody&&msBody.style.display!=='none';
-    if(msBody)msBody.style.display=open?'none':'block';
-    _setChip(msChip,!open,'#0078d4');
+    // Outlook: Popup statt Inline-Expand
+    _msOpenThreadPopup();
     if(gmBody)gmBody.style.display='none';
     _setChip(gmChip,false,'#1a73e8');
+    // msChip kurz highlighten (kein Inline-State)
+    _setChip(msChip,true,'#0078d4');
+    setTimeout(()=>_setChip(msChip,false,'#0078d4'),200);
   }
 }
+// ── Outlook-Thread-Popup ─────────────────────────────────────────
+function _msOpenThreadPopup(){
+  const taskId=(document.getElementById('taskId')||{}).value||_pamActiveTaskId||'';
+  const task=findTaskById(taskId);
+  const GID='_msThreadPopup';
+  const old=document.getElementById(GID);
+  if(old){old.remove();return;} // Toggle: wenn offen → schließen
+  const ov=document.createElement('div');
+  ov.id=GID;
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99998;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
+  const msgs=task?(task.msThreadMessages||[]):[];
+  const countTxt=msgs.length?(msgs.length+' Mail'+(msgs.length!==1?'s':'')):'Noch nicht geladen';
+  ov.innerHTML=`<div style="background:var(--bg1,#fff);border-radius:12px;width:100%;max-width:680px;max-height:82vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.28);">
+    <div style="background:#0078d4;color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;">
+      <span style="font-size:18px;">📨</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:700;font-size:14px;letter-spacing:.01em;">Outlook-Verlauf</div>
+        <div style="font-size:11px;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(task&&task.title?task.title:'')}</div>
+      </div>
+      <span id="_msTPCount" style="font-size:12px;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:10px;font-weight:600;white-space:nowrap;">${countTxt}</span>
+      <button type="button" onclick="document.getElementById('${GID}').remove()" style="background:rgba(255,255,255,.18);border:none;color:#fff;font-size:15px;cursor:pointer;padding:4px 9px;border-radius:5px;flex-shrink:0;line-height:1;">✕</button>
+    </div>
+    <div style="padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:0.5px solid var(--border,#e5e7eb);flex-shrink:0;background:var(--bg2,#f9fafb);">
+      <button type="button" onclick="_msLoadEmailThread()" style="padding:5px 14px;border-radius:6px;background:#0078d4;color:#fff;border:none;cursor:pointer;font-weight:600;font-size:12px;">⟳ Verlauf laden</button>
+      <span id="_msTPStatus" style="font-size:11px;color:var(--text2,#6b7280);flex:1;"></span>
+    </div>
+    <div id="_msTPList" style="flex:1;overflow-y:auto;padding:4px 14px 10px;"></div>
+  </div>`;
+  document.body.appendChild(ov);
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+  _msRefreshThreadPopup(task);
+}
+function _msRefreshThreadPopup(task){
+  const listEl=document.getElementById('_msTPList');
+  const countEl=document.getElementById('_msTPCount');
+  if(!listEl)return;
+  const msgs=(task&&task.msThreadMessages)||[];
+  const taskId=task?(task.id||''):'';
+  if(!msgs.length){
+    listEl.innerHTML='<div style="text-align:center;padding:36px 0;color:var(--text2,#9ca3af);font-size:13px;">Noch kein Verlauf geladen.<br><span style="font-size:12px;">Klicke <b>⟳ Verlauf laden</b> um Outlook-Mails abzurufen.</span></div>';
+    if(countEl)countEl.textContent='Noch nicht geladen';
+    return;
+  }
+  if(countEl)countEl.textContent=msgs.length+' Mail'+(msgs.length!==1?'s':'');
+  listEl.innerHTML=msgs.map((m,i)=>{
+    const isOut=m.direction==='gesendet';
+    const dotColor=isOut?'#16A34A':'#1D4ED8';
+    const dirBg=isOut?'rgba(22,163,74,.12)':'rgba(29,78,216,.10)';
+    const dirTxt=isOut?'#15803D':'#1E40AF';
+    const dirLabel=isOut?'Gesendet':'Eingang';
+    const d=m.date?new Date(m.date):null;
+    const dateStr=d?`${_ez2(d.getDate())}.${_ez2(d.getMonth()+1)}.${String(d.getFullYear()).slice(2)} ${_ez2(d.getHours())}:${_ez2(d.getMinutes())}`:'';
+    const from=m.fromName||m.from||'';
+    return`<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 4px;border-bottom:0.5px solid var(--border,#e5e7eb);cursor:pointer;" onclick="_msOpenMailOverlay('${taskId}',${i})">
+      <div style="width:9px;height:9px;border-radius:50%;background:${dotColor};flex-shrink:0;margin-top:6px;"></div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px;">
+          <span style="font-size:11px;padding:1px 8px;border-radius:8px;background:${dirBg};color:${dirTxt};font-weight:600;">${dirLabel}</span>
+          <span style="font-size:11px;color:var(--text2,#6b7280);">${dateStr}</span>
+        </div>
+        <div style="font-size:13px;font-weight:600;color:var(--text1,#111);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(from)}</div>
+        <div style="font-size:11px;font-weight:500;color:var(--text2,#374151);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.8;">${esc(m.subject||'')}</div>
+        <div style="font-size:12px;color:var(--text2,#6b7280);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(m.preview||'')}</div>
+      </div>
+      <span style="font-size:11px;color:#0078d4;flex-shrink:0;padding-top:4px;opacity:.7;">▶</span>
+    </div>`;
+  }).join('');
+}
+// ─────────────────────────────────────────────────────────────────
 function _pamEmailAntworten(){
   const v=(document.getElementById('taskEmailSenderInput')||{}).value||'';
   const m=v.match(/<([^>]+)>/);
@@ -9564,6 +9654,8 @@ function _msRenderThread(task){
   // Inline-Panel im rechten Block mitbefüllen
   const msInlineEl=document.getElementById('pamMsInlineList');
   if(msInlineEl)msInlineEl.innerHTML=listEl.innerHTML;
+  // Thread-Popup aktualisieren wenn offen
+  if(document.getElementById('_msThreadPopup'))_msRefreshThreadPopup(task);
   _pamEmailRefresh(task);
   _msRenderTimeline(task);
 }
@@ -12402,6 +12494,10 @@ function openNewTaskModal(){
   const _gl=document.getElementById('newGmailLinkLabel');if(_gl)_gl.value='';
   _applyBoardType(currentBoard);
   openModal();
+  // Header-Chips zurücksetzen: Status-Chip, Absender-Chip, Datum-Chips, Meta-Badges
+  // (openEditTaskModal setzt diese per setTimeout – ohne expliziten Reset bleiben Altdaten sichtbar)
+  _updateMapsBtn();
+  _updateHdrMeta();
   // Prefill aus Stammblatt-Verwaltung übernehmen (falls vorhanden)
   _applyStammblattPrefill();
   setTimeout(()=>document.getElementById('taskTitleInput').focus(),100);
