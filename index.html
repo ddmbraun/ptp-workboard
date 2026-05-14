@@ -833,16 +833,8 @@ async function _auftragConfirm(){
     adresse:'',
     schadensbild:'',
     emailSender:info.sender||'',
-    // Provider-Erkennung: Gmail oder Exchange?
-    ...(()=>{
-      const _raw=info._rawEmlText||'';
-      const _prov=(_raw&&info.messageId)?_detectEmlProvider(_raw):'unknown';
-      if(_prov==='gmail'){
-        return{gmailMessageId:info.messageId||'',gmailMessageIds:info.messageId?[info.messageId]:[],gmailThreadMessages:[],msMessageId:'',msMessageIds:[],msConversationId:'',msThreadMessages:[]};
-      }else{
-        return{msMessageId:info.messageId||'',msMessageIds:info.messageId?[info.messageId]:[],msConversationId:'',msThreadMessages:[],gmailMessageId:'',gmailMessageIds:[],gmailThreadMessages:[]};
-      }
-    })(),
+    msMessageId:'',msMessageIds:[],msConversationId:'',msThreadMessages:[],
+    gmailMessageId:'',gmailMessageIds:[],gmailThreadMessages:[],
     kontakte:(function(){
       let _sn='',_se='';
       if(info.sender){let _sm=info.sender.match(/^(.+?)\s*<([^>]+)>/);
@@ -867,6 +859,18 @@ async function _auftragConfirm(){
     gdrive:'',
     nas:''
   };
+
+  // Provider-Erkennung: Message-ID in richtigen Slot schreiben
+  if(info.messageId){
+    const _newProv=info._rawEmlText?_detectEmlProvider(info._rawEmlText):'unknown';
+    if(_newProv==='gmail'){
+      newTask.gmailMessageId=info.messageId;
+      newTask.gmailMessageIds=[info.messageId];
+    }else{
+      newTask.msMessageId=info.messageId;
+      newTask.msMessageIds=[info.messageId];
+    }
+  }
 
   if(!boards[boardName])boards[boardName]=[];
   boards[boardName].push(newTask);
@@ -1809,7 +1813,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
     <span class="file-dot none" id="fileDot"></span>
     <span class="file-name" id="fileName">Keine Datei geöffnet</span>
     <span class="file-msg" id="fileMsg"></span>
-    <span id="pamVersionBadge" style="font-size:10px;color:var(--text2);opacity:.65;padding:1px 7px;border:0.5px solid var(--border);border-radius:4px;margin-left:8px;font-family:monospace;white-space:nowrap;flex-shrink:0;">v2026-05-14 · #42</span>
+    <span id="pamVersionBadge" style="font-size:10px;color:var(--text2);opacity:.65;padding:1px 7px;border:0.5px solid var(--border);border-radius:4px;margin-left:8px;font-family:monospace;white-space:nowrap;flex-shrink:0;">v2026-05-14 · #43</span>
   </div>
   <div class="filebar-right">
     <button id="gmailBtnBar" onclick="gmailConnect()" title="Mit Gmail / Google Workspace verbinden" style="padding:3px 10px;border-radius:4px;font-size:11px;background:transparent;color:#1B5E20;border:1px solid #A5D6A7;cursor:pointer;font-weight:500;">📩 Gmail</button>
@@ -2636,7 +2640,7 @@ body.light .task-tag{background:rgba(58,100,220,0.12);color:#2a52cc;border-color
 
 <script>
 // ── VERSION ── (bei jeder Änderung: PAM_BUILD erhöhen + sw.js CACHE_NAME synchron hochzählen)
-const PAM_BUILD = 'v2026-05-14 · #42';
+const PAM_BUILD = 'v2026-05-14 · #43';
 
 // ── STATE ──
 let boards = {};
@@ -12890,4 +12894,4 @@ async function maybeDailySyncBackup(){
     const b='bu_'+Date.now();
     const mp='--'+b+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'
       +JSON.stringify({name,mimeType:'application/json'})
-      +'\r\
+      +'\r\                                                                                 
