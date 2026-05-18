@@ -462,10 +462,12 @@ function _parseEmlText(rawText){
   let hdr=he>=0?rawText.substring(0,he):rawText.substring(0,2000);
   let bdy=he>=0?rawText.substring(he).replace(/^\r?\n/,''):'';
   let hl=hdr.replace(/\r?\n([ \t])/g,' ').split(/\r?\n/);
-  let subject='',sender='',date=new Date(),ctype='',tenc='',charset='utf-8',messageId='';
+  let subject='',sender='',recipient='',cc='',date=new Date(),ctype='',tenc='',charset='utf-8',messageId='';
   hl.forEach(function(l){
     if(/^Subject:/i.test(l))subject=_decodeEmlMimeWord(l.replace(/^Subject:\s*/i,'').trim());
     if(/^From:/i.test(l))sender=_decodeEmlMimeWord(l.replace(/^From:\s*/i,'').trim());
+    if(/^To:/i.test(l))recipient=_decodeEmlMimeWord(l.replace(/^To:\s*/i,'').trim());
+    if(/^Cc:/i.test(l))cc=_decodeEmlMimeWord(l.replace(/^Cc:\s*/i,'').trim());
     if(/^Date:/i.test(l)){try{let d=new Date(l.replace(/^Date:\s*/i,''));if(!isNaN(d))date=d;}catch(e){}}
     if(/^Message-ID:/i.test(l))messageId=l.replace(/^Message-ID:\s*/i,'').trim().replace(/^<|>$/g,'');
     if(/^Content-Type:/i.test(l)){ctype=l.replace(/^Content-Type:\s*/i,'');let cm=ctype.match(/charset=["']?([^"';\s]+)/i);if(cm)charset=cm[1];}
@@ -541,7 +543,7 @@ function _parseEmlText(rawText){
   if(!htmlBody){let _hm=bdy.match(/<html[\s\S]*?<\/html>/i);if(_hm){htmlBody=_hm[0];if(/^(Received:|MIME-Version:|X-MS-Exchange)/m.test(plain.substring(0,300)))plain='';}}
   // Fallback: plain enthält E-Mail-Header-Block → eingebettete Nachricht (message/rfc822) rekursiv parsen
   if(!htmlBody&&plain&&/^(Received:|MIME-Version:|X-MS-Exchange)/m.test(plain.substring(0,300))){try{let _ip=_parseEmlText(plain);if(_ip.bodyHtml){htmlBody=_ip.bodyHtml;plain='';}else if(_ip.bodyText&&!/^(Received:|MIME-Version:)/m.test(_ip.bodyText.substring(0,100)))plain=_ip.bodyText;}catch(_e){}}
-  return{subject:subject,sender:sender,date:date,messageId:messageId||'',bodyText:plain.substring(0,8000),bodyHtml:htmlBody||'',cidMap:cidMap||{},attachments:emlAttachments};
+  return{subject:subject,sender:sender,recipient:recipient||'',cc:cc||'',date:date,messageId:messageId||'',bodyText:plain.substring(0,8000),bodyHtml:htmlBody||'',cidMap:cidMap||{},attachments:emlAttachments};
 }
 
 function tEmailOrdnerOeffnen(){let u=(document.getElementById('tEmailOrdner')||{}).value||'';if(u.trim())window.open(u,'_blank');else showToast('⚠ Bitte zuerst eine Google Drive Ordner-URL eintragen','error',4000);}
@@ -11949,7 +11951,7 @@ async function _printEmailFromDrive(fileId,filename){
   }
   // .eml: Fenster SOFORT öffnen (User-Gesture), dann Inhalt laden und reinschreiben
   if(lname.endsWith('.eml')){
-    const w=window.open('','_blank','width=450,height=700');
+    const w=window.open('','_blank','width=900,height=1100');
     if(!w){showToast('⚠ Popup-Blocker aktiv – Popups für diese Seite erlauben','error',6000);return;}
     w.document.write('<html><body style="font-family:Arial;padding:40px;color:#333;"><p>⏳ E-Mail wird geladen…</p></body></html>');
     w.document.close();
@@ -12371,43 +12373,57 @@ function _openEmailPrintWindow(info,w){
       .replace(/@font-face\s*\{[^}]*\}/gi,'')
       .replace(/@import\s+url\([^)]*\)[^;]*;/gi,'')
     :'<pre style="font-family:Arial,sans-serif;font-size:10pt;white-space:pre-wrap;margin:0;">'+e2(info.bodyText||'')+'</pre>';
+  // Outlook-typischer Header-Block: Von / Gesendet / An / CC
+  const metaRows=[]
+  if(info.sender)  metaRows.push(`<tr><td class="mk">Von:</td><td>${e2(info.sender)}</td></tr>`);
+  metaRows.push(`<tr><td class="mk">Gesendet:</td><td>${dateStr}</td></tr>`);
+  if(info.recipient)metaRows.push(`<tr><td class="mk">An:</td><td>${e2(info.recipient)}</td></tr>`);
+  if(info.cc)       metaRows.push(`<tr><td class="mk">CC:</td><td>${e2(info.cc)}</td></tr>`);
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
 <title>${e2(info.subject||'E-Mail')}</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:Arial,Helvetica,sans-serif;font-size:10pt;color:#000;background:#fff;}
-  .hdr{display:flex;align-items:center;padding:10px 20px 10px;border-bottom:1.5px solid #bbb;}
-  .ico{width:22px;height:22px;background:#e64600;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:13px;margin-right:9px;flex-shrink:0;}
-  .lbl{color:#888;font-size:12pt;}
-  .subj{font-size:14pt;font-weight:bold;padding:12px 20px 10px;border-bottom:1px solid #ccc;}
-  .meta{padding:8px 20px 6px;border-bottom:1px solid #ddd;}
-  .mr{display:flex;gap:0;margin-bottom:4px;font-size:9pt;}
-  .mk{font-weight:bold;min-width:58px;flex-shrink:0;}
-  .body{padding:16px 20px;font-size:10pt;line-height:1.55;}
-  @media print{body{margin:0;}@page{margin:15mm 15mm 15mm 15mm;}}
+  body{font-family:Calibri,Arial,Helvetica,sans-serif;font-size:11pt;color:#000;background:#fff;max-width:210mm;margin:0 auto;}
+  .topbar{display:flex;align-items:center;gap:10px;padding:8px 20px;background:#f3f3f3;border-bottom:1px solid #d0d0d0;}
+  .outlook-logo{display:flex;align-items:center;gap:6px;font-size:13pt;font-weight:600;color:#0078d4;}
+  .outlook-icon{width:24px;height:24px;background:#0078d4;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:bold;flex-shrink:0;}
+  .printbtn{margin-left:auto;padding:5px 16px;background:#0078d4;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:10pt;font-family:inherit;}
+  .printbtn:hover{background:#005fa3;}
+  .subj{font-size:16pt;font-weight:600;padding:16px 24px 12px;color:#000;}
+  .meta{padding:0 24px 10px;border-bottom:2px solid #0078d4;margin-bottom:0;}
+  .meta table{border-collapse:collapse;font-size:10pt;}
+  .mk{font-weight:600;color:#444;padding:2px 12px 2px 0;white-space:nowrap;vertical-align:top;}
+  .meta td{padding:2px 0;vertical-align:top;color:#000;}
+  .body{padding:18px 24px;font-size:11pt;line-height:1.6;color:#000;}
+  .body img{max-width:100%;}
+  @media print{
+    .topbar{display:none!important;}
+    body{max-width:none;margin:0;}
+    @page{margin:15mm 15mm 15mm 15mm;size:A4;}
+  }
 </style>
 </head><body>
-<div class="hdr"><div class="ico">O</div><span class="lbl">Outlook</span><button id="printBtn" style="margin-left:auto;padding:6px 16px;background:#0078d4;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11pt;">🖨 Als PDF drucken</button></div>
-<div class="subj">${e2(info.subject||'(kein Betreff)')}</div>
-<div class="meta">
-  ${info.sender?`<div class="mr"><span class="mk">Von</span><span>${e2(info.sender)}</span></div>`:''}
-  <div class="mr"><span class="mk">Datum</span><span>${dateStr}</span></div>
-  ${info.recipient?`<div class="mr"><span class="mk">An</span><span>${e2(info.recipient)}</span></div>`:''}
+<div class="topbar">
+  <div class="outlook-logo"><div class="outlook-icon">O</div>Outlook</div>
+  <button class="printbtn" id="printBtn">🖨&nbsp; Als PDF drucken</button>
 </div>
+<div class="subj">${e2(info.subject||'(kein Betreff)')}</div>
+<div class="meta"><table>${metaRows.join('')}</table></div>
 <div class="body">${bodyContent}</div>
 </body></html>`;
-  if(!w)w=window.open('','_blank','width=450,height=700');
+  if(!w)w=window.open('','_blank','width=900,height=1100');
   if(w){
     w.document.open();
     w.document.write(html);
     w.document.close();
-    // Button-Handler vom Elternfenster setzen (kein inline <script> nötig → GitHub Pages sicher)
+    // Button-Handler + automatischer Druckdialog nach kurzem Delay
     setTimeout(function(){
       try{
         const btn=w.document.getElementById('printBtn');
         if(btn)btn.onclick=function(){w.print();};
+        w.print();
       }catch(e){}
-    },200);
+    },600);
   }
   else showToast('⚠ Popup-Blocker aktiv – bitte Popups für diese Seite erlauben','error',6000);
 }
